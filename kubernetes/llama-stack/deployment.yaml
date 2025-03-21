@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llamastack-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llamastack
+  template:
+    metadata:
+      labels:
+        app: llamastack
+    spec:
+      containers:
+      - args:
+        - --yaml-config
+        - /app-config/config.yaml
+        env:
+        - name: VLLM_MAX_TOKENS
+          value: "4096"
+        - name: INFERENCE_MODEL
+          value: meta-llama/Llama-3.2-3B-Instruct
+        - name: VLLM_URL
+          value: http://vllm:8000/v1
+        - name: VLLM_API_TOKEN
+          value: fake
+        - name:  SAFETY_MODEL
+          value: meta-llama/Llama-Guard-3-8B
+        - name:  SAFETY_VLLM_URL
+          value: http://safety.llama-serve.svc.cluster.local:8000/v1
+        - name: OTEL_ENDPOINT
+          value: http://otel-collector-collector.observability-hub.svc.cluster.local:4318/v1/traces
+        image: llamastack/distribution-remote-vllm:0.1.6 
+        imagePullPolicy: Always
+        name: llamastack
+        ports:
+        - containerPort: 8321
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /app-config
+          name: run-config-volume
+        - mountPath: /.llama
+          name: llama-temp
+        - mountPath: /.cache
+          name: cache
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: run-config
+        name: run-config-volume
+      - emptyDir: {}
+        name: llama-temp
+      - emptyDir: {}
+        name: cache
