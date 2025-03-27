@@ -32,27 +32,28 @@ model="meta-llama/Llama-3.2-3B-Instruct"
 # Connect to a llama stack server
 if args.remote:
     base_url = os.getenv("REMOTE_BASE_URL")
-    mcp_url = os.getenv("REMOTE_MCP_URL")
+    mcp_url = os.getenv("REMOTE_GITHUB_MCP_URL")
 else:
     base_url="http://localhost:8321"
     mcp_url="http://host.containers.internal:8000/sse"
 
 client = LlamaStackClient(base_url=base_url)
 logger.info(f"Connected to Llama Stack server @ {base_url} \n")
+logger.info(f"Connected to mcp server @ {mcp_url} \n")
 
 # Get tool info and register tools
 registered_tools = client.tools.list()
 registered_tools_identifiers = [t.identifier for t in registered_tools]
 registered_toolgroups = [t.toolgroup_id for t in registered_tools]
 
-if "mcp::custom_tool" not in registered_toolgroups:
+if "mcp::github" not in registered_toolgroups:
     # Register MCP tools
     client.toolgroups.register(
-        toolgroup_id="mcp::custom_tool",
+        toolgroup_id="mcp::github",
         provider_id="model-context-protocol",
         mcp_endpoint={"uri":mcp_url},
         )
-mcp_tools = [t.identifier for t in client.tools.list(toolgroup_id="mcp::custom_tool")]
+mcp_tools = [t.identifier for t in client.tools.list(toolgroup_id="mcp::github")]
 
 logger.info(f"""Your Server has access the the following toolgroups: 
 {set(registered_toolgroups)}
@@ -64,16 +65,17 @@ agent = Agent(
     model=model,
     instructions = """You are a helpful assistant. You have access to a number of tools.
     Whenever a tool is called, be sure return the Response in a friendly and helpful tone.
-    When you are asked to search the web you must use a tool.
+    When you are asked to search the web you must use a tool. keep answer concise
     """ ,
-    tools=["mcp::custom_tool", torchtune],
-    tool_config={"tool_choice":"auto"}
+    tools=["mcp::github", torchtune],
+    tool_config={"tool_choice":"auto"},
+    sampling_params={"max_tokens":4096}
 )
 
 if args.auto:
-    user_prompts = ["""please execute the client tool torchtune to answer the following question: what is torchtune?""",
-                    """give me a random number between 1 and 1010"""]
-    session_id = agent.create_session(session_name="Auto_demo")
+    user_prompts = ["hi",
+                    """decribe https://github.com/modelcontextprotocol/servers/tree/main/src/github repository""",]
+    session_id = agent.create_session(session_name="github_mcp_demo")
     for prompt in user_prompts:
         turn_response = agent.create_turn(
             messages=[
@@ -90,7 +92,7 @@ if args.auto:
 
 else:
     #Create a chat session
-    session_id = agent.create_session(session_name="Conversation_demo")
+    session_id = agent.create_session(session_name="githubmcp_conversation_demo")
     while True:
         user_input = input(">>> ") 
         if "/bye" in user_input:
