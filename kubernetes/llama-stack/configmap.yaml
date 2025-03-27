@@ -22,14 +22,16 @@ data:
         provider_type: remote::vllm
         config:
           url: ${env.VLLM_URL}
-          max_tokens: 4096
+          max_tokens: 128000
           api_token: fake
+          tls_verify: false
       - provider_id: vllm-safety
         provider_type: remote::vllm
         config:
           url: ${env.SAFETY_VLLM_URL}
           max_tokens: 4096
           api_token: fake
+          tls_verify: false
       - provider_id: sentence-transformers
         provider_type: inline::sentence-transformers
         config: {}
@@ -44,7 +46,8 @@ data:
       safety:
       - provider_id: llama-guard
         provider_type: inline::llama-guard
-        config: {}
+        config:
+          excluded_categories: []
       agents:
       - provider_id: meta-reference
         provider_type: inline::meta-reference
@@ -56,14 +59,26 @@ data:
       eval:
       - provider_id: meta-reference
         provider_type: inline::meta-reference
-        config: {}
+        config:
+          kvstore:
+            type: sqlite
+            namespace: null
+            db_path: ${env.SQLITE_STORE_DIR:~/.llama/distributions/remote-vllm}/meta_reference_eval.db
       datasetio:
       - provider_id: huggingface
         provider_type: remote::huggingface
-        config: {}
+        config:
+          kvstore:
+            type: sqlite
+            namespace: null
+            db_path: ${env.SQLITE_STORE_DIR:~/.llama/distributions/remote-vllm}/huggingface_datasetio.db
       - provider_id: localfs
         provider_type: inline::localfs
-        config: {}
+        config:
+          kvstore:
+            type: sqlite
+            namespace: null
+            db_path: ${env.SQLITE_STORE_DIR:~/.llama/distributions/remote-vllm}/localfs_datasetio.db
       scoring:
       - provider_id: basic
         provider_type: inline::basic
@@ -80,8 +95,9 @@ data:
         provider_type: inline::meta-reference
         config:
           service_name: ${env.OTEL_SERVICE_NAME:llama-stack}
-          sinks: ${env.TELEMETRY_SINKS:console,otel,sqlite}
-          otel_endpoint: ${env.OTEL_ENDPOINT:}
+          sinks: ${env.TELEMETRY_SINKS:console, otel_trace, otel_metric, sqlite}
+          otel_trace_endpoint: ${env.OTEL_TRACE_ENDPOINT:}
+          otel_metric_endpoint: ${env.OTEL_METRIC_ENDPOINT:}
           sqlite_db_path: ${env.SQLITE_DB_PATH:~/.llama/distributions/remote-vllm/trace_store.db}
       tool_runtime:
       - provider_id: brave-search
@@ -126,7 +142,7 @@ data:
     vector_dbs: []
     datasets: []
     scoring_fns: []
-    eval_tasks: []
+    benchmarks: []
     tool_groups:
     - toolgroup_id: builtin::websearch
       provider_id: tavily-search

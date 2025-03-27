@@ -18,7 +18,7 @@ spec:
         - /app-config/config.yaml
         env:
         - name: VLLM_MAX_TOKENS
-          value: "4096"
+          value: "128000"
         - name: INFERENCE_MODEL
           value: meta-llama/Llama-3.2-3B-Instruct
         - name: VLLM_URL
@@ -29,9 +29,11 @@ spec:
           value: meta-llama/Llama-Guard-3-8B
         - name:  SAFETY_VLLM_URL
           value: http://safety.llama-serve.svc.cluster.local:8000/v1
-        - name: OTEL_ENDPOINT
+        - name: OTEL_TRACE_ENDPOINT
           value: http://otel-collector-collector.observability-hub.svc.cluster.local:4318/v1/traces
-        image: llamastack/distribution-remote-vllm:0.1.6 
+        - name: OTEL_METRIC_ENDPOINT
+          value: http://otel-collector-collector.observability-hub.svc.cluster.local:4318/v1/metrics
+        image: llamastack/distribution-remote-vllm:0.1.8
         imagePullPolicy: Always
         name: llamastack
         ports:
@@ -44,7 +46,7 @@ spec:
         - mountPath: /app-config
           name: run-config-volume
         - mountPath: /.llama
-          name: llama-temp
+          name: llama-persist
         - mountPath: /.cache
           name: cache
       dnsPolicy: ClusterFirst
@@ -57,7 +59,8 @@ spec:
           defaultMode: 420
           name: run-config
         name: run-config-volume
-      - emptyDir: {}
-        name: llama-temp
+      - persistentVolumeClaim:
+          claimName: llama-persist
+        name: llama-persist
       - emptyDir: {}
         name: cache
