@@ -3,14 +3,13 @@ kind: Deployment
 metadata:
   annotations:
   labels:
-    app: vllm
-  name: vllm
-  namespace: llama-serve
+    app: llama32-3b
+  name: llama32-3b
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vllm
+      app: llama32-3b
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -20,7 +19,7 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        app: vllm
+        app: llama32-3b
     spec:
       containers:
       - args:
@@ -41,9 +40,9 @@ spec:
             secretKeyRef:
               key: HF_TOKEN
               name: huggingface-secret
-        image: vllm/vllm-openai:latest
+        image: vllm/vllm-openai:v0.7.3
         imagePullPolicy: Always
-        name: vllm
+        name: llama32-3b
         ports:
         - containerPort: 8000
           protocol: TCP
@@ -55,6 +54,8 @@ spec:
         volumeMounts:
         - mountPath: /.cache
           name: hf-cache
+        - mountPath: /.triton
+          name: triton
         - mountPath: /app
           name: chat-template
         - mountPath: /.config
@@ -67,9 +68,11 @@ spec:
       volumes:
       - emptyDir: {}
         name: hf-cache
+      - emptyDir: {}
+        name: triton
       - configMap:
           defaultMode: 420
-          name: template
+          name: llama32-3b-template
         name: chat-template
       - emptyDir: {}
         name: config
