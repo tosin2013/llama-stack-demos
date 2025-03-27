@@ -4,6 +4,11 @@ build_llamastack:
 build_mcp:
 	podman build -t mcp_server:latest --platform="linux/amd64" build_mcp  
 
+build_ui:
+	podman build -t streamlit_client:latest --platform="linux/amd64" -f app/src/build/Containerfile .   
+
+run_ui:
+	 podman run -it -p 8501:8501 streamlit_client:latest
 run_mcp:
 	python build_mcp/mcp_tools.py
 
