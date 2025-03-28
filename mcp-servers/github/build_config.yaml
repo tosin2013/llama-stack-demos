@@ -1,22 +1,22 @@
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
-  name: github-mcp-server
-  namespace: mcp-community-servers
+  name: github-mcp-server-v1
+  namespace: llama-serve
 ---
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
-  name: github-mcp-server
-  namespace: mcp-community-servers
+  name: github-mcp-server-v1
+  namespace: llama-serve
 spec:
   output:
     to:
       kind: ImageStreamTag
-      name: github-mcp-server:latest
+      name: github-mcp-server-v1:latest
   source:
     git:
-      uri: https://github.com/Shreyanand/servers.git
+      uri: https://github.com/anyuzoey/servers.git
       ref: main
     contextDir: "." 
   strategy:
