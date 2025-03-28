@@ -4,15 +4,44 @@ This document provides instructions for deploying the GitHub MCP server on the O
 
 Additionally, this guide includes steps to test the integration of the GitHub MCP server with the Llama Stack agent.
 
-## Deployment Steps via CLI or WebUI
+## 🛠️ Prerequisites
+You will need the following installed on your local machine:
 
-## 🚀 Deploy via CLI
+- `podman`
+- `oc`
 
-### 🛠️ Prerequisites
-Ensure the OpenShift CLI (`oc`) is installed.
+## Step 1: Building the Containerfile
 
-### Steps to Deploy
+You will need to first build a container image using the `Containerfile` and can do this by using `podman`. To build the container image from the current directory:
+```
+podman build -t github-mcp-server:latest -f Containerfile 
+```
+If running on a Mac:
+```
+podman build -t github-mcp-server:latest --platform="linux/amd64" -f Containerfile .
+```
 
+## Step 2: Pushing the container image to Quay
+
+Next, you will need to push your container image to a public image repository like [quay.io](https://quay.io/). Make sure you create an account on quay.io, if you don't have one already. Once you have an account, you will need to login:
+
+```
+podman login -u=<user_name> -p=<pass_word> quay.io
+```
+
+Once you're logged in successfully, you can now push your image by first tagging your local image:
+
+```
+podman tag localhost/github-mcp-server:latest quay.io/<username>/github-mcp-server:latest
+```
+
+Then you can push to your quay registry:
+
+```
+podman push quay.io/<username>/github-mcp-server:latest
+```
+
+### Step 3: Deploying on OpenShift
 1. **Log in to OpenShift**:
      - Log in to the OpenShift web UI, click on your user ID in the top-right corner, and select "Copy Login Command."
      - ![Click Copy Login Command](./images/copy_login_command.png)
@@ -26,6 +55,7 @@ Ensure the OpenShift CLI (`oc`) is installed.
        ```bash
        oc project project_name
        ```
+       here we navigate to our project `oc project llama-serve`
 
 3. **Modify YAML Files**:
      - Update the provided YAML files to deploy the GitHub MCP server using the `oc` command.
@@ -33,13 +63,12 @@ Ensure the OpenShift CLI (`oc`) is installed.
        1. Change the project name and MCP server name to your desired values.  
             Example:  
             - Project name: `llama-serve`  
-            - MCP server name: `github-mcp-server-v1`
+            - MCP server name: `github-mcp-server1`
        2. Since the deployment uses community MCP servers published on GitHub, create a `secret.yaml` file to store your personal GitHub token for accessing the MCP server Docker image.
 
           > **Note:** Create a Personal Access Token in GitHub by navigating to **Settings > Developer settings > Personal access tokens**, assigning required scopes, and copying it securely into `secret.yaml`. Do not share it publicly.
 
        3. Ensure the secret name in `secret.yaml` matches the one in `deployment.yaml`.
-       4. Update the `build_config.yaml` file with the GitHub MCP server repository and Docker path.
        5. Double-check all YAML files to ensure they are correctly configured.
 
 4. **Deploy the MCP Server**:
@@ -47,24 +76,14 @@ Ensure the OpenShift CLI (`oc`) is installed.
        ```bash
        oc apply -f secret.yaml
        ```
-     - Apply the ImageStream and BuildConfig:
-       ```bash
-       oc apply -f build_config.yaml
-       ```
-     - Start the build:
-       ```bash
-       oc start-build github-mcp-server-v1
-       ```
      - Deploy the application:
        ```bash
        oc apply -f deployment.yaml
        ```
 
 5. **Verify Deployment**:
-     - Check the OpenShift web console to confirm that the `github-mcp-server-v1` pod is up and running.
+     - Check the OpenShift web console to confirm that the `github-mcp-server1` pod is up and running.
 
-## 🚀 Deploy via OpenShift Web Console
-*TBD*
 
 ## Test if the GitHub MCP Server is Correctly Configured
 
@@ -101,5 +120,4 @@ Ensure the OpenShift CLI (`oc`) is installed.
 To unregister MCP tool groups, use the following code snippet:
 ```
 client.toolgroups.unregister(toolgroup_id="mcp::github")
-print(f"Successfully unregistered MCP tool group: mcp::github")
 ```
