@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: github-mcp-server
-  namespace: mcp-community-servers
+  name: github-mcp-server-with-rh-nodejs
+  namespace: llama-serve
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: github-mcp-server
+      app: github-mcp-server-with-rh-nodejs
   template:
     metadata:
       labels:
-        app: github-mcp-server
+        app: github-mcp-server-with-rh-nodejs
     spec:
       containers:
-      - name: github-mcp-server
-        image: image-registry.openshift-image-registry.svc:5000/mcp-community-servers/github-mcp-server:latest
+      - name: github-mcp-server-with-rh-nodejs
+        image: quay.io/rh-ee-yuan/github_mcp_server:latest
         command: ["/bin/sh", "-c"]
         args:
         - |
@@ -28,7 +28,7 @@ spec:
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:
-              name: github-credentials
+              name: github-credentials-v1
               key: token
         resources:
           limits:
@@ -42,25 +42,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: github-mcp-server
-  namespace: mcp-community-servers
+  name: github-mcp-server-with-rh-nodejs
+  namespace: llama-serve
 spec:
   selector:
-    app: github-mcp-server
+    app: github-mcp-server-with-rh-nodejs
   ports:
   - port: 80
     targetPort: 8080
----
-
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: github-mcp-server
-  namespace: mcp-community-servers
-spec:
-  to:
-    kind: Service
-    name: github-mcp-server
-  port:
-    targetPort: 8080
-    
