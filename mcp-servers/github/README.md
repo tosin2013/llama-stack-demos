@@ -63,7 +63,7 @@ podman push quay.io/<username>/github-mcp-server:latest
        1. Change the project name and MCP server name to your desired values.  
             Example:  
             - Project name: `llama-serve`  
-            - MCP server name: `github-mcp-server1`
+            - MCP server name: `github-mcp-server-with-rh-nodejs`
        2. Since the deployment uses community MCP servers published on GitHub, create a `secret.yaml` file to store your personal GitHub token for accessing the MCP server Docker image.
 
           > **Note:** Create a Personal Access Token in GitHub by navigating to **Settings > Developer settings > Personal access tokens**, assigning required scopes, and copying it securely into `secret.yaml`. Do not share it publicly.
