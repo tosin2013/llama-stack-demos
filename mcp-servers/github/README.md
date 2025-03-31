@@ -41,7 +41,7 @@ Then you can push to your quay registry:
 podman push quay.io/<username>/github-mcp-server:latest
 ```
 
-### Step 3: Deploying on OpenShift
+## Step 3: Deploying on OpenShift
 1. **Log in to OpenShift**:
      - Log in to the OpenShift web UI, click on your user ID in the top-right corner, and select "Copy Login Command."
      - ![Click Copy Login Command](./images/copy_login_command.png)
