@@ -1,0 +1,34 @@
+name: Llama stack builds
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+env:
+    LLAMA_RELEASE: "0.1.9"
+
+
+jobs:
+  llama-stack-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+           ref: release-${{env.LLAMA_RELEASE}}
+           repository: meta-llama/llama-stack.git
+
+      - name: python deps
+        run: |
+           sudo apt-get update
+           sudo apt-get install -y python3-pip
+
+      - name: Install repo packages
+        run: |
+          cd llama-stack
+          pip install -U .
+
+      - name: run llama stack build
+        run: |
+          USE_COPY_NOT_MOUNT=true LLAMA_STACK_DIR=. llama stack build --template remote-vllm --image-type container
