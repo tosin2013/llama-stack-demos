@@ -5,7 +5,7 @@ metadata:
   labels:
     app: watt-8b
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: watt-8b
