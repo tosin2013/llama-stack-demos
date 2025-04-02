@@ -1,5 +1,4 @@
 # Llama Stack on OCP
-T
 
 ## Requirements
 The following scenario requires at minimum the following:
