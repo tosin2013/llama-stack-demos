@@ -26,7 +26,6 @@ jobs:
 
       - name: Install repo packages
         run: |
-          cd llama-stack
           pip install -U .
 
       - name: run llama stack build
