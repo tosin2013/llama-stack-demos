@@ -46,7 +46,7 @@ jobs:
 
       - name: run llama stack build
         run: |
-          USE_COPY_NOT_MOUNT=true LLAMA_STACK_DIR=. llama stack build --template remote-vllm --image-type container
+          USE_COPY_NOT_MOUNT=true LLAMA_STACK_DIR=. llama stack build --config llama_stack/templates/remote-vllm/build.yaml --template remote-vllm --image-type container
 
       - name: tag the image
         run: |
