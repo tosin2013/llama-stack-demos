@@ -11,5 +11,5 @@ A `kustomization.yaml` file exists to launch all required Kubernetes objects for
 
 ```
 oc create project llama-serve
-oc apply -k kustomization.yaml
+oc apply -k kubernetes
 ```
