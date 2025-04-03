@@ -12,6 +12,7 @@ env:
 jobs:
   llama-stack-build:
     runs-on: ubuntu-latest
+    environment: ci
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,10 +25,26 @@ jobs:
            sudo apt-get update
            sudo apt-get install -y python3-pip
 
+      - name: login to quay.io
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
       - name: Install repo packages
         run: |
           pip install -U .
 
       - name: run llama stack build
         run: |
+          sed -i 's/    - inline::faiss/    - inline::milvus/g' llama_stack/templates/remote-vllm/build.yaml
           USE_COPY_NOT_MOUNT=true LLAMA_STACK_DIR=. llama stack build --template remote-vllm --image-type container
+
+      - name: tag the image
+        run: |
+          podman tag localhost/distribution-remote-vllm:dev quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
+
+      - name: push the image
+        run: |
+          podman push quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
