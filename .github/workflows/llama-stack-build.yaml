@@ -5,8 +5,12 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-env:
-    LLAMA_RELEASE: "0.1.9"
+    inputs:
+      version:
+        description: 'Llama stack release (e.g. 0.1.8, 0.1.9)'
+        required: true
+        type: string
+        default: '0.1.9'
 
 
 jobs:
@@ -17,7 +21,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-           ref: release-${{env.LLAMA_RELEASE}}
+           ref: release-${{ inputs.version }}
            repository: meta-llama/llama-stack.git
 
       - name: python deps
@@ -50,8 +54,8 @@ jobs:
 
       - name: tag the image
         run: |
-          docker tag docker.io/library/distribution-remote-vllm:dev quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
+          docker tag docker.io/library/distribution-remote-vllm:dev quay.io/redhat-et/llama:vllm-${{inputs.version}}
 
       - name: push the image
         run: |
-          docker push quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
+          docker push quay.io/redhat-et/llama:vllm-${{inputs.version}}
