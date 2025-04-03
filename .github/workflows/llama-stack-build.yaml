@@ -36,15 +36,22 @@ jobs:
         run: |
           pip install -U .
 
-      - name: run llama stack build
+      - name: modify the build.yaml
         run: |
           sed -i 's/    - inline::faiss/    - inline::milvus/g' llama_stack/templates/remote-vllm/build.yaml
+
+      - name: display contents of buld.yaml
+        run: |
+          cat llama_stack/templates/remote-vllm/build.yaml
+
+      - name: run llama stack build
+        run: |
           USE_COPY_NOT_MOUNT=true LLAMA_STACK_DIR=. llama stack build --template remote-vllm --image-type container
 
       - name: tag the image
         run: |
-          podman tag localhost/distribution-remote-vllm:dev quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
+          docker tag docker.io/library/distribution-remote-vllm:dev quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
 
       - name: push the image
         run: |
-          podman push quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
+          docker push quay.io/redhat-et/llama:vllm-${{env.LLAMA_RELEASE}}
