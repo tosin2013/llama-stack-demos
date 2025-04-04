@@ -2,9 +2,12 @@ name: MCP builds
 on:
   push:
     branches: [ main ]
+    paths:
+    - 'mcp-servers/**'
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+    paths:
+    - 'mcp-servers/**'
 
 jobs:
   ansible:
