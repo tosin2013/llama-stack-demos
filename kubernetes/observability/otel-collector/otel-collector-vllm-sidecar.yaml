@@ -21,22 +21,33 @@ spec:
           insecure: true
     processors: {}
     receivers:
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
       prometheus:
         config:
           scrape_configs:
             - job_name: vllm-sidecar
-              scrape_interval: 5s
+              scrape_interval: 15s
               static_configs:
                 - targets:
                     - 'localhost:8000'
     service:
       pipelines:
+        traces:
+          exporters:
+            - debug
+            - otlphttp
+          receivers:
+            - otlp
         metrics:
           exporters:
             - debug
             - otlphttp
           receivers:
             - prometheus
+            - otlp
       telemetry:
         metrics:
           address: '0.0.0.0:8888'

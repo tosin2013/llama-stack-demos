@@ -28,13 +28,6 @@ spec:
           authenticator: bearertokenauth
         headers:
           X-Scope-OrgID: "dev"
-      # cluster user-workload monitoring prometheus backend
-      #prometheus/ocp-uwm:
-      #  add_metric_suffixes: false
-      #  endpoint: 0.0.0.0:8889
-      #  metric_expiration: 180m
-      #  resource_to_telemetry_conversion:
-      #    enabled: true
 
     receivers:
       prometheus:
