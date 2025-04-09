@@ -64,7 +64,10 @@ agent = Agent(
     """,
     tools=["builtin::websearch"],
     tool_config={"tool_choice":"auto"},
-    sampling_params={"max_tokens":4096}
+    sampling_params={
+        "max_tokens":4096,
+        "strategy": {"type": "greedy"},
+    }
 )
 
 session_name = f"Draft_email_with_latest_OCP_version{uuid.uuid4()}"
