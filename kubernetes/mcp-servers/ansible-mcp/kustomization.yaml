@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - ansible-aap-secret.yaml
   - ansible-deployment.yaml
+  - ansible-service.yaml
