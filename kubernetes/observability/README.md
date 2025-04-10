@@ -65,6 +65,8 @@ However, if exporting off-cluster to a 3rd party observability vendor, the colle
 and can provide a single place with which to receive telemetry from various workloads and export as a single authenticated and
 secure OTLP stream.
 
+#### Central OpenTelemetry Collector
+
 To create a central opentelemetry-collector, update the
 [otel-collector/otel-collector.yaml](./otel-collector/otel-collector.yaml) to match your requirements and then apply.
 
@@ -72,27 +74,38 @@ To create a central opentelemetry-collector, update the
 oc apply --kustomize ./otel-collector -n observability-hub
 ```
 
-### OpenTelemetryCollector Sidecars deployment
+#### OpenTelemetryCollector Sidecars deployment
 
 You can add individual metrics endpoints to the central otel-collector in observability-hub, but
 another way is to add otel-collector sidecar containers to individual deployments throughout the
 cluster. Paired with an annotation on the deployment, telemetry will be exported as configured.
-Any deployment with the annotation below will receive and export telemetry as configured in the
+
+Any deployment with the template.metadata.annotations `sidecar.opentelemetry.io/inject: vllm-otelsidecar`
+will receive and export telemetry as configured in the
 [otel-collector-vllm-sidecar.yaml](./otel-collector/otel-collector-vllm-sidecar.yaml).
 
-The example here will add an otel-collector sidecar custom resource to the `llama-serve` namespace,
-and to trigger a sidecar container, annotate any deployment's `template.metadata.annotations` with:
-`sidecar.opentelemetry.io/inject: vllm-otelsidecar`
+Any deployment with the template.metadata.annotations `sidecar.opentelemetry.io/inject: llamastack-otelsidecar`
+will receive and export telemetry as configured in the
+[otel-collector-llamstack-sidecar.yaml](./otel-collector/otel-collector-llamastack-sidecar.yaml).
+
+The example below will add otel-collector sidecar custom resources to the `llama-serve` namespace,
+and upon a scale down, scale up of the deployments with the added annotations, sidecar otel-collector
+containers will be added to the pods.
 
 ```bash
-oc apply -f ./otel-collector/otel-collector-vllm-sidecar.yaml
+oc apply -f ./otel-collector/otel-collector-vllm-sidecar.yaml -n llama-serve
+oc apply -f ./otel-collector/otel-collector-llamastack-sidecar.yaml -n llama-serve
 
-# Then, annotate whatever vllm deployment you'd like to collect metrics from
-# Or, add the annotation to the deployment's `template.metadata.annotations` from the console.
-oc patch deployment <deployment-name> \
-  -n <namespace> \
+# Then, annotate whatever deployment you'd like to collect telemetry from
+# Add the annotation to the deployment's `template.metadata.annotations` from the console.
+# OR
+# Patch or modify the llamastack and vLLM deployments with the appropriate annotation.
+# Replace `deployment-name`, `namespace`, and `name-of-otelsideccar` in the below command.
+
+oc patch deployment deployment-name \
+  -n namespace \
   --type='merge' \
-  -p '{"spec":{"template":{"metadata":{"annotations":{"sidecar.opentelemetry.io/inject":"vllm-otelsidecar"}}}}}'
+  -p '{"spec":{"template":{"metadata":{"annotations":{"sidecar.opentelemetry.io/inject":"name-of-otelsidecar"}}}}}'
 ```
 
 ### Cluster Observability Operator Tracing UIPlugin

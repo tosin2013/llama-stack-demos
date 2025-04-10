@@ -8,8 +8,8 @@ spec:
       app: llamastack
   template:
     metadata:
-      #annotations:
-      #  sidecar.opentelemetry.io/inject: otelsidecar
+      annotations:
+        sidecar.opentelemetry.io/inject: llamastack-otelsidecar
       labels:
         app: llamastack
     spec:
@@ -47,7 +47,7 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: om-llamastack
             - name: OTEL_TRACE_ENDPOINT
-              value: 'http://otel-collector-collector.observability-hub.svc.cluster.local:4318/v1/traces'
+              value: 'http://localhost:4318/v1/traces'
             - name: SAFETY_MODEL
               value: meta-llama/Llama-Guard-3-8B
             - name: SAFETY_VLLM_URL
