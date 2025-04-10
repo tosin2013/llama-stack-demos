@@ -1,5 +1,8 @@
 ## Generate telemetry from Llamastack and vLLM
 
+This assumes you have an observability stack running in OpenShift. To deploy the necessary components,
+follow the [observability-hub guide](./README.md).
+
 ### vLLM
 
 #### metrics
@@ -61,12 +64,13 @@ See [OpenTelemetryCollector Sidecars Deployment](./README.md#opentelemetrycollec
 
 With the updated vLLM image and the updated deployment, distributed trace data will be generated and collected by the opentelemetry-collector
 sidecar container and exported to the central observability-hub as outlined in the [README.md](./README.md) with a `TempoStack` as a tracing backend.
-There is a performance impact with enabling tracing with vLLM, so it's recommended to update the deployment to enable tracing only when debugging to
+
+There is a performance impact with enabling tracing, so it's recommended to update the deployment to enable tracing only when debugging to
 avoid the performance impact. A complete list of vLLM engine arguments can be found [here](https://docs.vllm.ai/en/latest/serving/engine_args.html).
 
 ### Llamastack
 
-With Llamastack, you need to specify in the run-config.yaml to enable telemetry collection with an opentelemetry receiver.
+With Llamastack, update the [configmap](../llama-stack/configmap.yaml) to enable telemetry collection with an opentelemetry receiver.
 Don't update these until _after_ the [OpentelemetryCollector Sidecar](./otel-collector/otel-collector-llamastack-sidecar.yaml)
 is deployed. Follow the [observability-hub guide](./README.md)
 to install the `RH Build of OpenTelemetry Operator` and `OpenTelemetryCollector`.
@@ -112,11 +116,10 @@ And, in [kubernetes/llama-stack/deployment.yaml](../llama-stack/deployment.yaml)
 ---
 ```
 
-The otel-endpoint is `http://service-name-otc.namespace-of-otc.svc.cluster.local:4318/v1/traces,metrics` if exporting to
-central otel-collector. If using otel-collector sidecar, this would be `http://localhost:4318/v1/traces,metrics`.
+If _not_ using an opentelemetry-collector sidecar, you can send to any in-cluster opentelemetry-collector by setting the
+`OTEL_TRACE_ENDPOINT` to `http://service-name-otc.namespace-of-otc.svc.cluster.local:4318/v1/traces,metrics`. The sidecar
+annotation is only required if using an opentelemetry-collector sidecar.
 
 Don't update the Llamastack deployment until _after_ the [OpentelemetryCollector Sidecar](./otel-collector/otel-collector-llamastack-sidecar.yaml)
-is deployed.
+and/or the [central OpenTelemetryCollector](./otel-collector/otel-collector.yaml) is deployed.
 
-Now that the configuration changes necessary to generate and export telemetry from vLLM and Llamastack,
-follow the [observability-hub guide](./README.md) to view and analyze the data.

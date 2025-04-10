@@ -1,7 +1,8 @@
 # Monitor Llamastack & vLLM in OpenShift
 
 Follow this README to configure an observability stack in OpenShift to visualize Llamastack telemetry and vLLM metrics.
-First, ensure Llamastack and vLLM are configured to generate telemetry by following this [configuration guide](./run-configuration.md)
+Llamastack and vLLM also must be configured to generate telemetry.
+This [configuration guide](./run-configuration.md) outlines how to update the deployment manifests for telemetry collection.
 
 
 ## OpenShift Observability Operators
@@ -80,11 +81,11 @@ You can add individual metrics endpoints to the central otel-collector in observ
 another way is to add otel-collector sidecar containers to individual deployments throughout the
 cluster. Paired with an annotation on the deployment, telemetry will be exported as configured.
 
-Any deployment with the template.metadata.annotations `sidecar.opentelemetry.io/inject: vllm-otelsidecar`
+Any deployment with the `template.metadata.annotations` `sidecar.opentelemetry.io/inject: vllm-otelsidecar`
 will receive and export telemetry as configured in the
 [otel-collector-vllm-sidecar.yaml](./otel-collector/otel-collector-vllm-sidecar.yaml).
 
-Any deployment with the template.metadata.annotations `sidecar.opentelemetry.io/inject: llamastack-otelsidecar`
+Any deployment with the `template.metadata.annotations` `sidecar.opentelemetry.io/inject: llamastack-otelsidecar`
 will receive and export telemetry as configured in the
 [otel-collector-llamstack-sidecar.yaml](./otel-collector/otel-collector-llamastack-sidecar.yaml).
 
@@ -130,19 +131,34 @@ The prometheus datasource is the user-workload-monitoring prometheus running in 
 The Grafana console is configured with `username: rhel, password: rhel`
 
 ```bash
-oc apply -k ./grafana/instance-with-prom-tempo-ds
+oc apply --kustomize ./grafana/instance-with-prom-tempo-ds
 ```
 
 Upon success, you can explore metrics and traces from Grafana route.
 
-#### GrafanaDashboard to visualize cluster metrics and traces
+#### GrafanaDashboards to visualize cluster and vLLM metrics
 
-Check out [github.com/kevchu3/openshift-4-grafana](https://github.com/kevchu3/openshift4-grafana/tree/master/dashboards/crds) for a list of
+##### vLLM
+
+To create a `vLLM` GrafanaDashboard, run
+
+```bash
+oc apply -n observability-hub -f vllml-dashboard/vllm-dashboard.yaml 
+```
+
+You should now see a dashboard named `vLLM` in the Grafana console by choosing `Dashboards` from the left navigation bar.
+
+##### Cluster-Metrics
+
+For another dashboard, check out [github.com/kevchu3/openshift-4-grafana](https://github.com/kevchu3/openshift4-grafana/tree/master/dashboards/crds) for a list of
 dashboards to deploy on OpenShift.
 
-Here's an example to download and deploy a GrafanaDashboard for OpenShift 4.16 cluster metrics.
-The dashboard is slightly modified from https://github.com/kevchu3/openshift4-grafana/blob/master/dashboards/json_raw/cluster_metrics.ocp416.json
+This [dashboard](./grafana/cluster-metrics-dashboard/cluster_metrics.ocp.json) is slightly modified from
+https://github.com/kevchu3/openshift4-grafana/blob/master/dashboards/json_raw/cluster_metrics.ocp416.json
 
 ```bash
 oc apply -n observability-hub -f cluster-metrics-dashboard/cluster-metrics.yaml 
 ```
+
+You should now see a dashboard named `cluster-metrics` in the Grafana console by choosing `Dashboards` from the left navigation bar.
+
