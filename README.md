@@ -25,5 +25,4 @@ This project uses `uv` as its package manager for the python based notebooks and
 2)  `uv sync`
 3) `source .venv/bin/activate`
 
-Once you are using the virtual environment, you should be good to run any of the scripts or notebooks in `demos/`.  
-
+Once you are using the virtual environment, you should be good to run any of the scripts or notebooks in `demos/`.

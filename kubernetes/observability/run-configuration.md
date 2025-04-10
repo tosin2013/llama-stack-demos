@@ -35,7 +35,7 @@ See [OpenTelemetryCollector Sidecars Deployment](./README.md#opentelemetrycollec
       labels:
         app: granite-8b
       annotations:
-        sidecar.opentelemetry.io/inject: vllm-otelsidecar 
+        sidecar.opentelemetry.io/inject: vllm-otelsidecar
     spec:
       containers:
       - args:
@@ -102,7 +102,7 @@ And, in [kubernetes/llama-stack/deployment.yaml](../llama-stack/deployment.yaml)
       labels:
         app: llama-stack
       annotations:
-        sidecar.opentelemetry.io/inject: llamastack-otelsidecar 
+        sidecar.opentelemetry.io/inject: llamastack-otelsidecar
     spec:
       containers:
 ---
@@ -122,4 +122,3 @@ annotation is only required if using an opentelemetry-collector sidecar.
 
 Don't update the Llamastack deployment until _after_ the [OpentelemetryCollector Sidecar](./otel-collector/otel-collector-llamastack-sidecar.yaml)
 and/or the [central OpenTelemetryCollector](./otel-collector/otel-collector.yaml) is deployed.
-

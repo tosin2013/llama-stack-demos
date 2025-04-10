@@ -26,4 +26,3 @@ subjects:
     name: otel-collector
     # update if not using observability-hub namespace
     namespace: observability-hub
-

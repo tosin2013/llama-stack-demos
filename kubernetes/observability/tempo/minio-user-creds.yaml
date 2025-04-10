@@ -7,4 +7,3 @@ stringData:
   MINIO_ROOT_USER: tempo #notsecret
   MINIO_ROOT_PASSWORD: supersecret #notsecret
 type: Opaque
-

@@ -55,4 +55,3 @@ spec:
     resources: {}
   replicas: 1
   ipFamilyPolicy: SingleStack
-
