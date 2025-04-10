@@ -75,7 +75,7 @@ if args.prompt_chaining_mode:
         """Summarize the latest Red Hat OpenShift version number and any significant features, fixes, or changes that occure in this version.""",
         """Draft and format an email to convey this information to my team members."""
     ]
-    for i, prompt in enumerate(prompts):    
+    for i, prompt in enumerate(prompts):
         turn_response = agent.create_turn(
             messages=[
                 {
@@ -103,4 +103,3 @@ else:
     )
     for log in EventLogger().log(turn_response):
         log.print()
-

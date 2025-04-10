@@ -18,8 +18,8 @@ Metrics and traces will be distributed from the OTC to various backends. Tempo i
 2. **Tempo Operator**: Provides `TempoStack` Custom Resource. This is the backend for distributed tracing.
 An S3-compatible storage (Minio) is paired with Tempo.
 
-3. **Cluster Observability Operator**: This provides PodMonitor and ServiceMonitor Custom Resources which are necessary for 
-user-workload monitoring's prometheus to scrape workload metrics. Also, the COO provides UIPlugins for viewing telemetry. 
+3. **Cluster Observability Operator**: This provides PodMonitor and ServiceMonitor Custom Resources which are necessary for
+user-workload monitoring's prometheus to scrape workload metrics. Also, the COO provides UIPlugins for viewing telemetry.
 
 3. **(optional) Grafana Operator**: Provides Grafana APIs including `GrafanaDashboard`, `Grafana`, and `GrafanaDataSource` that will be used to visualize telemetry.
 
@@ -48,7 +48,7 @@ In order to view distributed tracing data from LLamastack and/or vLLM, you must 
 is Tempo. See the OpenShift Tempo
 [documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/distributed_tracing/distributed-tracing-platform-tempo#distr-tracing-tempo-install-tempostack-web-console_dist-tracing-tempo-installing)
 for further details. Tempo must be paired with a storage solution. For this example, `MinIO` is used. The necessary resources can be created by
-applying the `./tempo` manifests. 
+applying the `./tempo` manifests.
 
 ```bash
 # edit storageclassName & secret as necessary
@@ -113,15 +113,15 @@ oc patch deployment deployment-name \
 
 The Jaeger frontend feature of TempoStack is no longer supported by Red Hat. This has been replaced by the COO UIPlugin. To create the UIPlugin for
 Tracing, first ensure the TempoStack described above is created. This is a prerequisite. Then, all that's necessary to view traces from
-the OpenShift console at `Observe -> Traces` is to create the following [Tracing UIPlugin resource](./tracing-ui-plugin.yaml). 
+the OpenShift console at `Observe -> Traces` is to create the following [Tracing UIPlugin resource](./tracing-ui-plugin.yaml).
 
 ```bash
 oc apply ./tracing-ui-plugin.yaml
 ```
 
-You should now see traces and metrics in the OpenShift console, from the `Oberve` tab. 
+You should now see traces and metrics in the OpenShift console, from the `Oberve` tab.
 
-### Grafana 
+### Grafana
 
 Most users are familiar with Grafana for visualizing and analyzing telemetry. To create the Grafana resources necessary to view
 Llamastack and vLLM telemetry, follow the below example.
@@ -143,7 +143,7 @@ Upon success, you can explore metrics and traces from Grafana route.
 To create a `vLLM` GrafanaDashboard, run
 
 ```bash
-oc apply -n observability-hub -f vllml-dashboard/vllm-dashboard.yaml 
+oc apply -n observability-hub -f vllml-dashboard/vllm-dashboard.yaml
 ```
 
 You should now see a dashboard named `vLLM` in the Grafana console by choosing `Dashboards` from the left navigation bar.
@@ -157,8 +157,7 @@ This [dashboard](./grafana/cluster-metrics-dashboard/cluster_metrics.ocp.json) i
 https://github.com/kevchu3/openshift4-grafana/blob/master/dashboards/json_raw/cluster_metrics.ocp416.json
 
 ```bash
-oc apply -n observability-hub -f cluster-metrics-dashboard/cluster-metrics.yaml 
+oc apply -n observability-hub -f cluster-metrics-dashboard/cluster-metrics.yaml
 ```
 
 You should now see a dashboard named `cluster-metrics` in the Grafana console by choosing `Dashboards` from the left navigation bar.
-
