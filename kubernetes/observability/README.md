@@ -117,9 +117,9 @@ The prometheus datasource is the user-workload-monitoring prometheus running in 
 The Grafana console is configured with `username: rhel, password: rhel`
 
 ```bash
-cd grafana
-./deploy-grafana.sh
+oc apply -k ./grafana/instance-with-prom-tempo-ds
 ```
+
 Upon success, you can explore metrics and traces from Grafana route.
 
 #### GrafanaDashboard to visualize cluster metrics and traces
