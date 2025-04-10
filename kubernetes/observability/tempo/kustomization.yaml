@@ -5,6 +5,7 @@ namespace: observability-hub
 resources:
 - tempo-role.yaml
 - minio-secret-tempo.yaml
+- minio-user-creds.yaml
 - minio-tempo-pvc.yaml
 - minio-tempo-svc.yaml
 - minio-tempo.yaml
