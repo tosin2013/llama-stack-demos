@@ -1,13 +1,9 @@
 from llama_stack_client.lib.agents.agent import Agent
 from llama_stack_client.lib.agents.event_logger import EventLogger
-from llama_stack_client.types import Document
-
 from llama_stack_client import LlamaStackClient
-from termcolor import cprint
 import argparse
 import logging
 import uuid
-import json
 import os
 from dotenv import load_dotenv
 
@@ -39,18 +35,19 @@ else:
 client = LlamaStackClient(
     base_url=base_url,
     provider_data={
-        "tavily_search_api_key": os.getenv("TAVILY_API_KEY")
+        "tavily_search_api_key": os.getenv("TAVILY_SEARCH_API_KEY")
     })
 logger.info(f"Connected to Llama Stack server @ {base_url} \n")
 
 # Get tool info and register tools
 registered_tools = client.tools.list()
-registered_tools_identifiers = [t.identifier for t in registered_tools]
 registered_toolgroups = [t.toolgroup_id for t in registered_tools]
 if  "builtin::websearch" not in registered_toolgroups:
-    error = AssertionError("Expected tool `builtin::websearch` to exist, but does not. Please fix your llama-stack deployment.")
-    logger.error(error)
-    raise error
+    client.toolgroups.register(
+        toolgroup_id="builtin::websearch",
+        provider_id="tavily-search",
+        args={"max_results": 10},
+    )
 
 agent = Agent(
     client=client,
