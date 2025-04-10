@@ -1,6 +1,6 @@
 # Creating Custom Model Context Protocol (MCP) Server on OpenShift Container Platform (OCP)
 
-This document is a quick walkthrough of deploying a custom MCP server on OCP 
+This document is a quick walkthrough of deploying a custom MCP server on OCP
 The guide follows these steps below:
 
 1. Implementing custom tools with MCP tools
@@ -57,7 +57,7 @@ Pushing your image with:
 
 `podman push <image id> quay.io/<your quay id>/<image_name>:latest`
 
-You should be seeing: 
+You should be seeing:
 
 `Writing manifest to image destination`
 

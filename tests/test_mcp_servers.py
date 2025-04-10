@@ -20,7 +20,7 @@ def test_mcp_server(file_path, REMOTE_MCP_URL, model, mcp_server_name):
     user_prompts = [query['query'] for query in queries]
 
     logger = logging.getLogger(__name__)
-    if not logger.hasHandlers():  
+    if not logger.hasHandlers():
         logger.setLevel(logging.INFO)
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.INFO)
@@ -50,7 +50,7 @@ def test_mcp_server(file_path, REMOTE_MCP_URL, model, mcp_server_name):
             mcp_endpoint={"uri":REMOTE_MCP_URL},
             )
 
-    logger.info(f"""Your Server has access the the following toolgroups: 
+    logger.info(f"""Your Server has access the the following toolgroups:
     {set(registered_toolgroups)}
     """)
 
@@ -79,7 +79,7 @@ def test_mcp_server(file_path, REMOTE_MCP_URL, model, mcp_server_name):
         )
         for log in EventLogger().log(turn_response):
             log.print()
-    
+
 
 if __name__ == "__main__":
     load_dotenv()

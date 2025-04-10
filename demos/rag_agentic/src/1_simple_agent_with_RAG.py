@@ -73,9 +73,9 @@ if "my_documents" not in vector_db_ids:
             content=doc,
             mime_type="text/pain",
             metadata={},
-        ) for i, doc in enumerate(urls) 
+        ) for i, doc in enumerate(urls)
         ]
-    
+
     client.tool_runtime.rag_tool.insert(
     documents=documents,
     vector_db_id="my_documents",
@@ -83,7 +83,7 @@ if "my_documents" not in vector_db_ids:
 )
 
 
-logger.info(f"""Your Server has access the the following toolgroups: 
+logger.info(f"""Your Server has access the the following toolgroups:
 {set(registered_toolgroups)}
 """)
 
@@ -96,7 +96,7 @@ agent = Agent(
     When you are asked to search the web you must use a tool.
     """ ,
     tools=["mcp::custom_tool",{
-        "name":"builtin::rag", 
+        "name":"builtin::rag",
             "args":{
                 "vector_db_ids":["my_documents"],
                 "top_k": 1,
@@ -128,7 +128,7 @@ else:
     #Create a chat session
     session_id = agent.create_session(session_name="Conversation_demo")
     while True:
-        user_input = input(">>> ") 
+        user_input = input(">>> ")
         if "/bye" in user_input:
             if args.session_info_on_exit:
                 agent_session = client.agents.session.retrieve(session_id=session_id, agent_id=agent.agent_id)
@@ -141,4 +141,3 @@ else:
 
         for log in EventLogger().log(turn_response):
             log.print()
-

@@ -23,7 +23,7 @@
     },
     {
       "query": "Search for issue mentioning 'streamlit app', only list first 3.",
-      "tool_call": "search_issues" 
+      "tool_call": "search_issues"
     },
     {
       "query": "Search for the user 'RHETbot' on GitHub and describe the user.",

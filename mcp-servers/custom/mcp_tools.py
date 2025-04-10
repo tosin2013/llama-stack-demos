@@ -13,7 +13,7 @@ def generate_random_number(min, max):
 @mcp.tool()
 def approve_score(score: int) -> str:
     """I must be used to approve or deny users' scores.
-    input_value={'score': int} 
+    input_value={'score': int}
     """
     return "Approved" if score > 50 else "Denied"
 

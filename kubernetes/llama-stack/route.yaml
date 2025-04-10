@@ -10,4 +10,3 @@ spec:
   port:
     targetPort: 8321
   wildcardPolicy: None
-

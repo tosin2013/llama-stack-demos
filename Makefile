@@ -2,10 +2,10 @@ build_llamastack:
 	CONTAINER_BINARY=podman BUILD_PLATFORM=linux/amd64 llama stack build --template ollama --image-type container
 
 build_mcp:
-	podman build -t mcp_server:latest --platform="linux/amd64" build_mcp  
+	podman build -t mcp_server:latest --platform="linux/amd64" build_mcp
 
 build_ui:
-	podman build -t streamlit_client:latest --platform="linux/amd64" -f demos/rag_agentic/frontend/build/Containerfile .   
+	podman build -t streamlit_client:latest --platform="linux/amd64" -f demos/rag_agentic/frontend/build/Containerfile .
 
 run_ui:
 	 podman run -it -p 8501:8501 --env LLAMA_STACK_ENDPOINT=$(LLAMA_STACK_ENDPOINT) streamlit_client:latest

@@ -54,7 +54,7 @@ if "mcp::custom_tool" not in registered_toolgroups:
         )
 mcp_tools = [t.identifier for t in client.tools.list(toolgroup_id="mcp::custom_tool")]
 
-logger.info(f"""Your Server has access the the following toolgroups: 
+logger.info(f"""Your Server has access the the following toolgroups:
 {set(registered_toolgroups)}
 """)
 
@@ -92,7 +92,7 @@ else:
     #Create a chat session
     session_id = agent.create_session(session_name="Conversation_demo")
     while True:
-        user_input = input(">>> ") 
+        user_input = input(">>> ")
         if "/bye" in user_input:
             if args.session_info_on_exit:
                 agent_session = client.agents.session.retrieve(session_id=session_id, agent_id=agent.agent_id)
@@ -105,4 +105,3 @@ else:
 
         for log in EventLogger().log(turn_response):
             log.print()
-

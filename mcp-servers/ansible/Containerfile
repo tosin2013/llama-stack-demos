@@ -9,4 +9,3 @@ COPY submodule/mcp/ansible.py ansible.py
 EXPOSE 8000
 
 ENTRYPOINT [ "python", "ansible.py" ]
-
