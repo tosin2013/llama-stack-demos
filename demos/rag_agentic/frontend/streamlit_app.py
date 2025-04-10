@@ -18,11 +18,11 @@ try:
 except APIConnectionError:
     models = []
     connected = False
-model_list = [model.identifier for model in 
+model_list = [model.identifier for model in
               models if model.api_model_type == "llm"]
 
 tool_groups = client.toolgroups.list()
-tool_groups_list = [tool_group.identifier for tool_group in 
+tool_groups_list = [tool_group.identifier for tool_group in
                     tool_groups if tool_group.identifier.startswith("mcp::")]
 
 def reset_agent():
@@ -36,13 +36,13 @@ with st.sidebar:
         st.markdown(":green[Connected]")
     else:
         st.markdown(":red[No Connection]")
-    
+
     st.header("Model")
     model = st.selectbox(label="models", options=model_list,index=3, on_change=reset_agent)
-    
+
     st.header("MCP Servers")
-    toolgroup_selection = st.pills(label="Available Servers",options=tool_groups_list, selection_mode="multi",on_change=reset_agent)    
-    
+    toolgroup_selection = st.pills(label="Available Servers",options=tool_groups_list, selection_mode="multi",on_change=reset_agent)
+
     grouped_tools = {}
     total_tools = 0
     for toolgroup_id in toolgroup_selection:
@@ -70,7 +70,7 @@ def create_agent():
 
 agent = create_agent()
 
-if "agent_session_id" not in st.session_state: 
+if "agent_session_id" not in st.session_state:
     st.session_state["agent_session_id"] = agent.create_session(session_name=f"mcp_demo_{uuid.uuid4()}")
 session_id = st.session_state["agent_session_id"]
 
@@ -81,13 +81,13 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input(placeholder=""):    
-    
+if prompt := st.chat_input(placeholder=""):
+
     with st.chat_message("user"):
         st.markdown(prompt)
 
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
+
     turn_response = agent.create_turn(
         session_id=session_id,
         messages=[{
@@ -96,7 +96,7 @@ if prompt := st.chat_input(placeholder=""):
         }],
         stream=True,
     )
-    
+
     def response_generator(turn_response):
         for r in turn_response:
             if hasattr(r.event,"payload"):
@@ -107,17 +107,17 @@ if prompt := st.chat_input(placeholder=""):
                 if r.event.payload.event_type == "step_complete":
                     if r.event.payload.step_details.step_type == "tool_execution":
                         if TOOL_DEBUG:
-                            content_text = json.loads(r.event.payload.step_details.tool_responses[0].content)["text"] 
+                            content_text = json.loads(r.event.payload.step_details.tool_responses[0].content)["text"]
                             tool_name = r.event.payload.step_details.tool_calls[0].tool_name
                             tool_args = r.event.payload.step_details.tool_calls[0].arguments_json
                             tool_info = str({"tool_name":{tool_name}, "arguments":{tool_args}, "content":{content_text}})
                             yield f" 🛠 {tool_info} \n\n"
                         else:
-                             yield f" 🛠 "            
+                             yield f" 🛠 "
             else:
                 yield f"Error occurred in the Llama Stack Cluster: {r}"
-                
+
     with st.chat_message("assistant"):
         response = st.write_stream(response_generator(turn_response))
-    
+
     st.session_state.messages.append({"role": "assistant", "content": response})

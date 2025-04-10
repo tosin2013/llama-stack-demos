@@ -132,7 +132,7 @@ data:
       model_type: llm
     - metadata: {}
       model_id: ${env.GRANITE_MODEL}
-      provider_id: granite 
+      provider_id: granite
       model_type: llm
     - metadata: {}
       model_id: ${env.SAFETY_MODEL}

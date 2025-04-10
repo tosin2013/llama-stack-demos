@@ -24,7 +24,7 @@
     },
     {
       "query": "What are the events in llama-serve namespace??",
-      "tool_call": "events_list" 
+      "tool_call": "events_list"
     }
   ]
 }

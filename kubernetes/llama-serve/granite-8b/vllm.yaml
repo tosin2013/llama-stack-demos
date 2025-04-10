@@ -73,7 +73,7 @@ spec:
         name: triton
       - configMap:
           defaultMode: 420
-          name: granite-chat 
+          name: granite-chat
         name: chat-template
       - emptyDir: {}
         name: config
