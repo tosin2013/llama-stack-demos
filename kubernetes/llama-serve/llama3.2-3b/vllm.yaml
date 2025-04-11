@@ -79,8 +79,6 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-      nodeSelector:
-        kubernetes.io/hostname: wrk-4
       securityContext: {}
       schedulerName: default-scheduler
   strategy:
