@@ -4,6 +4,8 @@ Follow this README to configure an observability stack in OpenShift to visualize
 Llamastack and vLLM also must be configured to generate telemetry.
 This [configuration guide](./run-configuration.md) outlines how to update the deployment manifests for telemetry collection.
 
+This [architecture diagram](./diagram-overview.md) provides a visual overview of the components listed below.
+
 
 ## OpenShift Observability Operators
 
