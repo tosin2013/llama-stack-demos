@@ -99,7 +99,11 @@ You will first need to build an image for the Slack MCP server from the `Contain
 3. Build and push your image through podman. (If you don't have podman installed, you can download from here: https://podman-desktop.io/Download).
 
 Build your image with:
-`podman build -t slack-mcp-server:latest --platform="linux/amd64" <Directory where your Dockerfile is>`
+
+```
+cd mcp-containerfile
+podman build -t slack-mcp-server:latest --platform="linux/amd64" <Directory where your Dockerfile is>
+```
 
 Push your image with:
 
