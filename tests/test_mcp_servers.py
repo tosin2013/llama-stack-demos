@@ -3,6 +3,9 @@ import json
 import logging
 import time
 import csv
+import pandas as pd
+import matplotlib.pyplot as plt
+import util
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 from datetime import datetime
@@ -365,3 +368,25 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # Load the CSV file into a DataFrame
+    file_path = './results/metrics.csv'
+    df = pd.read_csv(file_path)
+
+    # Plot the overall comparison of correct tool call
+    fig, ax = plt.subplots(figsize=(8, 6))
+    util.add_plot(fig, ax, df, column_name='tool_call_match', title='Overall comparison check of correct tool call')
+    plt.tight_layout()
+    plt.show()
+
+    # Plot comparison of correct tool call for each server type
+    util.subplots_comparison(df, column_name='tool_call_match')
+
+    # Plot the overall comparison of inference not empty
+    fig, ax = plt.subplots(figsize=(8, 6))
+    util.add_plot(fig, ax, df, column_name='inference_not_empty', title='Overall comparison check of inference not empty')
+    plt.tight_layout()
+    plt.show()
+
+    # Plot comparison of inference not empty for each server type
+    util.subplots_comparison(df, column_name='inference_not_empty')
