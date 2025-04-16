@@ -102,7 +102,7 @@ Build your image with:
 
 ```
 cd mcp-containerfile
-podman build -t slack-mcp-server:latest --platform="linux/amd64" <Directory where your Dockerfile is>
+podman build -t slack-mcp-server:latest --platform="linux/amd64" -f Containerfile .
 ```
 
 Push your image with:
