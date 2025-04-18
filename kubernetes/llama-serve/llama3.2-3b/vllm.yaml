@@ -15,8 +15,6 @@ spec:
       creationTimestamp: null
       labels:
         app: llama32-3b
-      annotations:
-        sidecar.opentelemetry.io/inject: vllm-otelsidecar
     spec:
       volumes:
         - name: hf-cache
@@ -36,10 +34,6 @@ spec:
           terminationMessagePath: /dev/termination-log
           name: llama32-3b
           env:
-            - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
-              value: 'true'
-            - name: OTEL_SERVICE_NAME
-              value: vllm-llama32-3b
             - name: VLLM_PORT
               value: '8000'
             - name: HUGGING_FACE_HUB_TOKEN
@@ -47,10 +41,6 @@ spec:
                 secretKeyRef:
                   name: huggingface-secret
                   key: HF_TOKEN
-            - name: VLLM_LOGGING_LEVEL
-              value: DEBUG
-            - name: VLLM_TRACE_FUNCTION
-              value: '1'
           ports:
             - containerPort: 8000
               protocol: TCP
