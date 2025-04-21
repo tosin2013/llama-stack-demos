@@ -27,11 +27,6 @@ resources:
   - streamlit-client/serviceacount.yaml
 
   # mcp-servers resources
-  - mcp-servers/ansible-mcp/ansible-deployment.yaml
-  - mcp-servers/ansible-mcp/ansible-service.yaml
-  - mcp-servers/custom-mcp/custom-deployment.yaml
-  - mcp-servers/github-mcp/github-deployment.yaml
-  - mcp-servers/github-mcp/github-service.yaml
   - mcp-servers/openshift-mcp/openshift-deployment.yaml
   - mcp-servers/openshift-mcp/openshift-service.yaml
   - mcp-servers/openshift-mcp/openshift-rolebinding.yaml
