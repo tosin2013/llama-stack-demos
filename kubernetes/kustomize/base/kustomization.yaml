@@ -6,7 +6,7 @@ resources:
   - ../../streamlit-client
 
   # mcp-servers resources
-  - ../../mcp-servers/ansible-mcp
-  - ../../mcp-servers/custom-mcp
-  - ../../mcp-servers/github-mcp
+  # - ../../mcp-servers/ansible-mcp
+  # - ../../mcp-servers/custom-mcp
+  # - ../../mcp-servers/github-mcp
   - ../../mcp-servers/openshift-mcp
