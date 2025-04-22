@@ -27,7 +27,7 @@ A `kustomization.yaml` file exists to launch all required Kubernetes objects for
 
 ```
 oc new-project llama-serve
-oc apply -k kubernetes
+oc apply -k kubernetes/kustomize/overlay/all-models
 ```
 ## Running Demos and Notebooks
 

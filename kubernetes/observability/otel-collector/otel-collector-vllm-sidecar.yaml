@@ -5,7 +5,6 @@ apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: vllm-otelsidecar
-  namespace: llama-serve
 spec:
   observability:
     metrics: {}
