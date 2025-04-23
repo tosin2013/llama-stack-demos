@@ -53,3 +53,7 @@ Before running scripts, remember to set up your environment variables using [.en
 #### 3. Deploy and play with [`frontend/`](frontend/) Streamlit UI
 This folder contains the containerfile to build a user interface based on the playground UI provided by llama-stack. The playground UI is a Streamlit application that provides an interactive interface for testing and experimenting with language models.
 For more information, visit: https://llama-stack.readthedocs.io/en/latest/playground
+
+## Demo Recordings
+
+- **MCP Multi-Tool Call Demo** - Watch this recorded demo showcasing the multi-tool call capabilities of MCP tools: https://youtu.be/aaxclldaVWw. The video walks through a query from the Level 4 Agentic MCP notebook, including step-by-step instructions for setting up a Slack app, configuring the Slack MCP server, and interacting with it in action.
