@@ -1,5 +1,5 @@
 ﻿# Note this is a run.yaml file based on the remote-vllm distribution
-# More information found here: 
+# More information found here:
 version: '2'
 image_name: remote-vllm
 apis:
