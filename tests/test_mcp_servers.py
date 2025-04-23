@@ -24,7 +24,7 @@ def get_server_configs():
     """Return test configurations for different MCP servers."""
     return {
         "ansible": {
-            "file_path": './queries/anisble_queries.json',
+            "file_path": './queries/ansible_queries.json',
             "mcp_url": os.getenv('ANSIBLE_MCP_SERVER_URL'),
             "toolgroup_id": "mcp::ansible"
         },
