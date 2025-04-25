@@ -30,7 +30,7 @@ spec:
           exclude: "kustomization.yaml"
       destination:
         server: https://kubernetes.default.svc
-        namespace: llama-serve
+        namespace: llama-serve # Patch Me
       syncPolicy:
         automated:
           prune: true

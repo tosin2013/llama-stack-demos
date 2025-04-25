@@ -2,7 +2,6 @@ apiVersion: monitoring.rhobs/v1
 kind: ServiceMonitor
 metadata:
   name: vllm-llama-serve
-  namespace: llama-serve
 spec:
   selector:
     matchLabels:
