@@ -33,4 +33,5 @@ spec:
     tolerations:
       - effect: NoSchedule
         key: nvidia.com/gpu
-        operator: Exists
+        operator: Equal
+        value: "True"
