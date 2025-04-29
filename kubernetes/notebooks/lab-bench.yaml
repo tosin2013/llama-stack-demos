@@ -10,6 +10,7 @@ metadata:
     opendatahub.io/image-display-name: Standard Data Science
     openshift.io/description: ""
     openshift.io/display-name: lab
+    argocd.argoproj.io/sync-wave: "5"
   labels:
     app: lab
     opendatahub.io/dashboard: "true"
