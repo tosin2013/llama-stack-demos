@@ -7,8 +7,6 @@ metadata:
     sidecar.istio.io/inject: 'true'
     sidecar.istio.io/rewriteAppHTTPProbers: 'true'
   name: llama32-3b
-  finalizers:
-    - inferenceservice.finalizers
   labels:
     opendatahub.io/dashboard: 'true'
 spec:
