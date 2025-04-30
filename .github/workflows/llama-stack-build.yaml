@@ -36,10 +36,17 @@ jobs:
         run: |
           pip install -U .
 
+      - name: Checkout llama-stack demos
+        uses: actions/checkout@v4
+        with:
+           ref: v${{ inputs.version }}
+           repository: opendatahub-io/llama-stack-demos.git
+           path: llama-stack-demos
+
       - name: run llama stack build
         run: |
           export CONTAINER_BINARY=podman
-          llama stack build --config distribution/build.yaml
+          llama stack build --config llama-stack-demoes/distribution/build.yaml
 
       - name: tag the image
         run: |
