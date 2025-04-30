@@ -19,6 +19,7 @@ jobs:
         with:
            ref: v${{ inputs.version }}
            repository: meta-llama/llama-stack.git
+           path: llama-stack
 
       - name: python deps
         run: |
@@ -34,16 +35,20 @@ jobs:
 
       - name: Install repo packages
         run: |
+          cd llama-stack
           pip install -U .
+          cd ..
 
       - name: Checkout llama-stack demos
         uses: actions/checkout@v4
         with:
            ref: v${{ inputs.version }}
            repository: opendatahub-io/llama-stack-demos.git
+           path: llama-stack-demos
 
       - name: run llama stack build
         run: |
+          cd llama-stack-demos
           export CONTAINER_BINARY=podman
           llama stack build --config llama-stack-demoes/distribution/build.yaml
 
