@@ -41,7 +41,6 @@ jobs:
         with:
            ref: v${{ inputs.version }}
            repository: opendatahub-io/llama-stack-demos.git
-           path: llama-stack-demos
 
       - name: run llama stack build
         run: |
