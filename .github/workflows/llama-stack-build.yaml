@@ -42,7 +42,6 @@ jobs:
       - name: Checkout llama-stack demos
         uses: actions/checkout@v4
         with:
-           ref: v${{ inputs.version }}
            repository: opendatahub-io/llama-stack-demos.git
            path: llama-stack-demos
 
