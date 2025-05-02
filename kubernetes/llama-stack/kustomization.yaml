@@ -5,6 +5,7 @@ resources:
   - pvc.yaml
   - route.yaml
   - service.yaml
+  - run.yaml
   # - otel-collector-sidecar.yaml
 
 generatorOptions:
