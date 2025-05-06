@@ -1,3 +1,4 @@
+import asyncio
 from typing import Dict
 from uuid import uuid4
 
@@ -5,7 +6,7 @@ from llama_stack_client.lib.agents.client_tool import ClientTool
 from llama_stack_client.types.tool_def_param import Parameter
 
 from common.client import A2ACardResolver, A2AClient
-from common.types import AgentCard
+from common.types import AgentCard, TextPart
 
 
 class A2ATool(ClientTool):
@@ -32,13 +33,13 @@ class A2ATool(ClientTool):
             "query": Parameter(
                 name="query",
                 parameter_type="str",
-                description="A free-text query for this agent",
+                description="A free-text query specifying the desired functionality of this tool",
                 required=True,
             )
         }
 
     def run_impl(self, query: str):
-        return self.async_run_impl(query=query)
+        return asyncio.run(self.async_run_impl(query=query))
 
     async def async_run_impl(self, **kwargs):
         message = {
@@ -59,4 +60,6 @@ class A2ATool(ClientTool):
         }
 
         response = await self.client.send_task(payload)
-        return response.model_dump_json(exclude_none=True)
+        # TODO: add support for FilePart and DataPart
+        text_response_parts = [p for p in response.result.status.message.parts if isinstance(p, TextPart)]
+        return "\n".join([t.text for t in text_response_parts])

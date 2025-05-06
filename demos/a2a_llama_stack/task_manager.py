@@ -107,7 +107,10 @@ class AgentTaskManager(InMemoryTaskManager):
         Route the user query through the Agent, executing tools as needed.
         """
         # Determine which session to use
-        sid = self.session_id if self.session_id is not None else session_id
+        if self.session_id is not None:
+            sid = self.session_id
+        else:
+            sid = self.agent.create_session(session_id)
 
         # Send the user query to the Agent
         turn_resp = self.agent.create_turn(
