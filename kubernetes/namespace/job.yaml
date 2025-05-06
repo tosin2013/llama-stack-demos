@@ -12,6 +12,7 @@ spec:
     spec:
       containers:
       - name: image-puller-granite
+        imagePullPolicy: IfNotPresent
         image: quay.io/redhat-ai-services/modelcar-catalog:granite-3.2-8b-instruct
         command: ["sh", "-c", "echo 'Granite image pulled successfully to node cache'; sleep 30"]
         resources:
@@ -43,6 +44,7 @@ spec:
     spec:
       containers:
       - name: image-puller-llama
+        imagePullPolicy: IfNotPresent
         image: quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-3b-instruct
         command: ["sh", "-c", "echo 'Llama image pulled successfully to node cache'; sleep 30"]
         resources:
