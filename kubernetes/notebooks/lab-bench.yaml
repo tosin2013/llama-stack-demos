@@ -61,7 +61,7 @@ spec:
         - name: PIPELINES_SSL_SA_CERTS
           value: /etc/pki/tls/custom-certs/ca-bundle.crt
         - name: JUPYTER_CONFIG_DATA
-          value: '{"ContentsManager": {"allow_hidden": true}}'
+          value: '{"FileContentsManager": {"list_hidden": true}}'
         image: s2i-generic-data-science-notebook:2025.1
         imagePullPolicy: Always
         livenessProbe:
