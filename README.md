@@ -10,6 +10,26 @@ Current Demos:
 
 * [RAG/Agentic](./demos/rag_agentic/)
 
+
+## Repository Structure
+
+- [demos/](./demos/) – Contains demo notebooks and app code, focusing on RAG and agentic AI use cases.
+  - [a2a_llama_stack/](./demos/a2a_llama_stack/) – Guide for running a custom agent on Llama Stack using Google’s Agent-to-Agent (A2A) protocol.
+  - [rag_agentic/](./demos/rag_agentic/) – Demo integrating Retrieval Augmented Generation (RAG) with agent-based workflows.
+    - [src/](./demos/rag_agentic/src/) – Server-side logic, RAG pipeline, and agent tool invocation.
+    - [frontend/build](./demos/rag_agentic/frontend/build) – Build artifacts for Streamlit UI.
+    - [notebooks/](./demos/rag_agentic/notebooks/) – Jupyter notebooks for hands-on experimentation.
+- [distribution/](./distribution/) – Container build files for the Llama Stack distribution image.
+- [images/](./images/) – Architecture diagrams and visual documentation assets.
+- [kubernetes/](./kubernetes/) – Kubernetes manifests for deploying Llama Stack components.
+- [tests/](./tests/) – Test scripts and evaluation tools for the demos.
+- [local_setup_guide.md](./local_setup_guide.md) – Setup guide to run Llama Stack locally.
+- [Makefile](./Makefile) – Automation targets for development and deployment.
+- [pyproject.toml](./pyproject.toml) – Python project configuration and dependencies.
+- [uv.lock](./uv.lock) – Lock file for deterministic environment setup.
+- [README.md](./README.md) – You're here! The main guide and entry point for understanding the repository.
+
+
 ## Example Architecture
 The below diagram is an example architecture for a secure Llama Stack based application deployed on OpenShift (OCP) using both MCP tools and a [Milvus](https://milvus.io/) vectorDB for its agentic and RAG based workflows. This is the same architecture that has been implemented in the [RAG/Agentic](./demos/rag_agentic/) demos.
 
