@@ -45,10 +45,6 @@ spec:
               value: granite32-8b
             - name: VLLM_API_TOKEN
               value: fake
-            - name: OTEL_SERVICE_NAME
-              value: om-llamastack
-            - name: OTEL_TRACE_ENDPOINT
-              value: 'http://otel-collector-collector.observability-hub.svc.cluster.local:4318/v1/traces'
             - name: MILVUS_DB_PATH
               value: milvus.db
             - name: LLAMA_STACK_LOG
@@ -67,7 +63,7 @@ spec:
             - name: cache
               mountPath: /.cache
           terminationMessagePolicy: File
-          image: 'quay.io/redhat-et/llama:vllm-0.2.4'
+          image: 'quay.io/redhat-et/llama:vllm-fix'
           args:
             - '--config'
             - /app-config/config.yaml
