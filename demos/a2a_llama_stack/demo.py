@@ -56,13 +56,13 @@ def external_agent_as_a_tool():
     external_agent_tool = A2ATool(external_agent_url)
     agent = Agent(
         client=LlamaStackClient(base_url=os.getenv("LLAMA_STACK_URL", "http://localhost:8321")),
-        model=os.getenv("MODEL_ID", "meta-llama/Llama-3.1-8B-Instruct"),
+        model=os.getenv("MODEL_ID", "granite32-8b"),
         instructions="You are a helpful assistant. When a tool is used, only print its output without adding more content.",
         tools=[external_agent_tool],
     )
     session_id = agent.create_session("test-session")
 
-    prompt = "Generate a random number between 1 and 10 and tell me what number was generated."
+    prompt = "Generate a random number between 1 and 10."
     cprint(f"User> {prompt}", "green")
     response = agent.create_turn(
         messages=[
