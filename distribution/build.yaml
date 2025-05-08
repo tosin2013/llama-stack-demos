@@ -3,6 +3,7 @@ distribution_spec:
   description: "Distribution of the Llama Stack demos"
   providers:
     inference:
+    - remote::openai
     - remote::vllm
     - inline::sentence-transformers
     vector_io:
@@ -13,6 +14,8 @@ distribution_spec:
     - inline::meta-reference
     telemetry:
     - inline::meta-reference
+    eval:
+    - remote::lmeval
     datasetio:
     - remote::huggingface
     - inline::localfs
