@@ -136,3 +136,4 @@ tool_groups:
   provider_id: model-context-protocol
   mcp_endpoint:
     uri: "http://ocp-mcp-server:8000/sse"
+
