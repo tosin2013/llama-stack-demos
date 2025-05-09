@@ -22,9 +22,9 @@ def step_printer(steps):
         else:
             if step.api_model_response.content:
                 print("🤖 Model Response:")
-                cprint(f"{step.api_model_response.content}\n", "yellow")
+                cprint(f"{step.api_model_response.content}\n", "magenta")
             elif step.api_model_response.tool_calls:
                 tool_call = step.api_model_response.tool_calls[0]
                 print("🛠️ Tool call Generated:")
-                cprint(f"Tool call: {tool_call.tool_name}, Arguments: {json.loads(tool_call.arguments_json)}", "yellow")
+                cprint(f"Tool call: {tool_call.tool_name}, Arguments: {json.loads(tool_call.arguments_json)}", "magenta")
     print("="*10, "Query processing completed","="*10,"\n")
