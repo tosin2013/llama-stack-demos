@@ -43,7 +43,7 @@ If you would like to learn more about how to implement your own agents with Llam
 
 ### Getting Started
 ### 1. [`notebooks/`](notebooks/): Start with notebooks in order
-- [Level1_foundational_RAG.ipynb](notebooks/Level1_foundational_RAG.ipynb): Start here! Learn the basics of RAG.
+- [Level1_simple_RAG.ipynb](notebooks/Level1_simple_RAG.ipynb): Start here! Learn the basics of RAG.
 - [Level2_simple_agentic_with_websearch.ipynb](notebooks/Level2_simple_agentic_with_websearch.ipynb): Add web search capabilities to your agent.
 - [Level3_advance_agentic_with_Prompt_Chaining_ReAct.ipynb](notebooks/Level3_advance_agentic_with_Prompt_Chaining_ReAct.ipynb): Advanced Agentic capabilities with prompt chaining and ReAct Agent.
 - [Level4_agentic_RAG.ipynb](notebooks/Level4_agentic_RAG.ipynb): Agentic RAG example, combining RAG with agentic capabilities.
@@ -77,7 +77,7 @@ We are building this agent through a series of focused demonstrations, each prog
 
 ## Notebook Overview
 
-1.  **`Level1_foundational_RAG.ipynb`:**
+1.  **`Level1_simple_RAG.ipynb`:**
     * **Focus:** Demonstrates the foundational RAG component, showcasing how to use llama stack to retrieve information from our internal knowledge base to answer queries.
     * **Task Example:** Explain how to install Openshift using the guide pdf.
     * **Agent Capability:** Uses `RAG` to retrieve and summarize the internal document.
