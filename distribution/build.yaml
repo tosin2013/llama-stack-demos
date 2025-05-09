@@ -1,6 +1,6 @@
 version: '2'
 distribution_spec:
-  description: "Distribution of the Llama Stack demos"
+  description: Use (an external) vLLM server for running LLM inference
   providers:
     inference:
     - remote::openai
@@ -12,8 +12,8 @@ distribution_spec:
     - inline::llama-guard
     agents:
     - inline::meta-reference
-    telemetry:
-    - inline::meta-reference
+    eval:
+    - remote::lmeval
     datasetio:
     - remote::huggingface
     - inline::localfs
@@ -21,6 +21,8 @@ distribution_spec:
     - inline::basic
     - inline::llm-as-judge
     - inline::braintrust
+    telemetry:
+    - inline::meta-reference
     tool_runtime:
     - remote::brave-search
     - remote::tavily-search
