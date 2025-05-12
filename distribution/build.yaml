@@ -29,6 +29,5 @@ distribution_spec:
     - inline::rag-runtime
     - remote::model-context-protocol
     - inline::code-interpreter
-  container_image: "registry.access.redhat.com/ubi9"
 image_type: container
 image_name: llama-stack-demos
