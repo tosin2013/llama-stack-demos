@@ -65,7 +65,7 @@ spec:
             - name: cache
               mountPath: /.cache
           terminationMessagePolicy: File
-          image: 'quay.io/redhat-et/llama:vllm-0.2.5'
+          image: 'quay.io/redhat-et/llama:vllm-0.2.6'
           args:
             - '--config'
             - /app-config/config.yaml
