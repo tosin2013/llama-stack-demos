@@ -43,12 +43,12 @@ If you would like to learn more about how to implement your own agents with Llam
 
 ### Getting Started
 ### 1. [`notebooks/`](notebooks/): Start with notebooks in order
-- [Level1_foundational_RAG.ipynb](notebooks/Level1_foundational_RAG.ipynb): Start here! Learn the basics of RAG.
-- [Level2_simple_agentic_with_websearch.ipynb](notebooks/Level2_simple_agentic_with_websearch.ipynb): Add web search capabilities to your agent.
-- [Level3_advance_agentic_with_Prompt_Chaining_ReAct.ipynb](notebooks/Level3_advance_agentic_with_Prompt_Chaining_ReAct.ipynb): Advanced Agentic capabilities with prompt chaining and ReAct Agent.
-- [Level4_agentic_RAG.ipynb](notebooks/Level4_agentic_RAG.ipynb): Agentic RAG example, combining RAG with agentic capabilities.
-- [Level5_agentic_and_mcp.ipynb](notebooks/Level5_agentic_and_mcp.ipynb): Advanced topics in agentic and MCP, showcasing  sequential tool calls and conditional logic within an agentic workflow.
-- [Level6_agentic_MCP_and_RAG.ipynb](notebooks/Level6_agentic_MCP_and_RAG.ipynb): Advanced Agentic, RAG, MCP example, showcasing how RAG can be incorporated into sequential tool calls.
+- [Level1_simple_RAG.ipynb](notebooks/Level1_simple_RAG.ipynb): Start here! Learn the basics of RAG.
+- [Level2_simple_agent_with_websearch.ipynb](notebooks/Level2_simple_agent_with_websearch.ipynb): Add web search capabilities to your agent.
+- [Level3_advanced_agent_with_Prompt_Chaining_and_ReAct.ipynb](notebooks/Level3_advanced_agent_with_Prompt_Chaining_and_ReAct.ipynb): Advanced Agentic capabilities with prompt chaining and ReAct Agent.
+- [Level4_rag_agent.ipynb](notebooks/Level4_rag_agent.ipynb): Agentic RAG example, combining RAG with agentic capabilities.
+- [Level5_agents_and_mcp.ipynb](notebooks/Level5_agents_and_mcp.ipynb): Advanced topics in agentic and MCP, showcasing  sequential tool calls and conditional logic within an agentic workflow.
+- [Level6_agents_MCP_and_RAG.ipynb](notebooks/Level6_agents_MCP_and_RAG.ipynb): Advanced Agentic, RAG, MCP example, showcasing how RAG can be incorporated into sequential tool calls.
 
 #### 2. Review source code in [`src/`](src/)
 Contains Python source files that implement the concepts from the notebooks. Good for future production stage.
@@ -77,33 +77,33 @@ We are building this agent through a series of focused demonstrations, each prog
 
 ## Notebook Overview
 
-1.  **`Level1_foundational_RAG.ipynb`:**
+1.  **`Level1_simple_RAG.ipynb`:**
     * **Focus:** Demonstrates the foundational RAG component, showcasing how to use llama stack to retrieve information from our internal knowledge base to answer queries.
     * **Task Example:** Explain how to install Openshift using the guide pdf.
     * **Agent Capability:** Uses `RAG` to retrieve and summarize the internal document.
 
-2.  **`Level2_simple_agentic_with_websearch.ipynb`:**
+2.  **`Level2_simple_agent_with_websearch.ipynb`:**
     * **Focus:** Introduces the basic agent framework with the ability to utilize tools. This notebook showcases the agent's capacity to interact with the external world.
-    * **Task Example:** What’s latest in OpenShift?
+    * **Task Example:** What's latest in OpenShift?
     * **Agent Capability:** Uses a `web_search_tool` to retrieve and summarize publicly available information.
 
-3.  **`Level3_advance_agentic_with_Prompt_Chaining_ReAct.ipynb`:**
+3.  **`Level3_advanced_agent_with_Prompt_Chaining_and_ReAct.ipynb`:**
     * **Focus:** Builds upon the simple agent by incorporating location awareness, prompt chaining for complex reasoning, and the ReAct framework for structured action planning.
-    * **Task Example:** "Hey, check if there’s anything happening weather-wise near me that might affect our pod deployments." / "Are there any weather-related risks in my area that could disrupt network connectivity or system availability?"
+    * **Task Example:** "Hey, check if there's anything happening weather-wise near me that might affect our pod deployments." / "Are there any weather-related risks in my area that could disrupt network connectivity or system availability?"
     * **Agent Capabilities:** Utilizes a `web_search_tool` for weather information and a `get_location` client tool. Demonstrates prompt chaining and the ReAct agent methodology.
 
-4.  **`Level4_agentic_RAG.ipynb`:**
+4.  **`Level4_rag_agent.ipynb`:**
     * **Focus:** Combines the autonomous agent capabilities with the internal knowledge retrieval of RAG. The agent can now strategically decide when to consult internal documentation.
     * **Task Example:** "How to install OpenShift?"
     * **Agent Capability:** Leverages RAG as a tool to answer user queries based on internal documents, intelligently determining when this knowledge source is relevant.
 
-5.  **`Level5_agentic_and_mcp.ipynb`:**
+5.  **`Level5_agents_and_mcp.ipynb`:**
     * **Focus:** Integrates the agent with our OpenShift, and slack environment via MCP tools, enabling real-time interaction and automation of operational tasks. This notebook explores various levels of OpenShift interaction.
-    * **Task Example:** "Check the status of my OpenShift cluster. If it’s running, create a new pod named `test-pod` in the `dev` namespace." / "Review OpenShift logs for pod `slack-test`. Categorize each as ‘Normal’ or ‘Error’. If any show ‘Error’, send a Slack message to the ops team. Otherwise, show a simple summary."
+    * **Task Example:** "Check the status of my OpenShift cluster. If it's running, create a new pod named `test-pod` in the `dev` namespace." / "Review OpenShift logs for pod `slack-test`. Categorize each as 'Normal' or 'Error'. If any show 'Error', send a Slack message to the ops team. Otherwise, show a simple summary."
     * **Agent Capability:** Utilizes `Openshift` and `slack` tools to demonstrate a complex workflow, of interacting with OCP and updating team via slack.
 
 
-6.  **`Level6_agentic_MCP_and_RAG.ipynb`:**
+6.  **`Level6_agents_MCP_and_RAG.ipynb`:**
     * **Focus:** Represents the culmination of our efforts, showcasing a complete incident response flow by integrating prompt chaining, RAG for solution retrieval, and MCP for OpenShift interaction and Slack communication.
     * **Task Example:**
         "View the logs for pod slack-test in the llama-serve OpenShift namespace. Categorize it as normal or error.",
@@ -116,4 +116,4 @@ By exploring these notebooks in sequence, you can gain a comprehensive understan
 
 ## Demo Recordings
 
-- **MCP Multi-Tool Call Demo** - Watch this recorded demo showcasing the multi-tool call capabilities of MCP tools: https://youtu.be/aaxclldaVWw. The video walks through a query from the Level 4 Agentic MCP notebook, including step-by-step instructions for setting up a Slack app, configuring the Slack MCP server, and interacting with it in action.
+- **MCP Multi-Tool Call Demo** - Watch this recorded demo showcasing the multi-tool call capabilities of MCP tools: https://youtu.be/aaxclldaVWw. The video walks through a query from the [Level 5 Agentic MCP notebook](notebooks/Level5_agents_and_mcp.ipynb), including step-by-step instructions for setting up a Slack app, configuring the Slack MCP server, and interacting with it in action.

@@ -1,17 +1,16 @@
 version: '2'
 distribution_spec:
-  description: "Distribution of the Llama Stack demos"
+  description: Use (an external) vLLM server for running LLM inference
   providers:
     inference:
     - remote::vllm
+    - remote::openai
     - inline::sentence-transformers
     vector_io:
     - inline::milvus
     safety:
     - inline::llama-guard
     agents:
-    - inline::meta-reference
-    telemetry:
     - inline::meta-reference
     eval:
     - remote::lmeval
@@ -22,10 +21,11 @@ distribution_spec:
     - inline::basic
     - inline::llm-as-judge
     - inline::braintrust
+    telemetry:
+    - inline::meta-reference
     tool_runtime:
     - remote::brave-search
     - remote::tavily-search
-    - inline::code-interpreter
     - inline::rag-runtime
     - remote::model-context-protocol
   container_image: "registry.access.redhat.com/ubi9"
