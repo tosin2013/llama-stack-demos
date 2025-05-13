@@ -1,4 +1,6 @@
 import json
+from json import JSONDecodeError
+
 from rich.pretty import pprint
 from termcolor import cprint
 
@@ -16,7 +18,7 @@ def step_printer(steps):
             print("🔧 Executing tool...")
             try:
                 pprint(json.loads(step.tool_responses[0].content))
-            except TypeError:
+            except (TypeError, JSONDecodeError):
                 # tool response is not a valid JSON object
                 pprint(step.tool_responses[0].content)
         else:
