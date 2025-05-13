@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from typing import Dict
 from uuid import uuid4
 
@@ -39,7 +40,16 @@ class A2ATool(ClientTool):
         }
 
     def run_impl(self, query: str):
-        return asyncio.run(self.async_run_impl(query=query))
+        # we should cover both the case where the method is called from non-async code, and when
+        # there is an active event loop (i.e., async code)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # run_impl is called from non-async code
+            return asyncio.run(self.async_run_impl(query=query))
+        else:
+            # run_impl is called from async code
+            return self._execute_async_run_in_new_loop(query=query)
 
     async def async_run_impl(self, **kwargs):
         message = {
@@ -63,3 +73,21 @@ class A2ATool(ClientTool):
         # TODO: add support for FilePart and DataPart
         text_response_parts = [p for p in response.result.status.message.parts if isinstance(p, TextPart)]
         return "\n".join([t.text for t in text_response_parts])
+
+    def _execute_async_run_in_new_loop(self, **kwargs):
+        result_container = {}
+        exception_container = {}
+
+        def thread_target():
+            try:
+                result_container['result'] = asyncio.run(self.async_run_impl(**kwargs))
+            except Exception as e:
+                exception_container['error'] = e
+
+        thread = threading.Thread(target=thread_target)
+        thread.start()
+        thread.join()
+
+        if 'error' in exception_container:
+            raise exception_container['error']
+        return result_container['result']

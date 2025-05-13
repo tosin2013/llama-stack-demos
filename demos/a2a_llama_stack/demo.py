@@ -8,7 +8,6 @@ from termcolor import cprint
 from common.server import A2AServer
 from common.types import AgentCard, AgentSkill, AgentCapabilities
 from demos.a2a_llama_stack.A2ATool import A2ATool
-from demos.a2a_llama_stack.agent import random_number_tool
 from demos.a2a_llama_stack.task_manager import AgentTaskManager
 
 EXTERNAL_AGENT_LOCAL_PORT = 8080
