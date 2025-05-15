@@ -117,3 +117,7 @@ By exploring these notebooks in sequence, you can gain a comprehensive understan
 ## Demo Recordings
 
 - **MCP Multi-Tool Call Demo** - Watch this recorded demo showcasing the multi-tool call capabilities of MCP tools: https://youtu.be/aaxclldaVWw. The video walks through a query from the [Level 5 Agentic MCP notebook](notebooks/Level5_agents_and_mcp.ipynb), including step-by-step instructions for setting up a Slack app, configuring the Slack MCP server, and interacting with it in action.
+
+## Any Feedback?
+
+If you have any feedback on this demo series we'd love to hear it! Please go to https://www.feedback.redhat.com/jfe/form/SV_8pQsoy0U9Ccqsvk and help us improve our demos.
