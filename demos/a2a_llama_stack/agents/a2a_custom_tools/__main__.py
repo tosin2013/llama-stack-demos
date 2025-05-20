@@ -45,9 +45,9 @@ def build_server(host: str = "0.0.0.0", port: int = 10010):
             ),
         skills=[
             AgentSkill(
-                id="random_number_tool", 
-                name="Random Number Generator", 
-                description="Generates a random number between 1 and 100", 
+                id="random_number_tool",
+                name="Random Number Generator",
+                description="Generates a random number between 1 and 100",
                 tags=["random"],
                 examples=["Give me a random number between 1 and 100"],
                 inputModes=["text/plain"],
@@ -55,9 +55,9 @@ def build_server(host: str = "0.0.0.0", port: int = 10010):
                 ),
 
             AgentSkill(
-                id="date_tool", 
-                name="Date Provider", 
-                description="Returns today's date in YYYY-MM-DD format", 
+                id="date_tool",
+                name="Date Provider",
+                description="Returns today's date in YYYY-MM-DD format",
                 tags=["date"],
                 examples=["What's the date today?"],
                 inputModes=["text/plain"],

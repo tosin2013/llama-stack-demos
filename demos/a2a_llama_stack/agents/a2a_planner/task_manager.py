@@ -135,7 +135,7 @@ class AgentTaskManager(InMemoryTaskManager):
 
         # send it all as one user message (no 'system' role!)
         combined = plan_instructions + "\n\nUser question: " + question
-        
+
         # Send the plan instructions to the Agent
         turn_resp = self.agent.create_turn(
             messages=[{"role": "user", "content": combined}],
