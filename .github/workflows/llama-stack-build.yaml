@@ -7,6 +7,11 @@ on:
         required: true
         type: string
         default: '0.1.9'
+      external_provider:
+        description: 'Enable external providers directory'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   llama-stack-build:
@@ -41,6 +46,13 @@ jobs:
         with:
           repository: opendatahub-io/llama-stack-demos.git
           ref: main
+
+      - name: Modify build.yaml if external_provider is false
+        if: ${{ inputs.external_provider == false }}
+        run: |
+          cd distribution
+          # Comment out the external_providers_dir line
+          sed -i 's/^external_providers_dir: /#external_providers_dir: /' build.yaml
 
       - name: run llama stack build
         run: |
