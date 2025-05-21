@@ -12,7 +12,7 @@ distribution_spec:
     agents:
     - inline::meta-reference
     eval:
-    - remote::lmeval
+    - inline::meta-reference
     datasetio:
     - remote::huggingface
     - inline::localfs
