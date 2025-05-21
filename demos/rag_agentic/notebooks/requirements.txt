@@ -1,2 +1,2 @@
-llama-stack==0.2.6
+llama-stack==0.2.7
 geocoder
