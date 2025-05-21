@@ -54,7 +54,7 @@ jobs:
           export CONTAINER_BINARY=podman
           llama stack build --config build.yaml
 
-      - name: run llama stack build
+      - name: run llama stack build(with external)
         if: ${{ inputs.external_provider == true }}
         run: |
           cd distribution
