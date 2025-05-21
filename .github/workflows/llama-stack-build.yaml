@@ -47,22 +47,19 @@ jobs:
           repository: opendatahub-io/llama-stack-demos.git
           ref: main
 
-      - name: Modify build.yaml if external_provider is false
-        if: ${{ inputs.external_provider == false }}
-        run: |
-          cd distribution
-          # Comment out the external_providers_dir line
-          sed -i 's/^external_providers_dir: /#external_providers_dir: /' build.yaml
-          # Replace remote::lmeval with inline::meta-reference in the eval section
-          sed -i '/eval:/,/datasetio:/ s/remote::lmeval/inline::meta-reference/' build.yaml
-          # Comment out the remote::openai line
-          sed -i '/inference:/,/vector_io:/ s/    - remote::openai/    #- remote::openai/' build.yaml
-
       - name: run llama stack build
+        if: ${{ inputs.external_provider == false }}
         run: |
           cd distribution
           export CONTAINER_BINARY=podman
           llama stack build --config build.yaml
+
+      - name: run llama stack build
+        if: ${{ inputs.external_provider == true }}
+        run: |
+          cd distribution
+          export CONTAINER_BINARY=podman
+          llama stack build --config build-external-provider.yaml
 
       - name: tag the image (with external)
         if: ${{ inputs.external_provider == true }}
@@ -73,7 +70,7 @@ jobs:
         if: ${{ inputs.external_provider == true }}
         run: |
           podman push quay.io/redhat-et/llama:vllm-${{inputs.version}}-external
-          
+
       - name: tag the image (without external)
         if: ${{ inputs.external_provider == false }}
         run: |

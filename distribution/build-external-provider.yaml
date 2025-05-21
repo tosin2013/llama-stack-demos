@@ -4,6 +4,7 @@ distribution_spec:
   providers:
     inference:
     - remote::vllm
+    - remote::openai
     - inline::sentence-transformers
     vector_io:
     - inline::milvus
@@ -30,3 +31,4 @@ distribution_spec:
   container_image: "registry.access.redhat.com/ubi9"
 image_type: container
 image_name: llama-stack-demos
+external_providers_dir: ./providers.d
