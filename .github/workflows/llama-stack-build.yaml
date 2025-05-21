@@ -55,6 +55,8 @@ jobs:
           sed -i 's/^external_providers_dir: /#external_providers_dir: /' build.yaml
           # Replace remote::lmeval with inline::meta-reference in the eval section
           sed -i '/eval:/,/datasetio:/ s/remote::lmeval/inline::meta-reference/' build.yaml
+          # Comment out the remote::openai line
+          sed -i '/inference:/,/vector_io:/ s/    - remote::openai/    #- remote::openai/' build.yaml
 
       - name: run llama stack build
         run: |
@@ -62,10 +64,22 @@ jobs:
           export CONTAINER_BINARY=podman
           llama stack build --config build.yaml
 
-      - name: tag the image
+      - name: tag the image (with external)
+        if: ${{ inputs.external_provider == true }}
+        run: |
+          podman tag localhost/llama-stack-demos:${{inputs.version}} quay.io/redhat-et/llama:vllm-${{inputs.version}}-external
+
+      - name: push the image (with external)
+        if: ${{ inputs.external_provider == true }}
+        run: |
+          podman push quay.io/redhat-et/llama:vllm-${{inputs.version}}-external
+          
+      - name: tag the image (without external)
+        if: ${{ inputs.external_provider == false }}
         run: |
           podman tag localhost/llama-stack-demos:${{inputs.version}} quay.io/redhat-et/llama:vllm-${{inputs.version}}
 
-      - name: push the image
+      - name: push the image (without external)
+        if: ${{ inputs.external_provider == false }}
         run: |
           podman push quay.io/redhat-et/llama:vllm-${{inputs.version}}
