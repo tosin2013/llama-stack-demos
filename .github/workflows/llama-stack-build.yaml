@@ -52,6 +52,7 @@ jobs:
         run: |
           cd distribution
           export CONTAINER_BINARY=podman
+          mkdir -p /home/runner/.llama/providers.d
           llama stack build --config build.yaml
 
       - name: run llama stack build(with external)
