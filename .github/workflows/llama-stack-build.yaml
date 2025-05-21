@@ -53,6 +53,8 @@ jobs:
           cd distribution
           # Comment out the external_providers_dir line
           sed -i 's/^external_providers_dir: /#external_providers_dir: /' build.yaml
+          # Replace remote::lmeval with inline::meta-reference in the eval section
+          sed -i '/eval:/,/datasetio:/ s/remote::lmeval/inline::meta-reference/' build.yaml
 
       - name: run llama stack build
         run: |
