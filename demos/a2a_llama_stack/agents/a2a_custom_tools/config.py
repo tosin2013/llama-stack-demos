@@ -1,7 +1,5 @@
-# Updated import to use AgentTaskManager from the root a2a_llama_stack directory
 from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
 from .tools import random_number_tool, date_tool # Import tools
-# common.types.AgentSkill, AgentCapabilities are imported in generic_main
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -17,7 +15,7 @@ AGENT_CONFIG = {
         "max_infer_iters": 3,
         "sampling_params": None
     },
-    # Updated to use AgentTaskManager
+
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Custom Agent",

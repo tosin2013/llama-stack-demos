@@ -4,7 +4,6 @@ import importlib
 import click
 
 from llama_stack_client import LlamaStackClient, Agent
-# Assuming these are accessible from your project structure
 from common.server import A2AServer
 from common.types import AgentCard, AgentCapabilities, AgentSkill
 
@@ -22,7 +21,7 @@ def build_server(agent_name: str, host: str, port: int = None):
         logging.error(f"AGENT_CONFIG not found in {config_module_path}")
         raise
 
-    if port is None: # Use default from config if not overridden by CLI
+    if port is None:
         port = agent_config_data.get("default_port", 8000)
 
     agent_params_config = agent_config_data["agent_params"]
@@ -67,8 +66,8 @@ def build_server(agent_name: str, host: str, port: int = None):
 @click.option("--host", default="0.0.0.0", help="Host to bind the server to.")
 @click.option("--port", type=int, default=None, help="Port to bind the server to (overrides agent's default).")
 def main(agent_name, host, port):
-    effective_port = port # Will be replaced by default from config if None in build_server
-    if port is None: # For logging purposes, find the default port if not specified
+    effective_port = port
+    if port is None:
         try:
             config_module_path = f"agents.a2a_llama_stack.agents.{agent_name.replace('-', '_')}.config"
             config_module = importlib.import_module(config_module_path)

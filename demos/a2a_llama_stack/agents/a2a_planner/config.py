@@ -1,6 +1,4 @@
-# Updated import to use AgentTaskManager from the root a2a_llama_stack directory
 from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
-# common.types.AgentSkill, AgentCapabilities are imported in generic_main
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -14,7 +12,7 @@ AGENT_CONFIG = {
         },
         "tools": []
     },
-    # Updated to use AgentTaskManager
+
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Orchestration Agent",
