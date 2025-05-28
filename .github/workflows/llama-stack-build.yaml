@@ -120,7 +120,7 @@ jobs:
           cd distribution/remote-vllm-granite-embedding
           export CONTAINER_BINARY=podman
           mkdir -p /home/runner/.llama/providers.d
-          llama stack build --config
+          llama stack build --config build.yaml
 
       - name: tag the image
         run: |
