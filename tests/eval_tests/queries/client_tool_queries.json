@@ -1,0 +1,244 @@
+{
+  "queries": [
+    {
+      "query": "Convert 0 Celsius to Fahrenheit.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "What is 25 degrees Celsius in Fahrenheit?",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Transform 100 C to F.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Convert 37 Celsius to Fahrenheit.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "What's -10 Celsius in Fahrenheit?",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Change 20 degrees C to F.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Convert 0 degrees C to F.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "How many Fahrenheit degrees are in 5 Celsius?",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Celsius to Fahrenheit for 15.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Convert 30 degrees C to F.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "What is -40 C in F?",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Transform 2.5 C to F.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Convert 0.0 Celsius to Fahrenheit.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "What's the Fahrenheit equivalent of 22 C?",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Change 10 C to F.",
+      "tool_call": "convert_celsius_to_fahrenheit"
+    },
+    {
+      "query": "Convert 32 Fahrenheit to Celsius.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "What is 212 degrees Fahrenheit in Celsius?",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Transform 68 F to C.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Convert 98.6 Fahrenheit to Celsius.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "What's -4 F in Celsius?",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Change 50 degrees F to C.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Convert 0 degrees F to C.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "How many Celsius degrees are in 59 Fahrenheit?",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Fahrenheit to Celsius for 77.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Convert 86 degrees F to C.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "What is -40 F in C?",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Transform 41 F to C.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Convert 100.0 Fahrenheit to Celsius.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "What's the Celsius equivalent of 70 F?",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Change 20 F to C.",
+      "tool_call": "convert_fahrenheit_to_celsius"
+    },
+    {
+      "query": "Convert 0 Celsius to Kelvin.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "What is 25 degrees Celsius in Kelvin?",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Transform 100 C to K.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Convert -273.15 Celsius to Kelvin.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "What's 20 C in Kelvin?",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Change 37 degrees C to K.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Convert 0 degrees C to K.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "How many Kelvin degrees are in 5 Celsius?",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Celsius to Kelvin for 15.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Convert 30 degrees C to K.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "What is -40 C in K?",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Transform 2.5 C to K.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Convert 0.0 Celsius to Kelvin.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "What's the Kelvin equivalent of 22 C?",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Change 10 C to K.",
+      "tool_call": "celsius_to_kelvin"
+    },
+    {
+      "query": "Convert 32 Fahrenheit to Kelvin.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "What is 212 degrees Fahrenheit in Kelvin?",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Transform 68 F to K.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Convert 98.6 Fahrenheit to Kelvin.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "What's -4 F in Kelvin?",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Change 50 degrees F to K.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Convert 0 degrees F to K.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "How many Kelvin degrees are in 59 Fahrenheit?",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Fahrenheit to Kelvin for 77.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Convert 86 degrees F to K.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "What is -40 F in K?",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Transform 41 F to K.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Convert 100.0 Fahrenheit to Kelvin.",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "What's the Kelvin equivalent of 70 F?",
+      "tool_call": "fahrenheit_to_kelvin"
+    },
+    {
+      "query": "Change 20 F to K.",
+      "tool_call": "fahrenheit_to_kelvin"
+    }
+  ]
+}

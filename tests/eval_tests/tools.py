@@ -163,26 +163,6 @@ def concatenate_strings(s1: str, s2: str) -> str:
     return s1 + s2
 
 @client_tool
-def convert_celsius_to_fahrenheit(celsius: float) -> float:
-    """
-    :description: Converts temperature from Celsius to Fahrenheit.
-    :use_case: Use when the user specifies "Celsius to Fahrenheit conversion" or similar temperature unit changes.
-    :param celsius: The temperature in Celsius.
-    :returns: The temperature converted to Fahrenheit.
-    """
-    return (celsius * 9/5) + 32
-
-@client_tool
-def convert_fahrenheit_to_celsius(fahrenheit: float) -> float:
-    """
-    :description: Converts temperature from Fahrenheit to Celsius.
-    :use_case: Use when the user specifies "Fahrenheit to Celsius conversion" or similar temperature unit changes.
-    :param fahrenheit: The temperature in Fahrenheit.
-    :returns: The temperature converted to Celsius.
-    """
-    return (fahrenheit - 32) * 5/9
-
-@client_tool
 def is_palindrome(text: str) -> bool:
     """
     :description: Checks if a string is a palindrome.
@@ -272,24 +252,48 @@ def remove_whitespace(text: str) -> str:
     return "".join(text.split())
 
 @client_tool
-def celsius_to_kelvin(celsius: float) -> float:
-    """
+def convert_celsius_to_kelvin(celsius: float) -> float:
+    """"
     :description: Converts temperature from Celsius to Kelvin.
-    :use_case: Use when the user specifies "Celsius to Kelvin conversion" for temperature.
+    :use_case: Use this tool when the user explicitly asks to convert a temperature FROM Celsius TO Kelvin.
+    Look for keywords like 'Celsius to Kelvin', 'C to K', or 'convert NUM C to K'.
     :param celsius: The temperature in Celsius.
     :returns: The temperature converted to Kelvin.
     """
     return celsius + 273.15
 
 @client_tool
-def fahrenheit_to_kelvin(fahrenheit: float) -> float:
-    """
+def convert_fahrenheit_to_kelvin(fahrenheit: float) -> float:
+    """"
     :description: Converts temperature from Fahrenheit to Kelvin.
-    :use_case: Use when the user specifies "Fahrenheit to Kelvin conversion" for temperature.
+    :use_case: Use this tool when the user explicitly asks to convert a temperature FROM Fahrenheit TO Kelvin.
+    Look for keywords like 'Fahrenheit to Kelvin', 'F to K', or 'convert NUM F to K'.
     :param fahrenheit: The temperature in Fahrenheit.
     :returns: The temperature converted to Kelvin.
     """
     return (fahrenheit - 32) * 5/9 + 273.15
+
+@client_tool
+def convert_celsius_to_fahrenheit(celsius: float) -> float:
+    """
+    :description: Converts temperature from Celsius to Fahrenheit.
+    :use_case: Use this tool when the user explicitly asks to convert a temperature FROM Celsius TO Fahrenheit. Look
+    for keywords like 'Celsius in Fahrenheit', 'C to F', or 'convert NUM C to F'.
+    :param celsius: The temperature in Celsius.
+    :returns: The temperature converted to Fahrenheit.
+    """
+    return (celsius * 9/5) + 32
+
+@client_tool
+def convert_fahrenheit_to_celsius(fahrenheit: float) -> float:
+    """
+    :description: Converts temperature from Fahrenheit to Celsius.
+    :use_case: Use this tool when the user explicitly asks to convert a temperature FROM Fahrenheit TO Celsius. Look
+    for keywords like 'Fahrenheit to Celsius', 'F to C', or 'convert NUM F to C'.
+    :param fahrenheit: The temperature in Fahrenheit.
+    :returns: The temperature converted to Celsius.
+    """
+    return (fahrenheit - 32) * 5/9
 
 @client_tool
 def get_substring(text: str, start_index: int, end_index: int) -> str:
