@@ -204,9 +204,6 @@ With the agent server(s) operational, you can now use a client application to di
     ```bash
     # Navigate to the client script directory:
     cd a2a-samples/samples/python
-
-    # Install required packages:
-    uv pip install asyncclick
     ```
 
 2.  **Navigate to the client script directory:**
