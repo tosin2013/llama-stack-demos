@@ -13,7 +13,10 @@ AGENT_CONFIG = {
         ),
         "tools": [random_number_tool, date_tool],
         "max_infer_iters": 3,
-        "sampling_params": {"max_tokens": 4096}
+        "sampling_params": {
+            "strategy": {"type": "greedy"},
+            "max_tokens": 4096,
+        },
     },
 
     "task_manager_class": AgentTaskManager,
