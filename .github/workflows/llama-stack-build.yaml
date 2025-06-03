@@ -81,3 +81,51 @@ jobs:
         if: ${{ inputs.external_provider == false }}
         run: |
           podman push quay.io/redhat-et/llama:vllm-${{inputs.version}}
+
+  granite-llama-stack-build:
+    runs-on: ubuntu-latest
+    environment: ci
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+           ref: v${{ inputs.version }}
+           repository: meta-llama/llama-stack.git
+
+      - name: python deps
+        run: |
+           sudo apt-get update
+           sudo apt-get install -y python3-pip
+
+      - name: login to quay.io
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Install repo packages
+        run: |
+          pip install -U .
+          cd ..
+
+      - name: clone the llama stack demo repo
+        uses: actions/checkout@v4
+        with:
+          repository: opendatahub-io/llama-stack-demos.git
+          ref: main
+
+      - name: run llama stack build
+        run: |
+          cd distribution/remote-vllm-granite-embedding
+          export CONTAINER_BINARY=podman
+          mkdir -p /home/runner/.llama/providers.d
+          llama stack build --config build.yaml
+
+      - name: tag the image
+        run: |
+          podman tag localhost/llama-stack-demos:${{inputs.version}} quay.io/redhat-et/llama:vllm-milvus-granite-${{inputs.version}}
+
+      - name: push the image
+        run: |
+          podman push quay.io/redhat-et/llama:vllm-milvus-granite-${{inputs.version}}
