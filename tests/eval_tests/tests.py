@@ -7,7 +7,7 @@ from typing import Dict, List, Any, Optional, Union
 from dotenv import load_dotenv
 from llama_stack_client import LlamaStackClient
 from llama_stack_client.lib.agents.agent import Agent
-import tools as tool
+from tools import tools
 
 # Load environment variables
 load_dotenv()
@@ -121,6 +121,7 @@ def execute_query(
         sampling_params={"max_tokens": max_tokens}
     )
 
+    # Create session
     session_id = agent.create_session(session_name=f"Test_{int(time.time())}")
     print(f"Created session_id={session_id} for Agent({agent.agent_id})" if not all(isinstance(t, str) for t in tools) else "")
 
@@ -223,53 +224,44 @@ def run_mcp_test(server_type, model, query_obj, llama_client, logger):
         return False
 
 def run_client_tool_test(model, query_obj, llama_client, logger):
-    """Run a single test for a specific server type, model, and query."""
+    """Run a single test for a specific model and query."""
     query_id = get_query_id(query_obj)
     prompt = query_obj['query']
     expected_tool_call = query_obj['tool_call']
 
-    tools = [
-        tool.add_two_numbers,
-        tool.subtract_two_numbers,
-        tool.multiply_two_numbers,
-        tool.divide_two_numbers,
-        tool.get_current_date,
-        tool.greet_user,
-        tool.string_length,
-        tool.to_uppercase,
-        tool.to_lowercase,
-        tool.reverse_string,
-        tool.is_even,
-        tool.is_odd,
-        tool.get_max_of_two,
-        tool.get_min_of_two,
-        tool.concatenate_strings,
-        tool.is_palindrome,
-        tool.calculate_square_root,
-        tool.power,
-        tool.get_day_of_week,
-        tool.email_validator,
-        tool.count_words,
-        tool.average_two_numbers,
-        tool.remove_whitespace,
-        tool.convert_celsius_to_fahrenheit,
-        tool.convert_fahrenheit_to_celsius,
-        tool.convert_celsius_to_kelvin,
-        tool.convert_fahrenheit_to_kelvin,
-        tool.get_substring,
-        tool.round_number,
-        tool.is_leap_year,
-        tool.generate_random_integer,
-        tool.get_file_extension,
-        # tool.replace_substring,
-        # tool.is_prime,
-        # tool.calculate_bmi,
-        # tool.convert_kilograms_to_pounds,
-        # tool.convert_pounds_to_kilograms,
-        # tool.convert_feet_to_meters,
-        # tool.is_alphanumeric,
-        # tool.url_encode,
-        # tool.url_decode
+    tool_list = [
+        tools.add_two_numbers,
+        tools.subtract_two_numbers,
+        tools.multiply_two_numbers,
+        tools.divide_two_numbers,
+        tools.get_current_date,
+        tools.greet_user,
+        tools.string_length,
+        tools.to_uppercase,
+        tools.to_lowercase,
+        tools.reverse_string,
+        tools.is_even,
+        tools.is_odd,
+        tools.get_max_of_two,
+        tools.get_min_of_two,
+        tools.concatenate_strings,
+        tools.is_palindrome,
+        tools.calculate_square_root,
+        tools.power,
+        tools.get_day_of_week,
+        tools.email_validator,
+        tools.count_words,
+        tools.average_two_numbers,
+        tools.remove_whitespace,
+        tools.convert_celsius_to_fahrenheit,
+        tools.convert_fahrenheit_to_celsius,
+        tools.convert_celsius_to_kelvin,
+        tools.convert_fahrenheit_to_kelvin,
+        tools.get_substring,
+        tools.round_number,
+        tools.is_leap_year,
+        tools.generate_random_integer,
+        tools.get_file_extension,
     ]
 
     logger.info(f"Testing query '{query_id}' with model {model}")
@@ -280,7 +272,7 @@ def run_client_tool_test(model, query_obj, llama_client, logger):
             client=llama_client,
             prompt=prompt,
             model=model,
-            tools=tools,
+            tools=tool_list,
         )
         # Get Tool execution and Inference steps
         steps = response.steps
@@ -306,7 +298,7 @@ def run_client_tool_test(model, query_obj, llama_client, logger):
         logger.info(f"Query '{query_id}' succeeded with model {model} and the response \n {final_response}")
 
         # Record success metrics, including the expected_tool_call
-        utils.add_client_tool_call_metric(
+        utils.add_metric(
             model=model,
             query_id=query_id,
             status="SUCCESS",
@@ -322,7 +314,7 @@ def run_client_tool_test(model, query_obj, llama_client, logger):
         logger.error(f"Query '{query_id}' failed with model {model}: {error_msg}")
 
         # Record failure metrics
-        utils.add_client_tool_call_metric(
+        utils.add_metric(
             model=model,
             query_id=query_id,
             status="FAILURE",
@@ -349,7 +341,7 @@ def main():
 
     # Define models to test
     # make sure they are available in your LLS server
-    models = ["llama32-3b",
+    models = ["meta-llama/Llama-3.2-3B-Instruct",
               "ibm-granite/granite-3.2-8b-instruct",]
             #   "watt-ai/watt-tool-8B",
             #   "meta-llama/Llama-3.3-70B-Instruct"]
@@ -389,7 +381,7 @@ def main():
             queries = load_queries(client_tool_queries)
 
             if not queries:
-                logger.info(f"No queries found")
+                logger.info(f"No queries found in {client_tool_queries}")
                 continue
 
             for query_obj in queries:
@@ -409,7 +401,8 @@ def main():
 
     # Generate plots
     logger.info(f"\n=== Generating plots ===")
-    utils.get_analysis_plots(per_tool_plot=True)
+    utils.get_analysis_plots('./results/metrics.csv')
+    utils.get_analysis_plots('./results/client_tool_metrics.csv')
 
 
 if __name__ == "__main__":
