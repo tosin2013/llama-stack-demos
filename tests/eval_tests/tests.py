@@ -112,6 +112,7 @@ def execute_query(
             When you are asked to search the web you must use a tool. Keep answers concise.
             """
 
+    # Create agent with tools
     agent = Agent(
         client,
         model=model,
