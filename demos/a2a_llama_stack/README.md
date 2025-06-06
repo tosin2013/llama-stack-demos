@@ -19,7 +19,7 @@ By completing this guide, you will accomplish the following:
 ## Prerequisites
 
 Before commencing, please ensure the following components are installed and accessible:
-* **Python 3.8 or newer**
+* **Python 3.11 or newer**
 * **`pip`** (Python package manager)
 * A **Llama Stack** inference server, running and reachable from your machine.
 
