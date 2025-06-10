@@ -32,6 +32,7 @@ spec:
           echo "Copying notebooks to persistent storage..."
           mkdir -p /workspace/
           cp -r /tmp/repo/demos/rag_agentic/notebooks/* /workspace/
+          cp -r /tmp/repo/demos/rag_agentic/lab-container/requirements.txt /workspace/
           mkdir /workspace/src
           mkdir /workspace/images
           cp -r /tmp/repo/demos/rag_agentic/src/utils.py /workspace/src/
