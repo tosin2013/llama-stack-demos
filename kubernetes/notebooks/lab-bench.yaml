@@ -3,11 +3,11 @@ kind: Notebook
 metadata:
   annotations:
     notebooks.opendatahub.io/inject-oauth: "true"
-    notebooks.opendatahub.io/last-image-selection: s2i-generic-data-science-notebook:2025.1
     notebooks.opendatahub.io/last-size-selection: Small
+    notebooks.opendatahub.io/last-image-selection: quay.io/redhat-et/lab:6-10-2025
     opendatahub.io/accelerator-name: ""
     opendatahub.io/hardware-profile-name: ""
-    opendatahub.io/image-display-name: Standard Data Science
+    opendatahub.io/image-display-name: Custom ET image
     openshift.io/description: ""
     openshift.io/display-name: lab
     argocd.argoproj.io/sync-wave: "5"
@@ -32,6 +32,7 @@ spec:
           echo "Copying notebooks to persistent storage..."
           mkdir -p /workspace/
           cp -r /tmp/repo/demos/rag_agentic/notebooks/* /workspace/
+          cp -r /tmp/repo/demos/rag_agentic/lab-container/requirements.txt /workspace/
           mkdir /workspace/src
           mkdir /workspace/images
           cp -r /tmp/repo/demos/rag_agentic/src/utils.py /workspace/src/
@@ -64,7 +65,7 @@ spec:
           value: /etc/pki/tls/custom-certs/ca-bundle.crt
         - name: JUPYTER_CONFIG_DATA
           value: '{"FileContentsManager": {"list_hidden": true}}'
-        image: s2i-generic-data-science-notebook:2025.1
+        image: quay.io/redhat-et/lab:6-10-2025
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3
