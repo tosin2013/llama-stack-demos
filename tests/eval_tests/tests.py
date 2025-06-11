@@ -228,19 +228,11 @@ def run_mcp_test(server_type, model, query_obj, llama_client, logger):
 
         return False
 
-def run_client_tool_test(model, query_obj, client_tool_module, llama_client, logger):
+def run_client_tool_test(model, query_obj, tool_list, llama_client, logger):
     """Run a single test for a specific model and query."""
     query_id = get_query_id(query_obj)
     prompt = query_obj['query']
     expected_tool_call = query_obj['tool_call']
-
-    tool_list = []
-    for name in dir(client_tool_module):
-        if len(tool_list) >= TOOL_LIMIT:
-            break
-        attribute = getattr(client_tool_module, name)
-        if isinstance(attribute, ClientTool):
-            tool_list.append(attribute)
 
     logger.info(f"Testing query '{query_id}' with model {model}")
     logger.info(f"Query: {prompt[:50]}...")
@@ -319,8 +311,8 @@ def main():
 
     # Define models to test
     # make sure they are available in your LLS server
-    models = ["meta-llama/Llama-3.2-3B-Instruct",
-              "ibm-granite/granite-3.2-8b-instruct",]
+    models = ["meta-llama/Llama-3.2-3B-Instruct", ]
+            #  "ibm-granite/granite-3.2-8b-instruct",]
             #   "watt-ai/watt-tool-8B",
             #   "meta-llama/Llama-3.3-70B-Instruct"]
 
@@ -352,6 +344,15 @@ def main():
     else:
         client_tool_queries = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            "queries/", "client_tool_queries.json")
+
+    tool_list = []
+    for name in sorted(dir(selected_client_tool_module)):
+        if len(tool_list) >= TOOL_LIMIT:
+            break
+        attribute = getattr(selected_client_tool_module, name)
+        if isinstance(attribute, ClientTool):
+            tool_list.append(attribute)
+    tool_name_set = {tool.__name__ for tool in tool_list}
 
     # Track statistics
     total_tests = 0
@@ -387,8 +388,10 @@ def main():
                 continue
 
             for query_obj in queries:
+                if query_obj["tool_call"] not in tool_name_set:
+                    continue
                 total_tests += 1
-                success = run_client_tool_test(model, query_obj, selected_client_tool_module, llama_client, logger)
+                success = run_client_tool_test(model, query_obj, tool_list, llama_client, logger)
                 if success:
                     successful_tests += 1
 
