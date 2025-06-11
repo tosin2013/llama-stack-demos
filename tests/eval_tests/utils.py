@@ -128,7 +128,6 @@ def save_plot(fig, filename, dpi=300, bbox_inches='tight'):
     if not filename.lower().endswith(('.jpg', '.jpeg')):
         filename += '.jpg'
     filename = filename.replace(" ", "_")
-    filename = filename.replace("/", "_")
 
     full_path = os.path.join(results_dir, filename)
     fig.savefig(full_path, format='jpeg', dpi=dpi, bbox_inches=bbox_inches)
@@ -234,7 +233,7 @@ def get_analysis_plots(metric_file: str):
             df=df,
             column_name='tool_call_match',
             group_by_column='expected_tool_call',
-            title='Tool Call Match Per Function/Tool',
+            title='Tool Call Match Per Client Tool',
             fig=None,
             ax=None,
             save_filename=True,
@@ -243,7 +242,7 @@ def get_analysis_plots(metric_file: str):
             df=df,
             column_name='inference_not_empty',
             group_by_column='expected_tool_call',
-            title='Inference Not Empty Per Function/Tool',
+            title='Inference Not Empty Per Client Tool',
             fig=None,
             ax=None,
             save_filename=True,
