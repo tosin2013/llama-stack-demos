@@ -51,8 +51,9 @@ jobs:
         run: |
           oc rollout status deployment/llamastack-deployment -n lab-test
 
-      - name: wait for lab pod to be ready
+      - name: wait for lab pod to be created then wait for it to be ready
         run: |
+          timeout 300 bash -c 'while ! kubectl get pod lab >/dev/null 2>&1; do echo "Waiting for pod lab to be created..."; sleep 5; done' && echo "Pod lab created!" || (echo "Timeout waiting for pod creation" && exit 1)
           oc wait --for=condition=Ready pod -l app=lab -n lab-test --timeout=300s
 
       - name: exec into the lab-0 pod and run sed
