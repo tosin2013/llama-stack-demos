@@ -6,12 +6,14 @@ on:
     - 'kubernetes/llama-stack/**'
     - 'kubernetes/notebooks/**'
     - 'demos/rag_agentic/**'
+    - 'kubernetes/kustomize/**'
   pull_request_target:
     branches: [ main ]
     paths:
     - 'kubernetes/llama-stack/**'
     - 'kubernetes/notebooks/**'
     - 'demos/rag_agentic/**'
+    - 'kubernetes/kustomize/**'
 jobs:
   lab-test:
     runs-on: ubuntu-latest
