@@ -2,16 +2,16 @@ name: Lab test
 on:
   push:
     branches: [ main ]
-  #  paths:
-  #  - 'kubernetes/llama-stack/**'
-  #  - 'kubernetes/notebooks/**'
-  #  - 'demos/rag_agentic/**'
-  pull_request:
+    paths:
+    - 'kubernetes/llama-stack/**'
+    - 'kubernetes/notebooks/**'
+    - 'demos/rag_agentic/**'
+  pull_request_target:
     branches: [ main ]
-  #  paths:
-  #  - 'kubernetes/llama-stack/**'
-  #  - 'kubernetes/notebooks/**'
-  #  - 'demos/rag_agentic/**'
+    paths:
+    - 'kubernetes/llama-stack/**'
+    - 'kubernetes/notebooks/**'
+    - 'demos/rag_agentic/**'
 jobs:
   lab-test:
     runs-on: ubuntu-latest
@@ -43,7 +43,7 @@ jobs:
 
       - name: deploy components
         run: |
-          oc apply -k kubernetes/kustomize/overlay/demo -n lab-test
+          oc apply -k kubernetes/kustomize/overlay/ci -n lab-test
 
       - name: wait for deployment
         run: |
