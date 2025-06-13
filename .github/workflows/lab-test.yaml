@@ -22,9 +22,10 @@ jobs:
 
       - name: install oc client
         run: |
-          curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/oc/latest/openshift-client-linux.tar.gz
-          tar -xvf openshift-client-linux.tar.gz
-          sudo mv oc kubectl /usr/local/bin/
+          curl -LO https://downloads-openshift-console.apps.ocp-beta-test.nerc.mghpcc.org/amd64/linux/oc.tar
+          tar -xvf oc.tar
+          sudo mv oc /usr/local/bin/
+          sudo chmod +x /usr/local/bin/oc
 
       - name: Login to OpenShift
         uses: redhat-actions/oc-login@v1
@@ -38,7 +39,7 @@ jobs:
 
       - name: deploy components
         run: |
-          oc apply -k kubernetes/kustomize/overlays/demo -n lab-test
+          oc apply -k kubernetes/kustomize/overlay/demo -n lab-test
 
       - name: wait for deployment
         run: |
