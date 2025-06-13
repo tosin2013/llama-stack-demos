@@ -7,7 +7,7 @@ on:
     - 'kubernetes/notebooks/**'
     - 'demos/rag_agentic/**'
     - 'kubernetes/kustomize/**'
-  pull_request_target:
+  pull_request:
     branches: [ main ]
     paths:
     - 'kubernetes/llama-stack/**'
