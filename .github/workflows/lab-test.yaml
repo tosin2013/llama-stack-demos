@@ -37,6 +37,10 @@ jobs:
         run: |
           oc new-project lab-test
 
+      - name: create slack secret
+        run: |
+          oc create secret generic slack-secret --from-literal=slack-team-id=${{ secrets.SLACK_TEAM_ID }} --from-literal=slack-bot-token=${{ secrets.SLACK_BOT_TOKEN }} -n lab-test
+
       - name: deploy components
         run: |
           oc apply -k kubernetes/kustomize/overlay/demo -n lab-test
