@@ -53,14 +53,9 @@ jobs:
 
       - name: wait for lab pod to be created then wait for it to be ready
         run: |
-          timeout 300 bash -c 'while ! kubectl get pod lab >/dev/null 2>&1; do echo "Waiting for pod lab to be created..."; sleep 5; done' && echo "Pod lab created!" || (echo "Timeout waiting for pod creation" && exit 1)
+          timeout 300 bash -c 'while ! oc get pod lab >/dev/null 2>&1; do echo "Waiting for pod lab to be created..."; sleep 5; done' && echo "Pod lab created!" || (echo "Timeout waiting for pod creation" && exit 1)
           oc wait --for=condition=Ready pod -l app=lab -n lab-test --timeout=300s
 
       - name: exec into the lab-0 pod and run sed
         run: |
           oc exec $(oc get pods -l app=lab -n lab-test -o jsonpath='{.items[0].metadata.name}') -- sed -i 's/TAVILY_SEARCH_API_KEY= ""/TAVILY_SEARCH_API_KEY= ${{ secrets.TAVILY }}/g' .env
-
- #     - name: delete project
- #       if: always()
- #       run: |
- #         oc delete project lab-test
