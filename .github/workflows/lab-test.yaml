@@ -55,7 +55,7 @@ jobs:
 
       - name: exec into the lab-0 pod and run sed
         run: |
-          oc exec -it $(oc get pods -l app=lab -n lab-test -o jsonpath='{.items[0].metadata.name}') -- sed -i 's/TAVILY_SEARCH_API_KEY=""/TAVILY_SEARCH_API_KEY=${{ secrets.TAVILY }}/g' .env
+          oc exec $(oc get pods -l app=lab -n lab-test -o jsonpath='{.items[0].metadata.name}') -- sed -i 's/TAVILY_SEARCH_API_KEY=""/TAVILY_SEARCH_API_KEY=${{ secrets.TAVILY }}/g' .env
 
       - name: delete project
         if: always()
