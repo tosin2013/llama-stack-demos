@@ -7,7 +7,7 @@ on:
     - 'kubernetes/notebooks/**'
     - 'demos/rag_agentic/**'
     - 'kubernetes/kustomize/**'
-  pull_request_target:
+  pull_request:
     branches: [ main ]
     paths:
     - 'kubernetes/llama-stack/**'
@@ -39,6 +39,10 @@ jobs:
         run: |
           oc new-project lab-test
 
+      - name: annotate the namespace with member of istio
+        run: |
+          oc annotate namespace lab-test maistra.io/member-of=istio-system
+
       - name: create slack secret
         run: |
           oc create secret generic slack-secret --from-literal=slack-team-id=${{ secrets.SLACK_TEAM_ID }} --from-literal=slack-bot-token=${{ secrets.SLACK_BOT_TOKEN }} -n lab-test
@@ -51,8 +55,9 @@ jobs:
         run: |
           oc rollout status deployment/llamastack-deployment -n lab-test
 
-      - name: wait for lab pod to be ready
+      - name: wait for lab pod to be created then wait for it to be ready
         run: |
+          timeout 300 bash -c 'while ! oc get pod lab-0 >/dev/null 2>&1; do echo "Waiting for pod lab to be created..."; sleep 5; done' && echo "Pod lab created!" || (echo "Timeout waiting for pod creation" && exit 1)
           oc wait --for=condition=Ready pod -l app=lab -n lab-test --timeout=300s
 
       - name: exec into the lab-0 pod and run sed
