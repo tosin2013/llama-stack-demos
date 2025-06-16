@@ -41,7 +41,7 @@ jobs:
 
       - name: annotate the namespace with member of istio
         run: |
-          oc annotate namespace lab-test "maistra.io/member-of: istio-system" --overwrite
+          oc annotate namespace lab-test maistra.io/member-of=istio-system
 
       - name: create slack secret
         run: |
