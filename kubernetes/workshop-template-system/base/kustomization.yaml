@@ -19,6 +19,7 @@ resources:
   - workshops-route.yaml
   - buildconfigs.yaml
   - imagestreams.yaml
+  - workshop-system-buildconfig.yaml
 
 # Common labels applied to all resources
 labels:

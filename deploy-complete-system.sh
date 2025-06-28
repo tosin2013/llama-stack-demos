@@ -168,6 +168,29 @@ import_workshop_repositories() {
     print_status "  - Healthcare ML: Will be created by agents from https://github.com/tosin2013/healthcare-ml-genetic-predictor.git"
 }
 
+# Build agent container images
+build_agent_images() {
+    print_status "Building Workshop Template System agent images..."
+
+    # Check if workshop-system BuildConfig exists
+    if ! oc get buildconfig workshop-system-build -n ${NAMESPACE} &>/dev/null; then
+        print_status "Creating workshop-system BuildConfig..."
+        oc apply -f kubernetes/workshop-template-system/base/workshop-system-buildconfig.yaml
+    fi
+
+    # Start the build for agent images
+    print_status "Starting workshop-system agent image build..."
+    oc start-build workshop-system-build -n ${NAMESPACE} --wait --follow
+
+    # Verify the image was built successfully
+    if oc get imagestream workshop-agent-system -n ${NAMESPACE} -o jsonpath='{.status.tags[0].tag}' &>/dev/null; then
+        print_success "Workshop agent system image built successfully"
+    else
+        print_error "Failed to build workshop agent system image"
+        exit 1
+    fi
+}
+
 # Deploy Workshop Template System using Kustomize
 deploy_workshop_system() {
     print_status "Deploying Workshop Template System using Kustomize..."
@@ -182,7 +205,16 @@ deploy_workshop_system() {
     print_status "Applying Workshop Template System configuration..."
     oc apply -k kubernetes/workshop-template-system/base/
 
-    # Wait for agents to be ready
+    # Build agent images before waiting for deployments
+    build_agent_images
+
+    # Wait for infrastructure to be ready first
+    print_status "Waiting for infrastructure components..."
+    oc rollout status deployment milvus -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment minio -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment etcd -n ${NAMESPACE} --timeout=300s
+
+    # Wait for agents to be ready (they should start after images are built)
     print_status "Waiting for agents to be ready..."
     oc rollout status deployment workshop-chat-agent -n ${NAMESPACE} --timeout=300s
     oc rollout status deployment template-converter-agent -n ${NAMESPACE} --timeout=300s
@@ -190,12 +222,6 @@ deploy_workshop_system() {
     oc rollout status deployment source-manager-agent -n ${NAMESPACE} --timeout=300s
     oc rollout status deployment research-validation-agent -n ${NAMESPACE} --timeout=300s
     oc rollout status deployment documentation-pipeline-agent -n ${NAMESPACE} --timeout=300s
-
-    # Wait for infrastructure to be ready
-    print_status "Waiting for infrastructure components..."
-    oc rollout status deployment milvus -n ${NAMESPACE} --timeout=300s
-    oc rollout status deployment minio -n ${NAMESPACE} --timeout=300s
-    oc rollout status deployment etcd -n ${NAMESPACE} --timeout=300s
 
     print_success "Workshop Template System deployed successfully"
 }
@@ -218,6 +244,24 @@ update_buildconfig_urls() {
 
     print_success "BuildConfig URLs updated for Gitea integration"
     print_status "BuildConfigs will be deployed by Kustomize with correct repository URLs"
+}
+
+# Trigger workshop builds if repositories are available
+trigger_workshop_builds() {
+    print_status "Checking and triggering workshop builds..."
+
+    # Check if workshop BuildConfigs exist and trigger builds
+    if oc get buildconfig openshift-baremetal-workshop-build -n ${NAMESPACE} &>/dev/null; then
+        print_status "Triggering OpenShift Bare Metal workshop build..."
+        oc start-build openshift-baremetal-workshop-build -n ${NAMESPACE} || print_warning "OpenShift Bare Metal workshop build failed to start (repository may not be ready)"
+    fi
+
+    if oc get buildconfig healthcare-ml-workshop-build -n ${NAMESPACE} &>/dev/null; then
+        print_status "Triggering Healthcare ML workshop build..."
+        oc start-build healthcare-ml-workshop-build -n ${NAMESPACE} || print_warning "Healthcare ML workshop build failed to start (repository may not be ready)"
+    fi
+
+    print_status "Workshop builds triggered (they will complete when repositories are available)"
 }
 
 # Configure agent workflows for workshop processing
@@ -323,6 +367,9 @@ deploy_complete_system() {
 
     # BuildConfigs are managed by Kustomize in kubernetes/workshop-template-system/base/buildconfigs.yaml
 
+    # Trigger workshop builds
+    trigger_workshop_builds
+
     # Configure agent workflows
     configure_agent_workflows
 
@@ -367,7 +414,11 @@ show_complete_deployment_info() {
     oc get pods -n ${NAMESPACE} -l 'app in (milvus,minio,etcd)'
 
     echo ""
-    echo "📋 Workshop Processing Workflows:"
+    echo "� Build Status:"
+    oc get builds -n ${NAMESPACE} 2>/dev/null || echo "No builds found"
+
+    echo ""
+    echo "�📋 Workshop Processing Workflows:"
     echo "================================="
     echo ""
     echo "🎯 Workflow 1: Repository-Based Workshop Creation"

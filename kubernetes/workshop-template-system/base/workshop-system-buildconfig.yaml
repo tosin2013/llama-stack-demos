@@ -1,0 +1,45 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: workshop-system-build
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    build: agent-system
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/tosin2013/llama-stack-demos.git
+      ref: main
+    contextDir: /
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: kubernetes/workshop-template-system/Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: workshop-agent-system:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: workshop-webhook-secret
+  - type: Generic
+    generic:
+      secret: workshop-webhook-secret
+  - type: ImageChange
+    imageChange: {}
+
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: workshop-agent-system
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+spec:
+  lookupPolicy:
+    local: false
