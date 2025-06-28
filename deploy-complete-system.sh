@@ -55,27 +55,63 @@ check_prerequisites() {
     print_success "Prerequisites check passed"
 }
 
+# Check if Gitea is already deployed
+check_gitea_status() {
+    print_status "Checking Gitea deployment status..."
+
+    if oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} &>/dev/null; then
+        GITEA_STATUS=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.status.adminSetupComplete}' 2>/dev/null || echo "false")
+        if [ "$GITEA_STATUS" = "true" ]; then
+            print_success "Gitea is already deployed and ready"
+            return 0
+        else
+            print_warning "Gitea exists but is not ready yet"
+            return 1
+        fi
+    else
+        print_status "Gitea not found, will deploy"
+        return 1
+    fi
+}
+
 # Deploy Gitea
 deploy_gitea() {
     print_status "Deploying Gitea Git server..."
-    
-    # Download and run Gitea deployment script
-    curl -OL https://raw.githubusercontent.com/tosin2013/openshift-demos/master/quick-scripts/deploy-gitea.sh
-    chmod +x deploy-gitea.sh
-    
-    print_status "Running Gitea deployment script..."
-    ./deploy-gitea.sh
-    
-    # Wait for Gitea to be ready
-    print_status "Waiting for Gitea to be ready..."
-    sleep 30
-    
-    # Get Gitea URL
-    GITEA_URL=$(oc get route gitea -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
-    
-    print_success "Gitea deployed successfully"
+
+    # Check if Gitea is already deployed
+    if check_gitea_status; then
+        print_status "Skipping Gitea deployment - already exists and ready"
+    else
+        # Download and run Gitea deployment script
+        print_status "Downloading Gitea deployment script..."
+        curl -OL https://raw.githubusercontent.com/tosin2013/openshift-demos/master/quick-scripts/deploy-gitea.sh
+        chmod +x deploy-gitea.sh
+
+        print_status "Running Gitea deployment script..."
+        ./deploy-gitea.sh
+
+        # Wait for Gitea to be ready
+        print_status "Waiting for Gitea to be ready..."
+        for i in {1..12}; do
+            if check_gitea_status; then
+                break
+            fi
+            print_status "Waiting for Gitea setup to complete... (${i}/12)"
+            sleep 30
+        done
+
+        if ! check_gitea_status; then
+            print_error "Gitea deployment failed or timed out"
+            exit 1
+        fi
+    fi
+
+    # Get final Gitea URL
+    GITEA_URL=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.status.giteaHostname}' 2>/dev/null || echo "gitea.apps.cluster.local")
+
+    print_success "Gitea is ready"
     print_status "Gitea URL: https://${GITEA_URL}"
-    
+
     # Import workshop repositories into Gitea
     import_workshop_repositories
 }
@@ -84,13 +120,20 @@ deploy_gitea() {
 import_workshop_repositories() {
     print_status "Importing workshop repositories into Gitea..."
 
-    # Get Gitea URL and credentials
-    GITEA_URL=$(oc get route gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
-    GITEA_ADMIN_USER="gitea"
-    GITEA_ADMIN_PASSWORD="openshift"
+    # Get Gitea URL and credentials from OpenShift
+    GITEA_URL=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.status.giteaHostname}' 2>/dev/null || echo "gitea.apps.cluster.local")
+    GITEA_ADMIN_USER=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.giteaAdminUser}' 2>/dev/null || echo "opentlc-mgr")
+    GITEA_ADMIN_PASSWORD=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.status.adminPassword}' 2>/dev/null || echo "")
+
+    if [ -z "$GITEA_ADMIN_PASSWORD" ]; then
+        print_error "Could not retrieve Gitea admin password from OpenShift"
+        print_status "Please check if Gitea is properly deployed: oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE}"
+        exit 1
+    fi
 
     print_status "Gitea URL: https://${GITEA_URL}"
-    print_status "Admin credentials: ${GITEA_ADMIN_USER}/${GITEA_ADMIN_PASSWORD}"
+    print_status "Admin user: ${GITEA_ADMIN_USER}"
+    print_status "Admin password: [Retrieved from OpenShift secret]"
 
     # Create organization for workshop repositories
     print_status "Creating workshop-system organization in Gitea..."
@@ -161,8 +204,12 @@ deploy_workshop_system() {
 update_buildconfig_urls() {
     print_status "Updating BuildConfig URLs to use deployed Gitea instance..."
 
-    # Get actual Gitea URL
-    GITEA_URL=$(oc get route gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
+    # Get actual Gitea URL from the deployed instance
+    GITEA_URL=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.status.giteaHostname}' 2>/dev/null || echo "gitea.apps.cluster.local")
+
+    if [ "$GITEA_URL" = "gitea.apps.cluster.local" ]; then
+        print_warning "Could not retrieve Gitea hostname, using placeholder"
+    fi
 
     print_status "Updating BuildConfigs to use Gitea URL: https://${GITEA_URL}"
 
@@ -289,8 +336,10 @@ show_complete_deployment_info() {
     echo "📊 Complete System Overview:"
     echo "============================"
 
-    # Get URLs
-    GITEA_URL=$(oc get route gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
+    # Get URLs and credentials
+    GITEA_URL=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.status.giteaHostname}' 2>/dev/null || echo "gitea.apps.cluster.local")
+    GITEA_ADMIN_USER=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.giteaAdminUser}' 2>/dev/null || echo "opentlc-mgr")
+    GITEA_ADMIN_PASSWORD=$(oc get gitea gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.status.adminPassword}' 2>/dev/null || echo "[not-found]")
     TEMPLATE_CONVERTER_URL=$(oc get route template-converter-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "template-converter.local")
     CONTENT_CREATOR_URL=$(oc get route content-creator-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "content-creator.local")
     WORKSHOP_CHAT_URL=$(oc get route workshop-chat-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "workshop-chat.local")
@@ -298,7 +347,7 @@ show_complete_deployment_info() {
     echo ""
     echo "🌐 System URLs:"
     echo "Gitea Git Server: https://${GITEA_URL}"
-    echo "  - Admin: gitea/openshift"
+    echo "  - Admin: ${GITEA_ADMIN_USER}/${GITEA_ADMIN_PASSWORD}"
     echo "  - OpenShift Bare Metal Workshop: https://${GITEA_URL}/workshop-system/openshift-baremetal-workshop"
     echo ""
     echo "🤖 Workshop Template System Agents:"
