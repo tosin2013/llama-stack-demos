@@ -8,7 +8,13 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
-from llama_stack_client.lib.agents.client_tool import client_tool
+# from llama_stack_client.lib.agents.client_tool import client_tool  # TODO: Fix when API is stable
+
+# Simple tool decorator workaround
+def client_tool(func):
+    """Simple tool decorator placeholder"""
+    func.tool_name = func.__name__
+    return func
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,13 @@ RAG-based tools for workshop participant assistance
 import os
 import logging
 from typing import List, Dict, Any, Optional
-# from llama_stack_client.lib.agents.client_tool import client_tool  # TODO: Fix when API is stable
+# # from llama_stack_client.lib.agents.client_tool import client_tool  # TODO: Fix when API is stable
+
+# Simple tool decorator workaround
+def client_tool(func):
+    """Simple tool decorator placeholder"""
+    func.tool_name = func.__name__
+    return func  # TODO: Fix when API is stable
 
 # Simple tool decorator workaround
 def client_tool(func):

@@ -36,7 +36,16 @@ def build_server(agent_name: str, host: str, port: int = None):
 
     # Create Llama Stack agent with workshop-specific configuration
     # TODO: Fix Agent import when llama_stack_client API is stable
-    agent = None  # Placeholder for now
+
+    # Simple mock agent for testing
+    class MockAgent:
+        def create_session(self, session_id):
+            return f"mock-session-{session_id}"
+
+        def create_turn(self, messages, session_id):
+            return {"response": "Mock response from workshop agent"}
+
+    agent = MockAgent()
 
     # Initialize task manager for A2A protocol bridging
     TaskManagerClass = agent_config_data["task_manager_class"]
