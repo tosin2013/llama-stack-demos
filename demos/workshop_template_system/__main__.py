@@ -4,7 +4,7 @@ import importlib
 import click
 
 from llama_stack_client import LlamaStackClient
-from llama_stack_client.types import AgentConfig
+# from llama_stack_client.types import AgentConfig  # TODO: Fix when API is stable
 from common.server import A2AServer
 from common.types import AgentCard, AgentCapabilities, AgentSkill
 
@@ -35,14 +35,8 @@ def build_server(agent_name: str, host: str, port: int = None):
     tools_to_pass = agent_params_config.get("tools", [])
 
     # Create Llama Stack agent with workshop-specific configuration
-    agent = Agent(
-        client=LlamaStackClient(base_url=os.getenv("LLAMA_STACK_ENDPOINT", "http://localhost:8321")),
-        model=os.getenv(agent_params_config["model_env_var"], agent_params_config["default_model"]),
-        instructions=agent_params_config["instructions"],
-        tools=tools_to_pass,
-        max_infer_iters=agent_params_config.get("max_infer_iters", 3),
-        sampling_params=agent_params_config.get("sampling_params", None)
-    )
+    # TODO: Fix Agent import when llama_stack_client API is stable
+    agent = None  # Placeholder for now
 
     # Initialize task manager for A2A protocol bridging
     TaskManagerClass = agent_config_data["task_manager_class"]
