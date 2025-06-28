@@ -76,101 +76,96 @@ deploy_gitea() {
     print_success "Gitea deployed successfully"
     print_status "Gitea URL: https://${GITEA_URL}"
     
-    # Create workshop repositories in Gitea
-    create_workshop_repositories
+    # Import workshop repositories into Gitea
+    import_workshop_repositories
 }
 
-# Create workshop repositories in Gitea
-create_workshop_repositories() {
-    print_status "Creating workshop repositories in Gitea..."
-    
-    # Note: In a real deployment, we'd use Gitea API to create repositories
-    # For now, we'll create the structure that agents will populate
-    
-    cat << 'EOF' > create-repos.sh
-#!/bin/bash
-# This script would create repositories in Gitea via API
-# For demonstration, we'll show the structure
+# Import workshop repositories into Gitea
+import_workshop_repositories() {
+    print_status "Importing workshop repositories into Gitea..."
 
-echo "Creating workshop repositories in Gitea..."
+    # Get Gitea URL and credentials
+    GITEA_URL=$(oc get route gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
+    GITEA_ADMIN_USER="gitea"
+    GITEA_ADMIN_PASSWORD="openshift"
 
-# Healthcare ML Workshop Repository
-echo "Repository: healthcare-ml-workshop"
-echo "  - Generated from: https://github.com/tosin2013/healthcare-ml-genetic-predictor.git"
-echo "  - Type: Application conversion"
-echo "  - Technologies: Quarkus, Kafka, OpenShift, ML"
+    print_status "Gitea URL: https://${GITEA_URL}"
+    print_status "Admin credentials: ${GITEA_ADMIN_USER}/${GITEA_ADMIN_PASSWORD}"
 
-# OpenShift Bare Metal Workshop Repository  
-echo "Repository: openshift-baremetal-workshop"
-echo "  - Generated from: https://github.com/Red-Hat-SE-RTO/openshift-bare-metal-deployment-workshop.git"
-echo "  - Type: Existing workshop enhancement"
-echo "  - Technologies: OpenShift, Bare Metal"
+    # Create organization for workshop repositories
+    print_status "Creating workshop-system organization in Gitea..."
+    curl -X POST "https://${GITEA_URL}/api/v1/orgs" \
+        -H "Content-Type: application/json" \
+        -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASSWORD}" \
+        -d '{
+            "username": "workshop-system",
+            "full_name": "Workshop Template System",
+            "description": "Repositories for Workshop Template System agents"
+        }' -k || print_warning "Organization may already exist"
 
-echo "Repositories created successfully"
-EOF
+    # Import OpenShift Bare Metal Workshop (for Workflow 3: Enhancement)
+    print_status "Importing OpenShift Bare Metal Workshop repository..."
+    curl -X POST "https://${GITEA_URL}/api/v1/repos/migrate" \
+        -H "Content-Type: application/json" \
+        -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASSWORD}" \
+        -d '{
+            "clone_addr": "https://github.com/Red-Hat-SE-RTO/openshift-bare-metal-deployment-workshop.git",
+            "uid": 2,
+            "repo_name": "openshift-baremetal-workshop",
+            "description": "OpenShift Bare Metal Deployment Workshop - Enhanced by Workshop Template System",
+            "private": false
+        }' -k
 
-    chmod +x create-repos.sh
-    ./create-repos.sh
-    
-    print_success "Workshop repositories structure created"
+    # Note: healthcare-ml-genetic-predictor will be processed by agents through Workflow 1
+    # Agents will create the workshop repository after converting the application
+
+    print_success "Workshop repositories imported into Gitea"
+    print_status "Repository URLs:"
+    print_status "  - OpenShift Bare Metal: https://${GITEA_URL}/workshop-system/openshift-baremetal-workshop"
+    print_status "  - Healthcare ML: Will be created by agents from https://github.com/tosin2013/healthcare-ml-genetic-predictor.git"
 }
 
-# Create BuildConfigs for workshops
-create_buildconfigs() {
-    print_status "Creating BuildConfigs for workshop automation..."
-    
-    # Healthcare ML Workshop BuildConfig
+# Deploy Workshop Template System using Kustomize
+deploy_workshop_system() {
+    print_status "Deploying Workshop Template System using Kustomize..."
+
+    # Check if Kustomize configuration exists
+    if [ ! -d "kubernetes/workshop-template-system/base" ]; then
+        print_error "Kustomize configuration not found. Please ensure kubernetes/workshop-template-system/base exists."
+        exit 1
+    fi
+
+    # Deploy using Kustomize
+    print_status "Applying Workshop Template System configuration..."
+    oc apply -k kubernetes/workshop-template-system/base/
+
+    # Wait for agents to be ready
+    print_status "Waiting for agents to be ready..."
+    oc rollout status deployment workshop-chat-agent -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment template-converter-agent -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment content-creator-agent -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment source-manager-agent -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment research-validation-agent -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment documentation-pipeline-agent -n ${NAMESPACE} --timeout=300s
+
+    # Wait for infrastructure to be ready
+    print_status "Waiting for infrastructure components..."
+    oc rollout status deployment milvus -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment minio -n ${NAMESPACE} --timeout=300s
+    oc rollout status deployment etcd -n ${NAMESPACE} --timeout=300s
+
+    print_success "Workshop Template System deployed successfully"
+}
+
+# Create BuildConfigs for agent-generated workshops
+create_workshop_buildconfigs() {
+    print_status "Creating BuildConfigs for agent-generated workshops..."
+
+    # Get Gitea URL
+    GITEA_URL=$(oc get route gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
+
+    # OpenShift Bare Metal Workshop BuildConfig (for Workflow 3: Enhancement)
     cat << EOF | oc apply -f -
-apiVersion: build.openshift.io/v1
-kind: BuildConfig
-metadata:
-  name: healthcare-ml-workshop-build
-  namespace: ${NAMESPACE}
-  labels:
-    app: healthcare-ml-workshop
-    build: workshop-content
-spec:
-  source:
-    type: Git
-    git:
-      uri: https://${GITEA_URL}/workshop-system/healthcare-ml-workshop.git
-      ref: main
-    contextDir: /
-  strategy:
-    type: Source
-    sourceStrategy:
-      from:
-        kind: ImageStreamTag
-        name: httpd:2.4
-        namespace: openshift
-  output:
-    to:
-      kind: ImageStreamTag
-      name: healthcare-ml-workshop:latest
-  triggers:
-  - type: ConfigChange
-  - type: GitHub
-    github:
-      secret: workshop-webhook-secret
-  - type: Generic
-    generic:
-      secret: workshop-webhook-secret
-  - type: ImageChange
-    imageChange: {}
-
----
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: healthcare-ml-workshop
-  namespace: ${NAMESPACE}
-  labels:
-    app: healthcare-ml-workshop
-spec:
-  lookupPolicy:
-    local: false
-
----
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
@@ -179,6 +174,7 @@ metadata:
   labels:
     app: openshift-baremetal-workshop
     build: workshop-content
+    workflow: enhancement
 spec:
   source:
     type: Git
@@ -216,6 +212,7 @@ metadata:
   namespace: ${NAMESPACE}
   labels:
     app: openshift-baremetal-workshop
+    workflow: enhancement
 spec:
   lookupPolicy:
     local: false
@@ -231,172 +228,114 @@ data:
   WebHookSecretKey: $(echo -n "workshop-webhook-$(date +%s)" | base64 -w 0)
 EOF
 
-    print_success "BuildConfigs created for automated workshop builds"
+    print_success "BuildConfigs created for workshop automation"
+    print_status "Note: Healthcare ML workshop BuildConfig will be created by agents after repository conversion"
 }
 
-# Update workshop deployments to use BuildConfig images
-update_workshop_deployments() {
-    print_status "Updating workshop deployments to use BuildConfig images..."
-    
-    # Update Healthcare ML Workshop deployment
-    cat << EOF | oc apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: healthcare-ml-workshop
-  namespace: ${NAMESPACE}
-  labels:
-    app: healthcare-ml-workshop
-    workshop: healthcare-ml
-    type: application-conversion
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: healthcare-ml-workshop
-  template:
-    metadata:
-      labels:
-        app: healthcare-ml-workshop
-        workshop: healthcare-ml
-    spec:
-      serviceAccountName: workshop-system-sa
-      containers:
-      - name: workshop-content
-        image: ${REGISTRY}/${NAMESPACE}/healthcare-ml-workshop:latest
-        ports:
-        - containerPort: 8080
-          name: http
-        env:
-        - name: WORKSHOP_NAME
-          value: "Healthcare ML Genetic Predictor"
-        - name: WORKSHOP_TYPE
-          value: "application-conversion"
-        - name: CHAT_AGENT_URL
-          value: "http://workshop-chat-agent/healthcare-ml"
-        - name: GITEA_URL
-          value: "https://${GITEA_URL}"
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-      triggers:
-      - type: ImageChange
-        imageChangeParams:
-          automatic: true
-          containerNames:
-          - workshop-content
-          from:
-            kind: ImageStreamTag
-            name: healthcare-ml-workshop:latest
-            namespace: ${NAMESPACE}
+# Configure agent workflows for workshop processing
+configure_agent_workflows() {
+    print_status "Configuring agent workflows for workshop processing..."
 
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: openshift-baremetal-workshop
-  namespace: ${NAMESPACE}
-  labels:
-    app: openshift-baremetal-workshop
-    workshop: openshift-baremetal
-    type: existing-workshop-enhancement
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: openshift-baremetal-workshop
-  template:
-    metadata:
-      labels:
-        app: openshift-baremetal-workshop
-        workshop: openshift-baremetal
-    spec:
-      serviceAccountName: workshop-system-sa
-      containers:
-      - name: workshop-content
-        image: ${REGISTRY}/${NAMESPACE}/openshift-baremetal-workshop:latest
-        ports:
-        - containerPort: 8080
-          name: http
-        env:
-        - name: WORKSHOP_NAME
-          value: "OpenShift Bare Metal Deployment - Enhanced"
-        - name: WORKSHOP_TYPE
-          value: "existing-workshop-enhancement"
-        - name: CHAT_AGENT_URL
-          value: "http://workshop-chat-agent/openshift-baremetal"
-        - name: GITEA_URL
-          value: "https://${GITEA_URL}"
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-      triggers:
-      - type: ImageChange
-        imageChangeParams:
-          automatic: true
-          containerNames:
-          - workshop-content
-          from:
-            kind: ImageStreamTag
-            name: openshift-baremetal-workshop:latest
-            namespace: ${NAMESPACE}
+    # Get agent URLs
+    TEMPLATE_CONVERTER_URL=$(oc get route template-converter-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "template-converter.local")
+    CONTENT_CREATOR_URL=$(oc get route content-creator-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "content-creator.local")
+
+    print_status "Agent URLs:"
+    print_status "  - Template Converter: https://${TEMPLATE_CONVERTER_URL}"
+    print_status "  - Content Creator: https://${CONTENT_CREATOR_URL}"
+
+    # Create workflow configuration
+    cat << 'EOF' > configure-workflows.sh
+#!/bin/bash
+# Configure Workshop Template System workflows
+
+echo "🎯 Workshop Template System Workflow Configuration"
+echo "=================================================="
+
+echo ""
+echo "📋 Workflow 1: Repository-Based Workshop Creation"
+echo "Source: https://github.com/tosin2013/healthcare-ml-genetic-predictor.git"
+echo "Foundation: https://github.com/rhpds/showroom_template_default.git"
+echo "Process: Application → Analysis → Showroom Template → Workshop"
+echo ""
+echo "Example command to start Workflow 1:"
+echo "curl -X POST https://${TEMPLATE_CONVERTER_URL}/send-task \\"
+echo "  -H 'Content-Type: application/json' \\"
+echo "  -d '{"
+echo "    \"id\": \"healthcare-ml-analysis\","
+echo "    \"params\": {"
+echo "      \"sessionId\": \"workflow-1-session\","
+echo "      \"message\": {"
+echo "        \"role\": \"user\","
+echo "        \"parts\": [{"
+echo "          \"type\": \"text\","
+echo "          \"text\": \"Analyze https://github.com/tosin2013/healthcare-ml-genetic-predictor.git for workshop conversion using Showroom template\""
+echo "        }]"
+echo "      }"
+echo "    }"
+echo "  }'"
+
+echo ""
+echo "🔧 Workflow 3: Workshop Enhancement"
+echo "Source: Gitea repository (imported from Red Hat SE RTO)"
+echo "Process: Existing Workshop → Analysis → Enhancement → Modernization"
+echo ""
+echo "Example command to start Workflow 3:"
+echo "curl -X POST https://${TEMPLATE_CONVERTER_URL}/send-task \\"
+echo "  -H 'Content-Type: application/json' \\"
+echo "  -d '{"
+echo "    \"id\": \"openshift-baremetal-enhancement\","
+echo "    \"params\": {"
+echo "      \"sessionId\": \"workflow-3-session\","
+echo "      \"message\": {"
+echo "        \"role\": \"user\","
+echo "        \"parts\": [{"
+echo "          \"type\": \"text\","
+echo "          \"text\": \"Enhance the OpenShift Bare Metal workshop from Gitea repository with modern practices\""
+echo "        }]"
+echo "      }"
+echo "    }"
+echo "  }'"
+
+echo ""
+echo "🚀 Next Steps:"
+echo "1. Test agent connectivity with /agent-card endpoints"
+echo "2. Start Workflow 1 for healthcare-ml-genetic-predictor"
+echo "3. Start Workflow 3 for openshift-baremetal-workshop"
+echo "4. Monitor agent progress and generated content"
+echo "5. Verify BuildConfig triggers and workshop deployments"
 EOF
 
-    print_success "Workshop deployments updated to use BuildConfig images"
+    chmod +x configure-workflows.sh
+    ./configure-workflows.sh
+
+    print_success "Agent workflows configured"
 }
+
+
 
 # Deploy the complete system
 deploy_complete_system() {
     print_status "Deploying complete Workshop Template System..."
-    
+
     # Create namespace
     oc new-project ${NAMESPACE} 2>/dev/null || oc project ${NAMESPACE}
-    
+
     # Deploy Gitea first
     deploy_gitea
-    
-    # Create BuildConfigs
-    create_buildconfigs
-    
-    # Deploy the original system (agents, etc.)
-    print_status "Deploying 6-agent system..."
-    ./deploy-to-openshift.sh
-    
-    # Update workshop deployments
-    update_workshop_deployments
-    
+
+    # Import workshop repositories
+    import_workshop_repositories
+
+    # Deploy Workshop Template System using Kustomize
+    deploy_workshop_system
+
+    # Create BuildConfigs for workshops
+    create_workshop_buildconfigs
+
+    # Configure agent workflows
+    configure_agent_workflows
+
     print_success "Complete system deployment finished"
 }
 
@@ -406,43 +345,58 @@ show_complete_deployment_info() {
     echo ""
     echo "📊 Complete System Overview:"
     echo "============================"
-    
+
     # Get URLs
-    GITEA_URL=$(oc get route gitea -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
-    HEALTHCARE_URL=$(oc get route healthcare-ml-workshop -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "healthcare-ml.workshop.local")
-    OPENSHIFT_URL=$(oc get route openshift-baremetal-workshop -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "openshift-baremetal.workshop.local")
-    
+    GITEA_URL=$(oc get route gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
+    TEMPLATE_CONVERTER_URL=$(oc get route template-converter-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "template-converter.local")
+    CONTENT_CREATOR_URL=$(oc get route content-creator-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "content-creator.local")
+    WORKSHOP_CHAT_URL=$(oc get route workshop-chat-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "workshop-chat.local")
+
     echo ""
     echo "🌐 System URLs:"
     echo "Gitea Git Server: https://${GITEA_URL}"
-    echo "Healthcare ML Workshop: https://${HEALTHCARE_URL}"
-    echo "OpenShift Bare Metal Workshop: https://${OPENSHIFT_URL}"
-    
+    echo "  - Admin: gitea/openshift"
+    echo "  - OpenShift Bare Metal Workshop: https://${GITEA_URL}/workshop-system/openshift-baremetal-workshop"
+    echo ""
+    echo "🤖 Workshop Template System Agents:"
+    echo "Template Converter Agent: https://${TEMPLATE_CONVERTER_URL}"
+    echo "Content Creator Agent: https://${CONTENT_CREATOR_URL}"
+    echo "Workshop Chat Agent: https://${WORKSHOP_CHAT_URL}"
+    echo "Research Validation Agent: https://$(oc get route research-validation-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "research-validation.local")"
+    echo "Source Manager Agent: https://$(oc get route source-manager-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "source-manager.local")"
+    echo "Documentation Pipeline Agent: https://$(oc get route documentation-pipeline-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "documentation-pipeline.local")"
+
     echo ""
     echo "🔧 System Components:"
-    oc get pods -n ${NAMESPACE} -o wide
-    
+    oc get pods -n ${NAMESPACE} -l component=workshop-agent
+
     echo ""
-    echo "🏗️ BuildConfigs:"
-    oc get bc -n ${NAMESPACE}
-    
+    echo "🏗️ Infrastructure:"
+    oc get pods -n ${NAMESPACE} -l 'app in (milvus,minio,etcd)'
+
     echo ""
-    echo "🎯 Complete Workflow:"
-    echo "1. **Agents analyze repositories** and generate workshop content"
-    echo "2. **Content is committed** to Gitea repositories"
-    echo "3. **BuildConfigs automatically trigger** new workshop builds"
-    echo "4. **Workshops update live** in OpenShift"
-    echo "5. **Participants see updates** immediately"
-    
+    echo "📋 Workshop Processing Workflows:"
+    echo "================================="
     echo ""
-    echo "🤖 Agent Interaction → Live Updates:"
-    echo "curl -X POST http://content-creator-agent/send-task \\"
-    echo "  -d '{\"message\": \"Update Healthcare ML with Quarkus 3.8\"}'"
-    echo "↓"
-    echo "Content Creator generates updates → Commits to Gitea → BuildConfig triggers → Workshop updates live!"
-    
+    echo "🎯 Workflow 1: Repository-Based Workshop Creation"
+    echo "Source: https://github.com/tosin2013/healthcare-ml-genetic-predictor.git"
+    echo "Foundation: https://github.com/rhpds/showroom_template_default.git"
+    echo "Command: curl -X POST https://${TEMPLATE_CONVERTER_URL}/send-task -H 'Content-Type: application/json' -d '{\"id\":\"healthcare-ml\",\"params\":{\"sessionId\":\"workflow-1\",\"message\":{\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"text\":\"Analyze https://github.com/tosin2013/healthcare-ml-genetic-predictor.git for workshop conversion using Showroom template\"}]}}}'"
     echo ""
-    print_success "Your complete workshop system with Git integration is ready!"
+    echo "🔧 Workflow 3: Workshop Enhancement"
+    echo "Source: https://${GITEA_URL}/workshop-system/openshift-baremetal-workshop"
+    echo "Command: curl -X POST https://${TEMPLATE_CONVERTER_URL}/send-task -H 'Content-Type: application/json' -d '{\"id\":\"openshift-baremetal\",\"params\":{\"sessionId\":\"workflow-3\",\"message\":{\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"text\":\"Enhance the OpenShift Bare Metal workshop from Gitea repository with modern practices\"}]}}}'"
+
+    echo ""
+    echo "🚀 Next Steps:"
+    echo "1. Test agent connectivity: curl -k https://${TEMPLATE_CONVERTER_URL}/agent-card"
+    echo "2. Start Workflow 1 for healthcare-ml-genetic-predictor conversion"
+    echo "3. Start Workflow 3 for openshift-baremetal-workshop enhancement"
+    echo "4. Monitor agent progress and generated content in Gitea"
+    echo "5. Verify BuildConfig triggers and workshop deployments"
+
+    echo ""
+    print_success "Your complete Workshop Template System with proper workflows is ready!"
 }
 
 # Main deployment flow
