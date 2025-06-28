@@ -37,13 +37,37 @@ volumeMounts:
 2. Keep only `config-volume` mounted at `/opt/app-root/src/config`
 3. Apply with Kustomize: `oc apply -k kubernetes/workshop-template-system/base/`
 
+### Workshop Pod ConfigMap Mount Errors
+
+**Symptoms**:
+- Workshop pods stuck in ContainerCreating status
+- Logs show: `MountVolume.SetUp failed for volume "workshop-content" : configmap "healthcare-ml-content" not found`
+- Similar errors for `openshift-baremetal-content` ConfigMap
+
+**Root Cause**:
+Configuration drift where pods expect ConfigMaps that don't exist. Base configuration uses httpd images without ConfigMap mounts.
+
+**Solution**:
+```bash
+# Delete failing workshop deployments
+oc delete deployment healthcare-ml-workshop openshift-baremetal-workshop -n workshop-system
+
+# Apply base configuration (removes ConfigMap mounts)
+oc apply -k kubernetes/workshop-template-system/base/
+
+# Verify pods start successfully
+oc get pods -n workshop-system -l 'app in (healthcare-ml-workshop,openshift-baremetal-workshop)'
+```
+
+**Pattern Recognition**: This follows the same pattern as agent ConfigMap issues (lines 15-38). Remove problematic ConfigMap mounts and use base configuration.
+
 ### ConfigMap Hash Suffix Issues
 
 **Symptoms**:
 - ConfigMap references not found
 - Pods fail to start due to missing ConfigMaps
 
-**Root Cause**: 
+**Root Cause**:
 Kustomize generates hash suffixes for ConfigMaps that must be properly referenced.
 
 **Solution**:
