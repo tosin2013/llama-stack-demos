@@ -3,7 +3,8 @@ import logging
 import importlib
 import click
 
-from llama_stack_client import LlamaStackClient, Agent
+from llama_stack_client import LlamaStackClient
+from llama_stack_client.types import AgentConfig
 from common.server import A2AServer
 from common.types import AgentCard, AgentCapabilities, AgentSkill
 
