@@ -40,6 +40,8 @@ class A2ARequestHandler(BaseHTTPRequestHandler):
         
         if parsed_path.path == "/send-task":
             self._handle_send_task()
+        elif parsed_path.path == "/invoke":
+            self._handle_tool_invoke()
         else:
             self._serve_404()
     
@@ -122,7 +124,59 @@ class A2ARequestHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error(f"Error handling task: {e}")
             self._serve_500(str(e))
-    
+
+    def _handle_tool_invoke(self):
+        """Handle direct tool invocation"""
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            request_data = json.loads(post_data.decode('utf-8'))
+
+            tool_name = request_data.get("tool_name")
+            parameters = request_data.get("parameters", {})
+
+            # Get the tool from task manager if it has tools
+            if hasattr(self.task_manager, 'tools'):
+                tools = self.task_manager.tools
+                tool_func = None
+
+                # Find the tool by name
+                for tool in tools:
+                    if hasattr(tool, '__name__') and tool.__name__ == tool_name:
+                        tool_func = tool
+                        break
+
+                if tool_func:
+                    # Call the tool directly
+                    result = tool_func(**parameters)
+
+                    response = {
+                        "success": True,
+                        "result": result,
+                        "tool_name": tool_name
+                    }
+                else:
+                    response = {
+                        "success": False,
+                        "error": f"Tool '{tool_name}' not found",
+                        "available_tools": [getattr(tool, '__name__', str(tool)) for tool in tools]
+                    }
+            else:
+                response = {
+                    "success": False,
+                    "error": "No tools available in task manager"
+                }
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+
+        except Exception as e:
+            logger.error(f"Error handling tool invoke: {e}")
+            self._serve_500(str(e))
+
     def _serve_404(self):
         """Serve 404 Not Found"""
         self.send_response(404)

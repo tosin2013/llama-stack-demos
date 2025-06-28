@@ -5,6 +5,8 @@ Original workshop creation from learning objectives and concepts
 
 import os
 import logging
+import json
+import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 # from llama_stack_client.lib.agents.client_tool import client_tool  # TODO: Fix when API is stable
@@ -16,6 +18,455 @@ def client_tool(func):
     return func
 
 logger = logging.getLogger(__name__)
+
+@client_tool
+def transform_repository_to_workshop_tool(repository_analysis: str, workshop_focus: str = "comprehensive", target_audience: str = "intermediate") -> str:
+    """
+    :description: Transform repository analysis into structured workshop content based on actual repository structure and content.
+    :use_case: Use when you have repository analysis from Template Converter Agent and need to create workshop materials from real code/content.
+    :param repository_analysis: JSON string or text analysis from Template Converter Agent containing repository structure and content
+    :param workshop_focus: Focus area for the workshop (comprehensive, technology-specific, hands-on, conceptual)
+    :param target_audience: Target audience level (beginner, intermediate, advanced)
+    :returns: Structured workshop content based on actual repository analysis
+    """
+    try:
+        # Parse repository analysis
+        if isinstance(repository_analysis, str):
+            # Try to extract structured data from analysis text
+            repo_data = parse_repository_analysis(repository_analysis)
+        else:
+            repo_data = repository_analysis
+
+        # Extract key information
+        repo_name = repo_data.get('repository', 'Unknown Repository')
+        technologies = repo_data.get('detected_technologies', [])
+        workflow_type = repo_data.get('workflow_recommendation', 'creation')
+        repo_structure = repo_data.get('structure', {})
+        readme_content = repo_structure.get('readme_content', '')
+
+        # Generate workshop content based on repository analysis
+        workshop_parts = [
+            f"# Workshop: {repo_name.replace('/', ' - ').title()}",
+            f"**Generated from Repository Analysis**",
+            f"**Workshop Focus**: {workshop_focus.title()}",
+            f"**Target Audience**: {target_audience.title()}",
+            f"**Technologies**: {', '.join(technologies) if technologies else 'General'}",
+            f"**Creation Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "## 🎯 Workshop Overview",
+            "",
+        ]
+
+        # Extract learning objectives from README content
+        learning_objectives = extract_learning_objectives_from_readme(readme_content, technologies)
+        workshop_parts.extend([
+            "### Learning Objectives",
+            "By the end of this workshop, participants will be able to:",
+        ])
+        for objective in learning_objectives:
+            workshop_parts.append(f"- {objective}")
+
+        workshop_parts.extend([
+            "",
+            "### Prerequisites",
+            f"- Basic understanding of {technologies[0] if technologies else 'programming'}",
+            f"- Familiarity with command line tools",
+            f"- Git and GitHub knowledge",
+            "",
+            "## 📚 Workshop Modules",
+            "",
+        ])
+
+        # Generate modules based on repository structure
+        modules = generate_modules_from_structure(repo_structure, technologies, target_audience)
+        for i, module in enumerate(modules, 1):
+            workshop_parts.extend([
+                f"### Module {i}: {module['title']}",
+                f"**Duration**: {module['duration']}",
+                f"**Type**: {module['type']}",
+                "",
+                f"#### Overview",
+                module['overview'],
+                "",
+                f"#### Learning Outcomes",
+            ])
+            for outcome in module['outcomes']:
+                workshop_parts.append(f"- {outcome}")
+
+            workshop_parts.extend([
+                "",
+                f"#### Key Activities",
+            ])
+            for activity in module['activities']:
+                workshop_parts.append(f"- {activity}")
+
+            workshop_parts.append("")
+
+        # Add hands-on exercises based on repository content
+        exercises = generate_exercises_from_repository(repo_structure, technologies)
+        workshop_parts.extend([
+            "## 🔧 Hands-On Exercises",
+            "",
+        ])
+
+        for i, exercise in enumerate(exercises, 1):
+            workshop_parts.extend([
+                f"### Exercise {i}: {exercise['title']}",
+                f"**Estimated Time**: {exercise['time']}",
+                f"**Difficulty**: {exercise['difficulty']}",
+                "",
+                f"#### Objective",
+                exercise['objective'],
+                "",
+                f"#### Instructions",
+                exercise['instructions'],
+                "",
+                f"#### Expected Outcome",
+                exercise['outcome'],
+                "",
+            ])
+
+        # Add assessment and wrap-up
+        workshop_parts.extend([
+            "## 📊 Assessment and Validation",
+            "",
+            "### Knowledge Check",
+            "- Review key concepts covered in each module",
+            "- Validate hands-on exercise completion",
+            "- Discuss real-world applications",
+            "",
+            "### Next Steps",
+            "- Explore advanced features and configurations",
+            "- Apply concepts to your own projects",
+            "- Join community discussions and contribute back",
+            "",
+            "## 📖 Additional Resources",
+            "",
+            f"- **Source Repository**: {repo_data.get('url', 'N/A')}",
+            "- **Official Documentation**: [Links to be added based on technologies]",
+            "- **Community Resources**: [Links to be added]",
+            "",
+            "---",
+            f"*Workshop content generated from repository analysis on {datetime.now().strftime('%Y-%m-%d')}*"
+        ])
+
+        return "\n".join(workshop_parts)
+
+    except Exception as e:
+        logger.error(f"Error in transform_repository_to_workshop_tool: {e}")
+        return f"Error transforming repository to workshop: {str(e)}. Please check the repository analysis input."
+
+def parse_repository_analysis(analysis_text: str) -> dict:
+    """Parse repository analysis text to extract structured data"""
+    try:
+        # Try to parse as JSON first
+        if analysis_text.strip().startswith('{'):
+            return json.loads(analysis_text)
+
+        # Parse text-based analysis
+        repo_data = {
+            'repository': 'Unknown',
+            'detected_technologies': [],
+            'workflow_recommendation': 'creation',
+            'structure': {'files': [], 'directories': [], 'readme_content': ''}
+        }
+
+        # Extract repository name
+        if "Repository Analysis:" in analysis_text:
+            lines = analysis_text.split('\n')
+            for line in lines:
+                if "Repository Analysis:" in line:
+                    repo_data['repository'] = line.split(':')[1].strip()
+                    break
+
+        # Extract technologies
+        if "Detected Technologies" in analysis_text:
+            tech_line = ""
+            lines = analysis_text.split('\n')
+            for line in lines:
+                if "Detected Technologies" in line and ":" in line:
+                    tech_line = line.split(':')[1].strip()
+                    break
+
+            if tech_line and tech_line != "General programming project":
+                repo_data['detected_technologies'] = [tech.strip() for tech in tech_line.split(',')]
+
+        # Extract workflow recommendation
+        if "Workflow 1" in analysis_text:
+            repo_data['workflow_recommendation'] = 'creation'
+        elif "Workflow 3" in analysis_text:
+            repo_data['workflow_recommendation'] = 'enhancement'
+
+        return repo_data
+
+    except Exception as e:
+        logger.warning(f"Error parsing repository analysis: {e}")
+        return {'repository': 'Unknown', 'detected_technologies': [], 'workflow_recommendation': 'creation', 'structure': {}}
+
+def extract_learning_objectives_from_readme(readme_content: str, technologies: list) -> list:
+    """Extract or generate learning objectives based on README content and technologies"""
+    objectives = []
+
+    # Default objectives based on technologies
+    tech_objectives = {
+        'java': "Understand Java application architecture and best practices",
+        'python': "Implement Python applications with proper structure and dependencies",
+        'javascript': "Build modern JavaScript applications with current frameworks",
+        'quarkus': "Develop cloud-native applications using Quarkus framework",
+        'kafka': "Implement event-driven architectures with Apache Kafka",
+        'kubernetes': "Deploy and manage applications in Kubernetes environments",
+        'openshift': "Utilize OpenShift for enterprise container orchestration",
+        'machine-learning': "Apply machine learning concepts to real-world problems",
+        'docker': "Containerize applications using Docker best practices"
+    }
+
+    # Add technology-specific objectives
+    for tech in technologies:
+        if tech in tech_objectives:
+            objectives.append(tech_objectives[tech])
+
+    # Try to extract objectives from README content
+    if readme_content:
+        readme_lower = readme_content.lower()
+
+        # Look for common objective patterns
+        if 'learn' in readme_lower or 'tutorial' in readme_lower:
+            objectives.append("Follow step-by-step implementation guidance")
+
+        if 'deploy' in readme_lower or 'deployment' in readme_lower:
+            objectives.append("Deploy the application to target environments")
+
+        if 'test' in readme_lower or 'testing' in readme_lower:
+            objectives.append("Implement and run comprehensive tests")
+
+        if 'api' in readme_lower:
+            objectives.append("Understand API design and integration patterns")
+
+    # Ensure we have at least some objectives
+    if not objectives:
+        objectives = [
+            "Understand the application architecture and design patterns",
+            "Set up the development environment and dependencies",
+            "Implement core functionality following best practices",
+            "Deploy and validate the application"
+        ]
+
+    return objectives[:6]  # Limit to 6 objectives
+
+def generate_modules_from_structure(repo_structure: dict, technologies: list, audience_level: str) -> list:
+    """Generate workshop modules based on repository structure and technologies"""
+    modules = []
+
+    # Base modules for any workshop
+    modules.append({
+        'title': 'Introduction and Environment Setup',
+        'duration': '30 minutes',
+        'type': 'Setup',
+        'overview': 'Get familiar with the project structure and set up the development environment.',
+        'outcomes': [
+            'Understand the project architecture and components',
+            'Set up local development environment',
+            'Clone and configure the repository',
+            'Verify all dependencies are installed'
+        ],
+        'activities': [
+            'Repository walkthrough and structure explanation',
+            'Environment setup and dependency installation',
+            'Initial project build and verification',
+            'IDE/editor configuration and setup'
+        ]
+    })
+
+    # Technology-specific modules
+    if 'java' in technologies or 'quarkus' in technologies:
+        modules.append({
+            'title': 'Java/Quarkus Application Development',
+            'duration': '45 minutes',
+            'type': 'Development',
+            'overview': 'Explore Java application patterns and Quarkus framework features.',
+            'outcomes': [
+                'Understand Java application architecture',
+                'Work with Quarkus development mode',
+                'Implement REST endpoints and services',
+                'Configure application properties'
+            ],
+            'activities': [
+                'Code walkthrough and architecture review',
+                'Live coding session with Quarkus dev mode',
+                'REST API implementation and testing',
+                'Configuration and dependency injection'
+            ]
+        })
+
+    if 'kafka' in technologies:
+        modules.append({
+            'title': 'Event-Driven Architecture with Kafka',
+            'duration': '40 minutes',
+            'type': 'Integration',
+            'overview': 'Implement event streaming and messaging patterns using Apache Kafka.',
+            'outcomes': [
+                'Understand event-driven architecture principles',
+                'Configure Kafka producers and consumers',
+                'Implement message serialization and deserialization',
+                'Handle error scenarios and retries'
+            ],
+            'activities': [
+                'Kafka setup and topic configuration',
+                'Producer implementation and message publishing',
+                'Consumer implementation and message processing',
+                'Error handling and monitoring'
+            ]
+        })
+
+    if 'machine-learning' in technologies:
+        modules.append({
+            'title': 'Machine Learning Integration',
+            'duration': '50 minutes',
+            'type': 'Advanced',
+            'overview': 'Integrate machine learning models and implement inference pipelines.',
+            'outcomes': [
+                'Understand ML model integration patterns',
+                'Implement model inference endpoints',
+                'Handle data preprocessing and validation',
+                'Monitor model performance and accuracy'
+            ],
+            'activities': [
+                'Model loading and initialization',
+                'Data preprocessing pipeline implementation',
+                'Inference endpoint development',
+                'Performance monitoring and logging'
+            ]
+        })
+
+    # Deployment module
+    if 'kubernetes' in technologies or 'openshift' in technologies or 'docker' in technologies:
+        modules.append({
+            'title': 'Containerization and Deployment',
+            'duration': '35 minutes',
+            'type': 'Deployment',
+            'overview': 'Package the application in containers and deploy to target environments.',
+            'outcomes': [
+                'Create optimized container images',
+                'Configure deployment manifests',
+                'Deploy to Kubernetes/OpenShift',
+                'Verify application health and scaling'
+            ],
+            'activities': [
+                'Dockerfile creation and optimization',
+                'Kubernetes manifest configuration',
+                'Deployment and service setup',
+                'Health checks and monitoring configuration'
+            ]
+        })
+
+    # Wrap-up module
+    modules.append({
+        'title': 'Testing, Monitoring, and Best Practices',
+        'duration': '25 minutes',
+        'type': 'Validation',
+        'overview': 'Implement testing strategies and establish monitoring for production readiness.',
+        'outcomes': [
+            'Implement comprehensive testing strategies',
+            'Set up monitoring and observability',
+            'Apply security best practices',
+            'Plan for production deployment'
+        ],
+        'activities': [
+            'Unit and integration testing implementation',
+            'Monitoring and metrics configuration',
+            'Security scanning and hardening',
+            'Production readiness checklist review'
+        ]
+    })
+
+    return modules
+
+def generate_exercises_from_repository(repo_structure: dict, technologies: list) -> list:
+    """Generate hands-on exercises based on repository content and technologies"""
+    exercises = []
+
+    # Exercise 1: Environment Setup and Exploration
+    exercises.append({
+        'title': 'Environment Setup and Code Exploration',
+        'time': '15 minutes',
+        'difficulty': 'Beginner',
+        'objective': 'Set up the development environment and explore the codebase structure.',
+        'instructions': '''
+1. Clone the repository to your local machine
+2. Install all required dependencies
+3. Explore the project structure and identify key components
+4. Run the application in development mode
+5. Access the application and verify it's working correctly
+        '''.strip(),
+        'outcome': 'Successfully running application with understanding of project structure.'
+    })
+
+    # Exercise 2: Core Functionality Implementation
+    exercises.append({
+        'title': 'Core Feature Implementation',
+        'time': '25 minutes',
+        'difficulty': 'Intermediate',
+        'objective': 'Implement or modify core application features following established patterns.',
+        'instructions': '''
+1. Identify the main business logic components
+2. Implement a new feature or modify existing functionality
+3. Follow the established coding patterns and conventions
+4. Add appropriate error handling and validation
+5. Test the implementation thoroughly
+        '''.strip(),
+        'outcome': 'Working feature implementation that follows project conventions.'
+    })
+
+    # Technology-specific exercises
+    if 'kafka' in technologies:
+        exercises.append({
+            'title': 'Event Streaming Implementation',
+            'time': '20 minutes',
+            'difficulty': 'Intermediate',
+            'objective': 'Implement event producers and consumers for asynchronous communication.',
+            'instructions': '''
+1. Configure Kafka topics and partitions
+2. Implement an event producer for business events
+3. Create a consumer to process events asynchronously
+4. Add proper error handling and retry logic
+5. Test the event flow end-to-end
+            '''.strip(),
+            'outcome': 'Functional event streaming pipeline with proper error handling.'
+        })
+
+    if 'machine-learning' in technologies:
+        exercises.append({
+            'title': 'ML Model Integration',
+            'time': '30 minutes',
+            'difficulty': 'Advanced',
+            'objective': 'Integrate machine learning models for real-time inference.',
+            'instructions': '''
+1. Load and initialize the ML model
+2. Implement data preprocessing pipeline
+3. Create inference endpoints with proper validation
+4. Add model performance monitoring
+5. Test with sample data and validate results
+            '''.strip(),
+            'outcome': 'Working ML inference pipeline with monitoring and validation.'
+        })
+
+    # Exercise 4: Deployment and Validation
+    exercises.append({
+        'title': 'Containerization and Deployment',
+        'time': '20 minutes',
+        'difficulty': 'Intermediate',
+        'objective': 'Package the application and deploy it to a container environment.',
+        'instructions': '''
+1. Create or review the Dockerfile for the application
+2. Build the container image with proper tags
+3. Configure deployment manifests for Kubernetes/OpenShift
+4. Deploy the application to the target environment
+5. Verify deployment health and functionality
+        '''.strip(),
+        'outcome': 'Successfully deployed application running in containerized environment.'
+    })
+
+    return exercises
 
 # Workshop types and their characteristics
 WORKSHOP_TYPES = {

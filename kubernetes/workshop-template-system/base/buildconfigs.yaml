@@ -10,7 +10,7 @@ spec:
   source:
     type: Git
     git:
-      uri: https://gitea.apps.cluster.local/workshop-system/healthcare-ml-workshop.git
+      uri: https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/workshop-system/healthcare-ml-workshop.git
       ref: main
     contextDir: /
   strategy:
@@ -48,7 +48,7 @@ spec:
   source:
     type: Git
     git:
-      uri: https://gitea.apps.cluster.local/workshop-system/openshift-baremetal-workshop.git
+      uri: https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/workshop-system/openshift-baremetal-workshop.git
       ref: main
     contextDir: /
   strategy:

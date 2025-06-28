@@ -49,7 +49,7 @@ def build_server(agent_name: str, host: str, port: int = None):
 
     # Initialize task manager for A2A protocol bridging
     TaskManagerClass = agent_config_data["task_manager_class"]
-    task_manager = TaskManagerClass(agent=agent, internal_session_id=True)
+    task_manager = TaskManagerClass(agent=agent, internal_session_id=True, tools=tools_to_pass)
 
     # Build agent card for capability advertisement
     card_params_config = agent_config_data["agent_card_params"]

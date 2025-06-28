@@ -238,8 +238,8 @@ spec:
         - name: GITEA_ADMIN_TOKEN
           valueFrom:
             secretKeyRef:
-              name: workshop-system-secrets
-              key: GITEA_ADMIN_TOKEN
+              name: gitea-credentials
+              key: GITEA_TOKEN
         # Gitea Configuration from ConfigMap
         - name: GITEA_URL
           valueFrom:
@@ -257,6 +257,11 @@ spec:
               name: gitea-config
               key: GITEA_ORGANIZATION
         - name: GITEA_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: GITEA_USERNAME
+        - name: GITEA_USER
           valueFrom:
             configMapKeyRef:
               name: gitea-config

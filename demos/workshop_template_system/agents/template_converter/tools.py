@@ -6,6 +6,8 @@ GitHub repository analysis and workshop structure generation
 import os
 import re
 import logging
+import requests
+import json
 from typing import Dict, List, Any, Optional
 from urllib.parse import urlparse
 # from llama_stack_client.lib.agents.client_tool import client_tool  # TODO: Fix when API is stable
@@ -18,9 +20,77 @@ def client_tool(func):
 
 logger = logging.getLogger(__name__)
 
+def fetch_repository_structure(repository_url: str) -> dict:
+    """Fetch real repository structure from GitHub API"""
+    try:
+        # Parse repository URL to extract owner and repo
+        parsed_url = urlparse(repository_url)
+        path_parts = parsed_url.path.strip('/').split('/')
+        if len(path_parts) < 2:
+            return {"error": "Invalid repository URL"}
+
+        owner, repo = path_parts[0], path_parts[1]
+
+        # Remove .git suffix if present
+        if repo.endswith('.git'):
+            repo = repo[:-4]
+
+        # GitHub API endpoint for repository contents
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
+
+        # Get GitHub token from environment if available
+        github_token = os.getenv('GITHUB_TOKEN')
+        headers = {}
+        if github_token:
+            headers['Authorization'] = f'token {github_token}'
+
+        # Fetch repository contents
+        response = requests.get(api_url, headers=headers, timeout=30)
+
+        if response.status_code == 200:
+            contents = response.json()
+
+            files = []
+            directories = []
+
+            for item in contents:
+                if item['type'] == 'file':
+                    files.append(item['name'])
+                elif item['type'] == 'dir':
+                    directories.append(item['name'])
+
+            # Also try to fetch README content for additional analysis
+            readme_content = ""
+            for readme_name in ['README.md', 'README.rst', 'README.txt', 'README']:
+                if readme_name in files:
+                    readme_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{readme_name}"
+                    readme_response = requests.get(readme_url, headers=headers, timeout=30)
+                    if readme_response.status_code == 200:
+                        readme_data = readme_response.json()
+                        if 'content' in readme_data:
+                            import base64
+                            readme_content = base64.b64decode(readme_data['content']).decode('utf-8')
+                        break
+
+            return {
+                "files": files,
+                "directories": directories,
+                "readme_content": readme_content,
+                "repository": f"{owner}/{repo}",
+                "success": True
+            }
+        else:
+            logger.warning(f"GitHub API request failed: {response.status_code}")
+            return {"error": f"GitHub API request failed: {response.status_code}", "success": False}
+
+    except Exception as e:
+        logger.error(f"Error fetching repository structure: {str(e)}")
+        return {"error": str(e), "success": False}
+
 # Workshop detection patterns
 WORKSHOP_INDICATORS = {
     "antora": ["antora.yml", "content/modules", "nav.adoc"],
+    "legacy_rto": ["default-site.yml", "demo-site.yml", "content/"],  # Red Hat SE RTO template
     "gitbook": ["SUMMARY.md", "book.json", ".gitbook"],
     "mkdocs": ["mkdocs.yml", "docs/", "site/"],
     "sphinx": ["conf.py", "_build/", "source/"],
@@ -90,10 +160,14 @@ TECHNOLOGY_PATTERNS = {
 }
 
 
-def detect_existing_workshop(owner: str, repo: str) -> dict:
+def detect_existing_workshop(repository_url: str, repo_structure: dict = None) -> dict:
     """Detect if repository is already a workshop and determine its type and quality"""
 
-    # Simulate workshop detection (in production, would analyze actual repo structure)
+    # Extract repo name for initial checks
+    from urllib.parse import urlparse
+    parsed_url = urlparse(repository_url)
+    path_parts = parsed_url.path.strip('/').split('/')
+    repo = path_parts[1] if len(path_parts) >= 2 else ""
     repo_lower = repo.lower()
 
     workshop_detected = False
@@ -101,38 +175,103 @@ def detect_existing_workshop(owner: str, repo: str) -> dict:
     workshop_quality = "unknown"
     indicators_found = []
 
-    # Check for workshop indicators in repository name
-    if any(indicator in repo_lower for indicator in ["workshop", "lab", "tutorial", "guide"]):
-        workshop_detected = True
-        indicators_found.append("Workshop keyword in repository name")
+    # Check for workshop indicators in repository name (but don't rely solely on this)
+    name_suggests_workshop = any(indicator in repo_lower for indicator in ["workshop", "lab", "tutorial", "guide"])
+    if name_suggests_workshop:
+        indicators_found.append("Workshop keyword in repository name (requires framework validation)")
 
-    # Simulate detection based on known patterns
-    if "openshift-bare-metal-deployment-workshop" in repo:
-        workshop_detected = True
-        workshop_type = "antora"
-        workshop_quality = "high"
-        indicators_found.extend([
-            "Antora documentation framework detected",
-            "Structured content modules found",
-            "Navigation configuration present",
-            "Professional workshop template"
-        ])
-    elif "healthcare-ml" in repo_lower:
-        workshop_detected = False  # This is an application, not a workshop
-        workshop_type = "application"
-        indicators_found.extend([
-            "Complex application repository",
-            "Multiple services and components",
-            "Deployment configurations present",
-            "Good candidate for workshop conversion"
-        ])
+    # If we have actual repository structure, analyze it for ACTUAL workshop frameworks
+    if repo_structure:
+        files = repo_structure.get('files', [])
+        directories = repo_structure.get('directories', [])
+
+        # Check for ACTUAL workshop framework indicators (not just content organization)
+        for framework, indicators in WORKSHOP_INDICATORS.items():
+            framework_score = 0
+            framework_indicators = []
+
+            for indicator in indicators:
+                if indicator.endswith('/'):
+                    # Directory indicator
+                    if any(indicator.rstrip('/') in dir_name for dir_name in directories):
+                        framework_score += 1
+                        framework_indicators.append(f"{indicator} directory found")
+                else:
+                    # File indicator
+                    if any(indicator in file_name for file_name in files):
+                        framework_score += 1
+                        framework_indicators.append(f"{indicator} file found")
+
+            # Require STRONG evidence for workshop framework detection
+            # Must have framework-specific files, not just organized content
+            if framework_score >= 1:  # Lowered threshold but still require actual files
+                # Check if we found actual framework files (not just directories)
+                has_framework_files = any(
+                    indicator in files for indicator in indicators
+                    if not indicator.endswith('/')
+                )
+                if has_framework_files:
+                    workshop_detected = True
+                    workshop_type = framework
+                    workshop_quality = "high" if framework_score >= 2 else "medium"
+                    indicators_found.extend(framework_indicators)
+                    break
+
+        # If no framework detected but has workshop-like organization, it's tutorial-style content
+        if not workshop_detected and name_suggests_workshop:
+            # Check for tutorial-style organization (numbered modules, etc.)
+            tutorial_patterns = any(
+                dir_name.startswith(('01-', '02-', '03-', 'module', 'chapter', 'lab', 'exercise'))
+                for dir_name in directories
+            )
+            if tutorial_patterns:
+                indicators_found.append("Tutorial-style content organization detected")
+                indicators_found.append("No formal workshop framework found - needs Showroom template conversion")
+
+    # Fallback classification for specific known repositories
+    if not workshop_detected:
+        if "openshift-bare-metal-deployment-workshop" in repo:
+            # This is a known structured workshop - check if it has proper framework
+            if any(file in files for file in ["antora.yml", "showroom.yml", "default-site.yml"]):
+                workshop_detected = True
+                workshop_type = "antora"
+                workshop_quality = "high"
+                indicators_found.extend([
+                    "Known structured workshop repository",
+                    "Proper workshop framework detected"
+                ])
+            else:
+                # Even known workshops need framework validation
+                workshop_detected = False
+                workshop_type = "tutorial_content"
+                indicators_found.extend([
+                    "Known workshop content but no framework detected",
+                    "Needs Showroom template conversion"
+                ])
+        elif any(keyword in repo_lower for keyword in ["healthcare-ml", "genetic-predictor"]):
+            workshop_detected = False  # These are applications, not workshops
+            workshop_type = "application"
+            indicators_found.extend([
+                "Application repository detected",
+                "Good candidate for workshop conversion using Showroom template"
+            ])
+        elif "ddd" in repo_lower and name_suggests_workshop:
+            # DDD Hexagonal Workshop - tutorial content, not framework-based workshop
+            workshop_detected = False
+            workshop_type = "tutorial_content"
+            indicators_found.extend([
+                "Tutorial-style workshop content detected",
+                "Organized learning modules but no workshop framework",
+                "Should use Showroom template for proper workshop structure"
+            ])
 
     return {
         "is_workshop": workshop_detected,
         "workshop_type": workshop_type,
         "quality_level": workshop_quality,
         "indicators": indicators_found,
-        "confidence": "high" if len(indicators_found) > 2 else "medium"
+        "confidence": "high" if len(indicators_found) > 2 else "medium",
+        "workflow_recommendation": "enhancement" if workshop_detected else "creation"
     }
 
 
@@ -158,35 +297,76 @@ def analyze_repository_tool(repository_url: str, analysis_depth: str = "standard
 
         owner, repo = path_parts[0], path_parts[1]
 
-        # Detect if this is already a workshop
-        workshop_detection = detect_existing_workshop(owner, repo)
-        
-        # Simulated repository analysis (in production, this would use GitHub MCP)
-        # This provides realistic analysis patterns for development
+        # Remove .git suffix if present
+        if repo.endswith('.git'):
+            repo = repo[:-4]
+
+        # Fetch real repository structure
+        logger.info(f"Fetching repository structure for {owner}/{repo}")
+        repo_structure = fetch_repository_structure(repository_url)
+
+        if not repo_structure.get("success", False):
+            logger.warning(f"Failed to fetch repository structure: {repo_structure.get('error', 'Unknown error')}")
+            # Fallback to basic analysis without structure
+            repo_structure = {"files": [], "directories": [], "readme_content": ""}
+
+        # Detect if this is already a workshop using real repository structure
+        workshop_detection = detect_existing_workshop(repository_url, repo_structure)
+
+        # Real repository analysis based on fetched structure
         analysis_result = {
             "repository": f"{owner}/{repo}",
             "url": repository_url,
-            "analysis_depth": analysis_depth
+            "analysis_depth": analysis_depth,
+            "structure": repo_structure,
+            "workshop_classification": workshop_detection
         }
         
-        # Simulate technology detection based on common patterns
+        # Real technology detection based on repository structure and content
         detected_technologies = []
         repo_lower = repo.lower()
-        
+        files = repo_structure.get("files", [])
+        directories = repo_structure.get("directories", [])
+        readme_content = repo_structure.get("readme_content", "").lower()
+
+        # Technology detection based on file extensions and names
+        tech_indicators = {
+            "java": [".java", "pom.xml", "build.gradle", "maven", "gradle"],
+            "python": [".py", "requirements.txt", "setup.py", "pyproject.toml", "conda.yml"],
+            "javascript": [".js", ".ts", "package.json", "node_modules", "npm"],
+            "go": [".go", "go.mod", "go.sum"],
+            "rust": [".rs", "Cargo.toml", "Cargo.lock"],
+            "docker": ["Dockerfile", "docker-compose.yml", ".dockerignore"],
+            "kubernetes": ["deployment.yaml", "service.yaml", "ingress.yaml", "kustomization.yaml"],
+            "openshift": ["buildconfig.yaml", "route.yaml", "template.yaml"],
+            "quarkus": ["quarkus", "io.quarkus"],
+            "spring": ["spring", "springframework"],
+            "react": ["react", "jsx", "tsx"],
+            "angular": ["angular", "@angular"],
+            "vue": ["vue", "vuejs"],
+            "kafka": ["kafka", "confluent"],
+            "redis": ["redis"],
+            "postgresql": ["postgres", "postgresql"],
+            "mongodb": ["mongo", "mongodb"],
+            "machine-learning": ["ml", "ai", "tensorflow", "pytorch", "scikit", "pandas", "numpy"]
+        }
+
+        # Check files and directories for technology indicators
+        all_content = " ".join(files + directories + [readme_content])
+
+        for tech, indicators in tech_indicators.items():
+            for indicator in indicators:
+                if indicator in all_content:
+                    detected_technologies.append(tech)
+                    break
+
+        # Also check repository name patterns
         for tech, category in TECHNOLOGY_PATTERNS.items():
             if tech in repo_lower:
                 detected_technologies.append(tech)
-        
-        # If no specific technologies detected, infer from repo name patterns
-        if not detected_technologies:
-            if any(word in repo_lower for word in ["api", "rest", "service"]):
-                detected_technologies.append("api")
-            elif any(word in repo_lower for word in ["web", "app", "frontend"]):
-                detected_technologies.append("web")
-            elif any(word in repo_lower for word in ["data", "ml", "ai", "analysis"]):
-                detected_technologies.append("data-science")
-            elif any(word in repo_lower for word in ["deploy", "infra", "ops"]):
-                detected_technologies.append("devops")
+
+        # Remove duplicates
+        detected_technologies = list(set(detected_technologies))
         
         # Determine primary workshop category
         primary_category = "web_application"  # default
@@ -214,11 +394,23 @@ def analyze_repository_tool(repository_url: str, analysis_depth: str = "standard
         for indicator in workshop_detection['indicators']:
             report_parts.append(f"- {indicator}")
 
+        # Add workflow routing information based on ADR-0001
+        workflow_recommendation = workshop_detection.get('workflow_recommendation', 'creation')
         report_parts.extend([
+            "",
+            "## 🎯 Workflow Routing (ADR-0001)",
+            f"**Recommended Workflow**: {'Workflow 3: Enhancement and Modernization' if workshop_detection['is_workshop'] else 'Workflow 1: Repository-Based Workshop Creation'}",
+            f"**Template Strategy**: {'Clone original workshop repository' if workshop_detection['is_workshop'] else 'Use showroom_template_default.git as base'}",
+            f"**Gitea Strategy**: {'Clone original → Gitea → Enhance content' if workshop_detection['is_workshop'] else 'Clone template → Gitea → Generate content'}",
             "",
             "## 🔍 Technology Detection",
             f"**Detected Technologies**: {', '.join(detected_technologies) if detected_technologies else 'General programming project'}",
             f"**Primary Category**: {primary_category}",
+            "",
+            "## 📁 Repository Structure",
+            f"**Files Found**: {len(repo_structure.get('files', []))} files",
+            f"**Directories Found**: {len(repo_structure.get('directories', []))} directories",
+            f"**README Available**: {'Yes' if repo_structure.get('readme_content') else 'No'}",
             "",
             "## 📚 Repository Assessment",
         ])

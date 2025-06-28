@@ -22,9 +22,10 @@ SUPPORTED_CONTENT_TYPES = ["text", "text/plain", "application/json"]
 
 
 class AgentTaskManager(InMemoryTaskManager):
-    def __init__(self, agent: Any, internal_session_id=False):  # Temporary fix
+    def __init__(self, agent: Any, internal_session_id=False, tools=None):  # Temporary fix
         super().__init__()
         self.agent = agent
+        self.tools = tools or []  # Store tools for direct invocation
         if internal_session_id:
             self.session_id = self.agent.create_session("custom-agent-session")
         else:
