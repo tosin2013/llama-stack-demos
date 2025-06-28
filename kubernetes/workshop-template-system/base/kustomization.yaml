@@ -10,10 +10,10 @@ resources:
   - serviceaccount.yaml
   - milvus-deployment.yaml
   - milvus-service.yaml
-  - llama-stack-deployment.yaml
-  - llama-stack-service.yaml
+
   - agents-deployment.yaml
   - agents-service.yaml
+  - agents-routes.yaml
   - workshops-deployment.yaml
   - workshops-service.yaml
   - workshops-route.yaml
