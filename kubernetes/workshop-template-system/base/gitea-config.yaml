@@ -1,0 +1,188 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-config
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: gitea-integration
+data:
+  # Gitea server configuration
+  GITEA_URL: "https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+  GITEA_API_URL: "https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/api/v1"
+  GITEA_ORGANIZATION: "workshop-system"
+  GITEA_USERNAME: "opentlc-mgr"
+  
+  # Repository configuration
+  DEFAULT_BRANCH: "main"
+  AUTO_INIT: "true"
+  PRIVATE_REPOS: "false"
+  
+  # Workshop repository naming patterns
+  HEALTHCARE_ML_REPO: "healthcare-ml-workshop"
+  OPENSHIFT_BAREMETAL_REPO: "openshift-baremetal-workshop"
+  
+  # BuildConfig integration
+  WEBHOOK_SECRET_NAME: "workshop-webhook-secret"
+  BUILD_STRATEGY: "Source"
+  BASE_IMAGE: "httpd:2.4"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitea-credentials
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: gitea-integration
+type: Opaque
+data:
+  # Gitea API token (base64 encoded)
+  # Token: 5064d47a5fdb598395a4eb57d3253c394467ca6c
+  GITEA_TOKEN: NTA2NGQ0N2E1ZmRiNTk4Mzk1YTRlYjU3ZDMyNTNjMzk0NDY3Y2E2Yw==
+  
+  # Admin password (retrieved from OpenShift)
+  # This should be updated with actual password from: oc get gitea gitea-with-admin -n gitea -o jsonpath='{.status.adminPassword}'
+  GITEA_PASSWORD: ""
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-dynamic-config
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: gitea-integration
+data:
+  # Script to dynamically retrieve Gitea configuration
+  get-gitea-config.sh: |
+    #!/bin/bash
+    # Dynamic Gitea configuration retrieval
+    
+    # Get Gitea URL from deployed instance
+    GITEA_URL=$(oc get gitea gitea-with-admin -n gitea -o jsonpath='{.status.giteaHostname}' 2>/dev/null || echo "gitea-with-admin-gitea.apps.cluster.local")
+    
+    # Get admin credentials
+    GITEA_ADMIN_USER=$(oc get gitea gitea-with-admin -n gitea -o jsonpath='{.spec.giteaAdminUser}' 2>/dev/null || echo "opentlc-mgr")
+    GITEA_ADMIN_PASSWORD=$(oc get gitea gitea-with-admin -n gitea -o jsonpath='{.status.adminPassword}' 2>/dev/null || echo "")
+    
+    # Export environment variables
+    export GITEA_URL="https://${GITEA_URL}"
+    export GITEA_API_URL="https://${GITEA_URL}/api/v1"
+    export GITEA_USERNAME="${GITEA_ADMIN_USER}"
+    export GITEA_PASSWORD="${GITEA_ADMIN_PASSWORD}"
+    
+    echo "Gitea configuration loaded:"
+    echo "  URL: ${GITEA_URL}"
+    echo "  API: ${GITEA_API_URL}"
+    echo "  User: ${GITEA_USERNAME}"
+    echo "  Password: [REDACTED]"
+
+  # Repository management functions
+  gitea-functions.sh: |
+    #!/bin/bash
+    # Gitea repository management functions
+    
+    # Source the dynamic config
+    source /config/get-gitea-config.sh
+    
+    # Check if repository exists
+    check_repository_exists() {
+        local repo_name="$1"
+        local response=$(curl -k -s -w "%{http_code}" -o /dev/null \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            "${GITEA_API_URL}/repos/${GITEA_ORGANIZATION}/${repo_name}")
+        
+        if [ "$response" = "200" ]; then
+            return 0  # Repository exists
+        else
+            return 1  # Repository does not exist
+        fi
+    }
+    
+    # Create repository if it doesn't exist
+    create_repository_if_needed() {
+        local repo_name="$1"
+        local description="$2"
+        
+        if check_repository_exists "$repo_name"; then
+            echo "Repository $repo_name already exists, skipping creation"
+            return 0
+        fi
+        
+        echo "Creating repository: $repo_name"
+        curl -k -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -d "{
+                \"name\": \"${repo_name}\",
+                \"description\": \"${description}\",
+                \"private\": false,
+                \"auto_init\": true,
+                \"default_branch\": \"main\"
+            }" \
+            "${GITEA_API_URL}/orgs/${GITEA_ORGANIZATION}/repos"
+    }
+    
+    # Update repository content
+    update_repository_content() {
+        local repo_name="$1"
+        local file_path="$2"
+        local content="$3"
+        local commit_message="$4"
+        
+        # Get current file SHA if it exists
+        local sha_response=$(curl -k -s \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            "${GITEA_API_URL}/repos/${GITEA_ORGANIZATION}/${repo_name}/contents/${file_path}")
+        
+        local sha=$(echo "$sha_response" | jq -r '.sha // empty')
+        
+        # Prepare request data
+        local request_data="{
+            \"message\": \"${commit_message}\",
+            \"content\": \"$(echo -n "$content" | base64 -w 0)\",
+            \"branch\": \"main\"
+        }"
+        
+        # Add SHA if file exists (for update)
+        if [ -n "$sha" ] && [ "$sha" != "null" ]; then
+            request_data=$(echo "$request_data" | jq --arg sha "$sha" '. + {sha: $sha}')
+            method="PUT"
+        else
+            method="POST"
+        fi
+        
+        # Create or update file
+        curl -k -s -X "$method" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -d "$request_data" \
+            "${GITEA_API_URL}/repos/${GITEA_ORGANIZATION}/${repo_name}/contents/${file_path}"
+    }
+
+  # Environment template for agents
+  agent-env-template: |
+    # Gitea Configuration Environment Variables
+    GITEA_URL=${GITEA_URL}
+    GITEA_API_URL=${GITEA_API_URL}
+    GITEA_ORGANIZATION=${GITEA_ORGANIZATION}
+    GITEA_USERNAME=${GITEA_USERNAME}
+    GITEA_TOKEN=${GITEA_TOKEN}
+    GITEA_PASSWORD=${GITEA_PASSWORD}
+    
+    # Repository Configuration
+    DEFAULT_BRANCH=${DEFAULT_BRANCH}
+    AUTO_INIT=${AUTO_INIT}
+    PRIVATE_REPOS=${PRIVATE_REPOS}
+    
+    # Workshop Repository Names
+    HEALTHCARE_ML_REPO=${HEALTHCARE_ML_REPO}
+    OPENSHIFT_BAREMETAL_REPO=${OPENSHIFT_BAREMETAL_REPO}
+    
+    # BuildConfig Integration
+    WEBHOOK_SECRET_NAME=${WEBHOOK_SECRET_NAME}
+    BUILD_STRATEGY=${BUILD_STRATEGY}
+    BASE_IMAGE=${BASE_IMAGE}

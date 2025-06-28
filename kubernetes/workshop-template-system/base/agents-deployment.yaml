@@ -240,6 +240,33 @@ spec:
             secretKeyRef:
               name: workshop-system-secrets
               key: GITEA_ADMIN_TOKEN
+        # Gitea Configuration from ConfigMap
+        - name: GITEA_URL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: GITEA_URL
+        - name: GITEA_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: GITEA_API_URL
+        - name: GITEA_ORGANIZATION
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: GITEA_ORGANIZATION
+        - name: GITEA_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: gitea-config
+              key: GITEA_USERNAME
+        # Additional Gitea Credentials
+        - name: GITEA_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: gitea-credentials
+              key: GITEA_TOKEN
         resources:
           requests:
             memory: "1Gi"

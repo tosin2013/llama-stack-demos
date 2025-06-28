@@ -20,6 +20,7 @@ resources:
   - buildconfigs.yaml
   - imagestreams.yaml
   - workshop-system-buildconfig.yaml
+  - gitea-config.yaml
 
 # Common labels applied to all resources
 labels:
