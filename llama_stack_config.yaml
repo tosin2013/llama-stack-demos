@@ -1,0 +1,47 @@
+built_with: llama-stack-0.2.13
+image_type: local
+
+apis:
+  - inference
+  - safety
+  - agents
+  - memory
+  - telemetry
+
+providers:
+  inference: ollama
+  safety: llama_guard
+  agents: meta_reference
+  memory: faiss
+  telemetry: console
+
+models:
+  - model_id: meta-llama/Llama-3.2-3B-Instruct
+    provider_id: ollama
+    provider_model_id: llama3.2:3b-instruct-fp16
+
+inference:
+  provider: ollama
+  config:
+    url: http://localhost:11434
+
+safety:
+  provider: llama_guard
+  config:
+    llama_guard_shield:
+      model_id: meta-llama/Llama-3.2-3B-Instruct
+
+agents:
+  provider: meta_reference
+  config: {}
+
+memory:
+  provider: faiss
+  config:
+    embedding_model: all-MiniLM-L6-v2
+    chunk_size_in_tokens: 512
+    overlap_size_in_tokens: 64
+
+telemetry:
+  provider: console
+  config: {}
