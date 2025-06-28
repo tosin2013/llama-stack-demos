@@ -157,79 +157,20 @@ deploy_workshop_system() {
     print_success "Workshop Template System deployed successfully"
 }
 
-# Create BuildConfigs for agent-generated workshops
-create_workshop_buildconfigs() {
-    print_status "Creating BuildConfigs for agent-generated workshops..."
+# Update Kustomize BuildConfigs with correct Gitea URL
+update_buildconfig_urls() {
+    print_status "Updating BuildConfig URLs to use deployed Gitea instance..."
 
-    # Get Gitea URL
+    # Get actual Gitea URL
     GITEA_URL=$(oc get route gitea-with-admin -n ${GITEA_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "gitea.apps.cluster.local")
 
-    # OpenShift Bare Metal Workshop BuildConfig (for Workflow 3: Enhancement)
-    cat << EOF | oc apply -f -
-apiVersion: build.openshift.io/v1
-kind: BuildConfig
-metadata:
-  name: openshift-baremetal-workshop-build
-  namespace: ${NAMESPACE}
-  labels:
-    app: openshift-baremetal-workshop
-    build: workshop-content
-    workflow: enhancement
-spec:
-  source:
-    type: Git
-    git:
-      uri: https://${GITEA_URL}/workshop-system/openshift-baremetal-workshop.git
-      ref: main
-    contextDir: /
-  strategy:
-    type: Source
-    sourceStrategy:
-      from:
-        kind: ImageStreamTag
-        name: httpd:2.4
-        namespace: openshift
-  output:
-    to:
-      kind: ImageStreamTag
-      name: openshift-baremetal-workshop:latest
-  triggers:
-  - type: ConfigChange
-  - type: GitHub
-    github:
-      secret: workshop-webhook-secret
-  - type: Generic
-    generic:
-      secret: workshop-webhook-secret
-  - type: ImageChange
-    imageChange: {}
+    print_status "Updating BuildConfigs to use Gitea URL: https://${GITEA_URL}"
 
----
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: openshift-baremetal-workshop
-  namespace: ${NAMESPACE}
-  labels:
-    app: openshift-baremetal-workshop
-    workflow: enhancement
-spec:
-  lookupPolicy:
-    local: false
+    # Update the buildconfigs.yaml file with the correct Gitea URL
+    sed -i "s|https://gitea.apps.cluster.local|https://${GITEA_URL}|g" kubernetes/workshop-template-system/base/buildconfigs.yaml
 
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: workshop-webhook-secret
-  namespace: ${NAMESPACE}
-type: Opaque
-data:
-  WebHookSecretKey: $(echo -n "workshop-webhook-$(date +%s)" | base64 -w 0)
-EOF
-
-    print_success "BuildConfigs created for workshop automation"
-    print_status "Note: Healthcare ML workshop BuildConfig will be created by agents after repository conversion"
+    print_success "BuildConfig URLs updated for Gitea integration"
+    print_status "BuildConfigs will be deployed by Kustomize with correct repository URLs"
 }
 
 # Configure agent workflows for workshop processing
@@ -327,11 +268,13 @@ deploy_complete_system() {
     # Import workshop repositories
     import_workshop_repositories
 
+    # Update BuildConfig URLs for Gitea integration
+    update_buildconfig_urls
+
     # Deploy Workshop Template System using Kustomize
     deploy_workshop_system
 
-    # Create BuildConfigs for workshops
-    create_workshop_buildconfigs
+    # BuildConfigs are managed by Kustomize in kubernetes/workshop-template-system/base/buildconfigs.yaml
 
     # Configure agent workflows
     configure_agent_workflows
