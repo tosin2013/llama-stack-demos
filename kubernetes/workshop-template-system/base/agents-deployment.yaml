@@ -20,7 +20,7 @@ spec:
       serviceAccountName: workshop-system-sa
       containers:
       - name: workshop-chat-agent
-        image: workshop-system:latest
+        image: workshop-agent-system:latest
         command: ["/bin/bash", "/opt/app-root/src/kubernetes/workshop-template-system/start-agent.sh"]
         ports:
         - containerPort: 8080
@@ -88,7 +88,7 @@ spec:
       serviceAccountName: workshop-system-sa
       containers:
       - name: template-converter-agent
-        image: workshop-system:latest
+        image: workshop-agent-system:latest
         command: ["/bin/bash", "/opt/app-root/src/kubernetes/workshop-template-system/start-agent.sh"]
         ports:
         - containerPort: 8080
@@ -160,7 +160,7 @@ spec:
       serviceAccountName: workshop-system-sa
       containers:
       - name: content-creator-agent
-        image: workshop-system:latest
+        image: workshop-agent-system:latest
         command: ["/bin/bash", "/opt/app-root/src/kubernetes/workshop-template-system/start-agent.sh"]
         ports:
         - containerPort: 8080
@@ -227,7 +227,7 @@ spec:
       serviceAccountName: workshop-system-sa
       containers:
       - name: source-manager-agent
-        image: workshop-system:latest
+        image: workshop-agent-system:latest
         command: ["/bin/bash", "/opt/app-root/src/kubernetes/workshop-template-system/start-agent.sh"]
         ports:
         - containerPort: 8080
@@ -299,7 +299,7 @@ spec:
       serviceAccountName: workshop-system-sa
       containers:
       - name: research-validation-agent
-        image: workshop-system:latest
+        image: workshop-agent-system:latest
         command: ["/bin/bash", "/opt/app-root/src/kubernetes/workshop-template-system/start-agent.sh"]
         ports:
         - containerPort: 8080
@@ -366,7 +366,7 @@ spec:
       serviceAccountName: workshop-system-sa
       containers:
       - name: documentation-pipeline-agent
-        image: workshop-system:latest
+        image: workshop-agent-system:latest
         command: ["/bin/bash", "/opt/app-root/src/kubernetes/workshop-template-system/start-agent.sh"]
         ports:
         - containerPort: 8080
