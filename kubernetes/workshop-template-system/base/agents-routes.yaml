@@ -1,0 +1,118 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: workshop-chat-agent
+  namespace: workshop-system
+  labels:
+    app: workshop-chat-agent
+spec:
+  to:
+    kind: Service
+    name: workshop-chat-agent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: template-converter-agent
+  namespace: workshop-system
+  labels:
+    app: template-converter-agent
+spec:
+  to:
+    kind: Service
+    name: template-converter-agent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: content-creator-agent
+  namespace: workshop-system
+  labels:
+    app: content-creator-agent
+spec:
+  to:
+    kind: Service
+    name: content-creator-agent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: source-manager-agent
+  namespace: workshop-system
+  labels:
+    app: source-manager-agent
+spec:
+  to:
+    kind: Service
+    name: source-manager-agent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: research-validation-agent
+  namespace: workshop-system
+  labels:
+    app: research-validation-agent
+spec:
+  to:
+    kind: Service
+    name: research-validation-agent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: documentation-pipeline-agent
+  namespace: workshop-system
+  labels:
+    app: documentation-pipeline-agent
+spec:
+  to:
+    kind: Service
+    name: documentation-pipeline-agent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
