@@ -1,0 +1,38 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: healthcare-ml-workshop
+  namespace: workshop-system
+  labels:
+    app: healthcare-ml-workshop
+    workshop: healthcare-ml
+spec:
+  host: healthcare-ml.apps.cluster.local
+  to:
+    kind: Service
+    name: healthcare-ml-workshop
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: openshift-baremetal-workshop
+  namespace: workshop-system
+  labels:
+    app: openshift-baremetal-workshop
+    workshop: openshift-baremetal
+spec:
+  host: openshift-baremetal.apps.cluster.local
+  to:
+    kind: Service
+    name: openshift-baremetal-workshop
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

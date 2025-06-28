@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthcare-ml-workshop
+  namespace: workshop-system
+  labels:
+    app: healthcare-ml-workshop
+spec:
+  selector:
+    app: healthcare-ml-workshop
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openshift-baremetal-workshop
+  namespace: workshop-system
+  labels:
+    app: openshift-baremetal-workshop
+spec:
+  selector:
+    app: openshift-baremetal-workshop
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP

@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthcare-ml-workshop
+  namespace: workshop-system
+  labels:
+    app: healthcare-ml-workshop
+    workshop: healthcare-ml
+    type: application-conversion
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: healthcare-ml-workshop
+  template:
+    metadata:
+      labels:
+        app: healthcare-ml-workshop
+        workshop: healthcare-ml
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: workshop-content
+        image: registry.access.redhat.com/ubi8/httpd-24:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: WORKSHOP_NAME
+          value: "Healthcare ML Genetic Predictor"
+        - name: WORKSHOP_TYPE
+          value: "application-conversion"
+        - name: CHAT_AGENT_URL
+          value: "http://workshop-chat-agent/healthcare-ml"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        # Workshop content will be served from BuildConfig images
+        # No volume mounts needed for initial deployment
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openshift-baremetal-workshop
+  namespace: workshop-system
+  labels:
+    app: openshift-baremetal-workshop
+    workshop: openshift-baremetal
+    type: existing-workshop-enhancement
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: openshift-baremetal-workshop
+  template:
+    metadata:
+      labels:
+        app: openshift-baremetal-workshop
+        workshop: openshift-baremetal
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: workshop-content
+        image: registry.access.redhat.com/ubi8/httpd-24:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: WORKSHOP_NAME
+          value: "OpenShift Bare Metal Deployment - Enhanced"
+        - name: WORKSHOP_TYPE
+          value: "existing-workshop-enhancement"
+        - name: CHAT_AGENT_URL
+          value: "http://workshop-chat-agent/openshift-baremetal"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        # Workshop content will be served from BuildConfig images
+        # No volume mounts needed for initial deployment

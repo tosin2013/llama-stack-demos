@@ -1,0 +1,73 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: openshift-baremetal-workshop-example
+
+# Reference to base configuration
+resources:
+  - ../../base
+
+# Namespace override
+namespace: workshop-system
+
+# Repository-specific configuration
+configMapGenerator:
+  - name: workshop-system-config
+    behavior: replace
+    literals:
+      # URLs - Customize these for your environment
+      - gitea_url=https://gitea.apps.your-cluster.local
+      - workshop_domain=apps.your-cluster.local
+      - llama_stack_endpoint=http://llama-stack-server:8321
+      
+      # OpenShift Bare Metal Repository Configuration
+      - source_repository=https://github.com/Red-Hat-SE-RTO/openshift-bare-metal-deployment-workshop.git
+      - workshop_name=OpenShift Bare Metal Deployment - Enhanced
+      - workshop_type=existing-workshop-enhancement
+      - technologies=openshift,bare-metal,installation
+      - workshop_subdomain=openshift-baremetal
+      
+      # Gitea Repository (will be enhanced by agents)
+      - gitea_repository=workshop-system/openshift-baremetal-workshop.git
+      
+      # Workshop Description
+      - workshop_description=Learn to deploy OpenShift on bare metal infrastructure with enhanced AI assistance and interactive guidance
+      
+      # Agent Configuration
+      - agent_replicas=1
+      - chat_agent_replicas=2
+      - rag_enabled=true
+      - web_search_enabled=true
+      - enhancement_mode=true
+
+# Secret configuration - copy and customize secrets.env
+secretGenerator:
+  - name: workshop-system-secrets
+    behavior: replace
+    envs:
+      - secrets.env
+
+# Image customization
+images:
+  - name: workshop-system
+    newName: quay.io/your-org/workshop-system
+    newTag: latest
+
+# Repository-specific patches
+patchesStrategicMerge:
+  - patches/openshift-baremetal-resources.yaml
+  - patches/openshift-baremetal-routes.yaml
+
+# Labels specific to this repository
+commonLabels:
+  repository: openshift-bare-metal-deployment-workshop
+  workshop-type: existing-workshop-enhancement
+  technology-focus: openshift-infrastructure
+
+# Annotations for this specific deployment
+commonAnnotations:
+  source-repository: "https://github.com/Red-Hat-SE-RTO/openshift-bare-metal-deployment-workshop.git"
+  workshop-focus: "OpenShift Infrastructure Deployment"
+  target-audience: "Platform Engineers, System Administrators"
+  enhancement-type: "AI-assisted existing workshop"

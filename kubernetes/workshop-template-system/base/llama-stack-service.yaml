@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama-stack-server
+  namespace: workshop-system
+  labels:
+    app: llama-stack-server
+spec:
+  selector:
+    app: llama-stack-server
+  ports:
+  - port: 8321
+    targetPort: 8321
+    name: llama-stack
+  type: ClusterIP

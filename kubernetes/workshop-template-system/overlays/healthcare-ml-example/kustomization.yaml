@@ -1,0 +1,71 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: healthcare-ml-workshop-example
+
+# Reference to base configuration
+resources:
+  - ../../base
+
+# Namespace override
+namespace: workshop-system
+
+# Repository-specific configuration
+configMapGenerator:
+  - name: workshop-system-config
+    behavior: replace
+    literals:
+      # URLs - Customize these for your environment
+      - gitea_url=https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com
+      - workshop_domain=apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com
+      - llama_stack_endpoint=http://llama-stack-server:8321
+      
+      # Healthcare ML Repository Configuration
+      - source_repository=https://github.com/tosin2013/healthcare-ml-genetic-predictor.git
+      - workshop_name=Healthcare ML Genetic Predictor
+      - workshop_type=application-conversion
+      - technologies=quarkus,kafka,openshift,ml
+      - workshop_subdomain=healthcare-ml
+      
+      # Gitea Repository (will be created by agents)
+      - gitea_repository=workshop-system/healthcare-ml-workshop.git
+      
+      # Workshop Description
+      - workshop_description=Learn to deploy machine learning models for genetic risk prediction using Quarkus, Kafka, and OpenShift
+      
+      # Agent Configuration
+      - agent_replicas=1
+      - chat_agent_replicas=2
+      - rag_enabled=true
+      - web_search_enabled=true
+
+# Secret configuration - copy and customize secrets.env
+secretGenerator:
+  - name: workshop-system-secrets
+    behavior: replace
+    envs:
+      - secrets.env
+
+# Image customization
+images:
+  - name: workshop-system
+    newName: quay.io/your-org/workshop-system
+    newTag: latest
+
+# Repository-specific patches (optional)
+# patches:
+#   - path: patches/healthcare-ml-resources.yaml
+
+# Labels specific to this repository
+labels:
+  - pairs:
+      repository: healthcare-ml-genetic-predictor
+      workshop-type: application-conversion
+      technology-focus: ml-quarkus
+
+# Annotations for this specific deployment
+commonAnnotations:
+  source-repository: "https://github.com/tosin2013/healthcare-ml-genetic-predictor.git"
+  workshop-focus: "Machine Learning on OpenShift"
+  target-audience: "Developers, Data Scientists"

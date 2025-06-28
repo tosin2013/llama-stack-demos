@@ -1,0 +1,84 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: healthcare-ml-workshop-build
+  namespace: workshop-system
+  labels:
+    app: healthcare-ml-workshop
+    build: workshop-content
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://gitea.apps.cluster.local/workshop-system/healthcare-ml-workshop.git
+      ref: main
+    contextDir: /
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: httpd:2.4
+        namespace: openshift
+  output:
+    to:
+      kind: ImageStreamTag
+      name: healthcare-ml-workshop:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: workshop-webhook-secret
+  - type: Generic
+    generic:
+      secret: workshop-webhook-secret
+  - type: ImageChange
+    imageChange: {}
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: openshift-baremetal-workshop-build
+  namespace: workshop-system
+  labels:
+    app: openshift-baremetal-workshop
+    build: workshop-content
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://gitea.apps.cluster.local/workshop-system/openshift-baremetal-workshop.git
+      ref: main
+    contextDir: /
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: httpd:2.4
+        namespace: openshift
+  output:
+    to:
+      kind: ImageStreamTag
+      name: openshift-baremetal-workshop:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: workshop-webhook-secret
+  - type: Generic
+    generic:
+      secret: workshop-webhook-secret
+  - type: ImageChange
+    imageChange: {}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: workshop-webhook-secret
+  namespace: workshop-system
+type: Opaque
+data:
+  WebHookSecretKey: d29ya3Nob3Atd2ViaG9vay1zZWNyZXQ=  # workshop-webhook-secret

@@ -1,0 +1,348 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-chat-agent
+  namespace: workshop-system
+  labels:
+    app: workshop-chat-agent
+    component: workshop-agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: workshop-chat-agent
+  template:
+    metadata:
+      labels:
+        app: workshop-chat-agent
+        component: workshop-agent
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: workshop-chat-agent
+        image: workshop-system:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AGENT_NAME
+          value: "workshop_chat"
+        - name: AGENT_PORT
+          value: "8080"
+        - name: LLAMA_STACK_ENDPOINT
+          value: "http://llama-stack-server:8321"
+        - name: INFERENCE_MODEL_ID
+          value: "meta-llama/Llama-3.2-3B-Instruct"
+        - name: MILVUS_ENDPOINT
+          value: "http://milvus:19530"
+        - name: RAG_ENABLED
+          value: "true"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: template-converter-agent
+  namespace: workshop-system
+  labels:
+    app: template-converter-agent
+    component: workshop-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: template-converter-agent
+  template:
+    metadata:
+      labels:
+        app: template-converter-agent
+        component: workshop-agent
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: template-converter-agent
+        image: workshop-system:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AGENT_NAME
+          value: "template_converter"
+        - name: AGENT_PORT
+          value: "8080"
+        - name: LLAMA_STACK_ENDPOINT
+          value: "http://llama-stack-server:8321"
+        - name: INFERENCE_MODEL_ID
+          value: "meta-llama/Llama-3.2-3B-Instruct"
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: workshop-system-secrets
+              key: GITHUB_TOKEN
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-creator-agent
+  namespace: workshop-system
+  labels:
+    app: content-creator-agent
+    component: workshop-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: content-creator-agent
+  template:
+    metadata:
+      labels:
+        app: content-creator-agent
+        component: workshop-agent
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: content-creator-agent
+        image: workshop-system:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AGENT_NAME
+          value: "content_creator"
+        - name: AGENT_PORT
+          value: "8080"
+        - name: LLAMA_STACK_ENDPOINT
+          value: "http://llama-stack-server:8321"
+        - name: INFERENCE_MODEL_ID
+          value: "meta-llama/Llama-3.2-3B-Instruct"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: source-manager-agent
+  namespace: workshop-system
+  labels:
+    app: source-manager-agent
+    component: workshop-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: source-manager-agent
+  template:
+    metadata:
+      labels:
+        app: source-manager-agent
+        component: workshop-agent
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: source-manager-agent
+        image: workshop-system:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AGENT_NAME
+          value: "source_manager"
+        - name: AGENT_PORT
+          value: "8080"
+        - name: LLAMA_STACK_ENDPOINT
+          value: "http://llama-stack-server:8321"
+        - name: INFERENCE_MODEL_ID
+          value: "meta-llama/Llama-3.2-3B-Instruct"
+        - name: GITEA_ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: workshop-system-secrets
+              key: GITEA_ADMIN_TOKEN
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-validation-agent
+  namespace: workshop-system
+  labels:
+    app: research-validation-agent
+    component: workshop-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: research-validation-agent
+  template:
+    metadata:
+      labels:
+        app: research-validation-agent
+        component: workshop-agent
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: research-validation-agent
+        image: workshop-system:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AGENT_NAME
+          value: "research_validation"
+        - name: AGENT_PORT
+          value: "8080"
+        - name: LLAMA_STACK_ENDPOINT
+          value: "http://llama-stack-server:8321"
+        - name: INFERENCE_MODEL_ID
+          value: "meta-llama/Llama-3.2-3B-Instruct"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: documentation-pipeline-agent
+  namespace: workshop-system
+  labels:
+    app: documentation-pipeline-agent
+    component: workshop-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: documentation-pipeline-agent
+  template:
+    metadata:
+      labels:
+        app: documentation-pipeline-agent
+        component: workshop-agent
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: documentation-pipeline-agent
+        image: workshop-system:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AGENT_NAME
+          value: "documentation_pipeline"
+        - name: AGENT_PORT
+          value: "8080"
+        - name: LLAMA_STACK_ENDPOINT
+          value: "http://llama-stack-server:8321"
+        - name: INFERENCE_MODEL_ID
+          value: "meta-llama/Llama-3.2-3B-Instruct"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5

@@ -1,0 +1,21 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: healthcare-ml-workshop
+  annotations:
+    description: "Healthcare ML Genetic Predictor Workshop"
+    workshop.type: "application-conversion"
+    source.repository: "https://github.com/tosin2013/healthcare-ml-genetic-predictor.git"
+spec:
+  host: healthcare-ml.apps.your-cluster.local
+  path: /
+  to:
+    kind: Service
+    name: healthcare-ml-workshop
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

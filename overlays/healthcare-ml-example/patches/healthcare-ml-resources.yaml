@@ -1,0 +1,18 @@
+# Healthcare ML Workshop Resource Customizations
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthcare-ml-workshop
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: workshop-content
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"

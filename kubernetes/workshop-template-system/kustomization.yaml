@@ -1,0 +1,104 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: workshop-template-system
+
+# Base resources
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - llama-stack-deployment.yaml
+  - llama-stack-service.yaml
+  - agents-deployment.yaml
+  - agents-service.yaml
+  - workshops-deployment.yaml
+  - workshops-service.yaml
+  - workshops-route.yaml
+  - buildconfigs.yaml
+  - imagestreams.yaml
+
+# Generator options
+generatorOptions:
+  disableNameSuffixHash: true
+
+# ConfigMap generator for system configuration
+configMapGenerator:
+  - name: workshop-system-config
+    files:
+      - config.yaml=config/workshop-config.yaml
+  - name: workshop-chat-integration
+    files:
+      - workshop-chat.js=config/workshop-chat.js
+
+# Secret generator for sensitive data
+secretGenerator:
+  - name: workshop-system-secrets
+    envs:
+      - config/secrets.env
+    type: Opaque
+
+# Common labels applied to all resources
+commonLabels:
+  app: workshop-template-system
+  version: v1.0.0
+
+# Common annotations
+commonAnnotations:
+  description: "Workshop Template System - 6-agent workshop creation and management"
+  maintainer: "workshop-system-team"
+
+# Namespace for all resources
+namespace: workshop-system
+
+# Images that can be customized per environment
+images:
+  - name: workshop-system
+    newName: quay.io/workshop-system/workshop-system
+    newTag: latest
+
+# Replacements for dynamic URL configuration
+replacements:
+  # Replace Gitea URL in BuildConfigs
+  - source:
+      kind: ConfigMap
+      name: workshop-system-config
+      fieldPath: data.gitea_url
+    targets:
+      - select:
+          kind: BuildConfig
+        fieldPaths:
+          - spec.source.git.uri
+        options:
+          delimiter: "/"
+          index: 2
+
+  # Replace workshop domain in Routes
+  - source:
+      kind: ConfigMap
+      name: workshop-system-config
+      fieldPath: data.workshop_domain
+    targets:
+      - select:
+          kind: Route
+          name: healthcare-ml-workshop
+        fieldPaths:
+          - spec.host
+      - select:
+          kind: Route
+          name: openshift-baremetal-workshop
+        fieldPaths:
+          - spec.host
+
+# Patches for resource customization
+patchesStrategicMerge:
+  - patches/resource-limits.yaml
+
+# JSON patches for specific modifications
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: llama-stack-server
+    path: patches/llama-stack-memory.yaml

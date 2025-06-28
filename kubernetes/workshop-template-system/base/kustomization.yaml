@@ -1,0 +1,62 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: workshop-template-system-base
+
+# Base resources
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - milvus-deployment.yaml
+  - milvus-service.yaml
+  - llama-stack-deployment.yaml
+  - llama-stack-service.yaml
+  - agents-deployment.yaml
+  - agents-service.yaml
+  - workshops-deployment.yaml
+  - workshops-service.yaml
+  - workshops-route.yaml
+  - buildconfigs.yaml
+  - imagestreams.yaml
+
+# Common labels applied to all resources
+labels:
+  - pairs:
+      app: workshop-template-system
+      version: v1.0.0
+
+# Common annotations
+commonAnnotations:
+  description: "Workshop Template System - 6-agent workshop creation and management"
+  maintainer: "workshop-system-team"
+
+# Namespace for all resources
+namespace: workshop-system
+
+# Base ConfigMap generator
+configMapGenerator:
+  - name: workshop-system-config
+    literals:
+      - gitea_url=https://gitea.apps.cluster.local
+      - workshop_domain=apps.cluster.local
+      - llama_stack_endpoint=http://llama-stack-server:8321
+      - source_repository=https://github.com/example/example-repo.git
+      - workshop_name=Example Workshop
+      - workshop_type=application-conversion
+      - technologies=example
+      - workshop_subdomain=example
+      - gitea_repository=workshop-system/example-workshop.git
+      - workshop_description=Example workshop description
+      - agent_replicas=1
+      - chat_agent_replicas=2
+      - rag_enabled=true
+      - web_search_enabled=true
+
+# Base Secret generator
+secretGenerator:
+  - name: workshop-system-secrets
+    literals:
+      - GITHUB_TOKEN=placeholder-github-token
+      - GITEA_ADMIN_TOKEN=placeholder-gitea-token
+      - WEBHOOK_SECRET=placeholder-webhook-secret

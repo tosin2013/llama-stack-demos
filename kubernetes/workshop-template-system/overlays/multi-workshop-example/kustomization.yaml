@@ -1,0 +1,82 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: multi-workshop-deployment
+
+# Reference to base configuration
+resources:
+  - ../../base
+
+# Use different namespace for this workshop instance
+namespace: spring-boot-workshop-system
+
+# Repository-specific configuration
+configMapGenerator:
+  - name: workshop-system-config
+    behavior: replace
+    literals:
+      # URLs - Same cluster, different workshop
+      - gitea_url=https://gitea.apps.your-cluster.local
+      - workshop_domain=apps.your-cluster.local
+      - llama_stack_endpoint=http://llama-stack-server.workshop-system:8321
+      
+      # Different repository and workshop details
+      - source_repository=https://github.com/mycompany/spring-boot-microservices.git
+      - workshop_name=Spring Boot Microservices on OpenShift
+      - workshop_type=application-conversion
+      - technologies=spring-boot,microservices,kafka,openshift
+      - workshop_subdomain=spring-microservices
+      
+      # Different Gitea repository
+      - gitea_repository=workshop-system/spring-boot-workshop.git
+      
+      # Workshop Description
+      - workshop_description=Learn to deploy Spring Boot microservices with Kafka messaging on OpenShift
+      
+      # Agent Configuration - can be different per workshop
+      - agent_replicas=1
+      - chat_agent_replicas=1
+      - rag_enabled=true
+      - web_search_enabled=true
+
+# Secret configuration - can be shared or separate
+secretGenerator:
+  - name: workshop-system-secrets
+    behavior: replace
+    envs:
+      - secrets.env
+
+# Image customization
+images:
+  - name: workshop-system
+    newName: quay.io/your-org/workshop-system
+    newTag: latest
+
+# Workshop-specific patches
+patchesStrategicMerge:
+  - patches/spring-boot-resources.yaml
+  - patches/spring-boot-routes.yaml
+
+# Labels specific to this workshop instance
+commonLabels:
+  repository: spring-boot-microservices
+  workshop-type: application-conversion
+  technology-focus: spring-boot
+  workshop-instance: spring-boot-workshop
+
+# Annotations for this specific workshop
+commonAnnotations:
+  source-repository: "https://github.com/mycompany/spring-boot-microservices.git"
+  workshop-focus: "Spring Boot Microservices"
+  target-audience: "Java Developers"
+  workshop-instance: "spring-boot-workshop"
+
+# Cross-namespace service references
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: workshop-chat-agent
+    path: patches/cross-namespace-services.yaml

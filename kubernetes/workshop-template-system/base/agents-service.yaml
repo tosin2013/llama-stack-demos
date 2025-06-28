@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: workshop-chat-agent
+  namespace: workshop-system
+  labels:
+    app: workshop-chat-agent
+spec:
+  selector:
+    app: workshop-chat-agent
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: template-converter-agent
+  namespace: workshop-system
+  labels:
+    app: template-converter-agent
+spec:
+  selector:
+    app: template-converter-agent
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: content-creator-agent
+  namespace: workshop-system
+  labels:
+    app: content-creator-agent
+spec:
+  selector:
+    app: content-creator-agent
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: source-manager-agent
+  namespace: workshop-system
+  labels:
+    app: source-manager-agent
+spec:
+  selector:
+    app: source-manager-agent
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: research-validation-agent
+  namespace: workshop-system
+  labels:
+    app: research-validation-agent
+spec:
+  selector:
+    app: research-validation-agent
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: documentation-pipeline-agent
+  namespace: workshop-system
+  labels:
+    app: documentation-pipeline-agent
+spec:
+  selector:
+    app: documentation-pipeline-agent
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP

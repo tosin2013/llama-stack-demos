@@ -1,0 +1,71 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: custom-workshop-template
+
+# Reference to base configuration
+resources:
+  - ../../base
+
+# Namespace override
+namespace: workshop-system
+
+# Repository-specific configuration
+configMapGenerator:
+  - name: workshop-system-config
+    behavior: replace
+    literals:
+      # URLs - CUSTOMIZE THESE FOR YOUR ENVIRONMENT
+      - gitea_url=https://gitea.apps.YOUR-CLUSTER-DOMAIN
+      - workshop_domain=apps.YOUR-CLUSTER-DOMAIN
+      - llama_stack_endpoint=http://llama-stack-server:8321
+      
+      # Repository Configuration - CUSTOMIZE FOR YOUR REPOSITORY
+      - source_repository=https://github.com/YOUR-ORG/YOUR-REPOSITORY.git
+      - workshop_name=YOUR WORKSHOP NAME
+      - workshop_type=application-conversion  # or existing-workshop-enhancement
+      - technologies=YOUR,TECH,STACK  # comma-separated list
+      - workshop_subdomain=your-workshop-subdomain
+      
+      # Gitea Repository (will be created/enhanced by agents)
+      - gitea_repository=workshop-system/your-workshop-repository.git
+      
+      # Workshop Description - CUSTOMIZE THIS
+      - workshop_description=Your workshop description here
+      
+      # Agent Configuration - ADJUST AS NEEDED
+      - agent_replicas=1
+      - chat_agent_replicas=2
+      - rag_enabled=true
+      - web_search_enabled=true
+
+# Secret configuration - copy and customize secrets.env
+secretGenerator:
+  - name: workshop-system-secrets
+    behavior: replace
+    envs:
+      - secrets.env
+
+# Image customization - UPDATE WITH YOUR REGISTRY
+images:
+  - name: workshop-system
+    newName: quay.io/YOUR-ORG/workshop-system
+    newTag: latest
+
+# Repository-specific patches - CUSTOMIZE AS NEEDED
+patchesStrategicMerge:
+  - patches/custom-resources.yaml
+  - patches/custom-routes.yaml
+
+# Labels specific to this repository - CUSTOMIZE
+commonLabels:
+  repository: your-repository-name
+  workshop-type: application-conversion  # or existing-workshop-enhancement
+  technology-focus: your-tech-focus
+
+# Annotations for this specific deployment - CUSTOMIZE
+commonAnnotations:
+  source-repository: "https://github.com/YOUR-ORG/YOUR-REPOSITORY.git"
+  workshop-focus: "Your Workshop Focus Area"
+  target-audience: "Your Target Audience"
