@@ -1,0 +1,63 @@
+# Save the output of this file and use kubectl create -f to import
+# it into Kubernetes.
+#
+# Created with podman-5.4.0
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2025-06-28T04:17:52Z"
+  labels:
+    app: workshop-chat-pod
+  name: workshop-chat-pod
+spec:
+  ports:
+  - name: "8080"
+    nodePort: 30003
+    port: 8080
+    targetPort: 8080
+  - name: "8080"
+    nodePort: 30266
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: workshop-chat-pod
+  type: NodePort
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2025-06-28T04:17:52Z"
+  labels:
+    app: workshop-chat-pod
+  name: workshop-chat-pod
+spec:
+  containers:
+  - args:
+    - python
+    - -m
+    - demos.workshop_template_system
+    - --agent-name
+    - workshop-chat
+    - --port
+    - "8080"
+    image: localhost/workshop-agent-system:test10
+    name: workshop-chat
+    ports:
+    - containerPort: 8080
+    securityContext:
+      runAsNonRoot: true
+  - args:
+    - python
+    - -m
+    - demos.workshop_template_system
+    - --agent-name
+    - template-converter
+    - --port
+    - "8080"
+    image: localhost/workshop-agent-system:test10
+    name: template-converter
+    ports:
+    - containerPort: 8080
+    securityContext:
+      runAsNonRoot: true
+
