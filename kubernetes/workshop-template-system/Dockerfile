@@ -13,7 +13,7 @@ USER 1001
 WORKDIR /opt/app-root/src
 
 # Copy requirements first for better caching
-COPY kubernetes/workshop-template-system/requirements.txt .
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt

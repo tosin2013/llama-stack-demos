@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # Workshop Chat Agent
+  workshop-chat:
+    image: workshop-agent-system:test-fix
+    ports:
+      - "8080:8080"
+    environment:
+      - AGENT_NAME=workshop_chat
+      - AGENT_PORT=8080
+      - PYTHONPATH=/opt/app-root/src
+      - TEST_REPO_URL=https://github.com/tosin2013/llama-stack-demos.git
+    command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "workshop_chat", "--port", "8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/agent-card"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Template Converter Agent
+  template-converter:
+    image: workshop-agent-system:test-fix
+    ports:
+      - "8081:8080"
+    environment:
+      - AGENT_NAME=template_converter
+      - AGENT_PORT=8080
+      - PYTHONPATH=/opt/app-root/src
+      - TEST_REPO_URL=https://github.com/tosin2013/llama-stack-demos.git
+    command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "template_converter", "--port", "8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/agent-card"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - workshop-chat
+
+  # Content Creator Agent
+  content-creator:
+    image: workshop-agent-system:test-fix
+    ports:
+      - "8082:8080"
+    environment:
+      - AGENT_NAME=content_creator
+      - AGENT_PORT=8080
+      - PYTHONPATH=/opt/app-root/src
+      - TEST_REPO_URL=https://github.com/tosin2013/llama-stack-demos.git
+    command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "content_creator", "--port", "8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/agent-card"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - template-converter
+
+  # Source Manager Agent
+  source-manager:
+    image: workshop-agent-system:test-fix
+    ports:
+      - "8083:8080"
+    environment:
+      - AGENT_NAME=source_manager
+      - AGENT_PORT=8080
+      - PYTHONPATH=/opt/app-root/src
+      - TEST_REPO_URL=https://github.com/tosin2013/llama-stack-demos.git
+    command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "source_manager", "--port", "8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/agent-card"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - workshop-chat
+
+  # Research Validation Agent
+  research-validation:
+    image: workshop-agent-system:test-fix
+    ports:
+      - "8084:8080"
+    environment:
+      - AGENT_NAME=research_validation
+      - AGENT_PORT=8080
+      - PYTHONPATH=/opt/app-root/src
+      - TEST_REPO_URL=https://github.com/tosin2013/llama-stack-demos.git
+    command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "research_validation", "--port", "8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/agent-card"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - content-creator
+      - source-manager
+
+  # Documentation Pipeline Agent
+  documentation-pipeline:
+    image: workshop-agent-system:test-fix
+    ports:
+      - "8085:8080"
+    environment:
+      - AGENT_NAME=documentation_pipeline
+      - AGENT_PORT=8080
+      - PYTHONPATH=/opt/app-root/src
+      - TEST_REPO_URL=https://github.com/tosin2013/llama-stack-demos.git
+    command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "documentation_pipeline", "--port", "8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/agent-card"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - research-validation
+
+networks:
+  default:
+    name: workshop-network

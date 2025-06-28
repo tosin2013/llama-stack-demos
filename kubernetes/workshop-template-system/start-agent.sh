@@ -19,38 +19,33 @@ export PYTHONPATH="/opt/app-root/src:${PYTHONPATH}"
 
 # Start the appropriate agent based on AGENT_NAME
 case "${AGENT_NAME}" in
-    "workshop_chat")
+    "workshop_chat"|"workshop-chat")
         echo "Starting Workshop Chat Agent..."
-        cd demos/workshop_template_system/agents/workshop_chat
-        python -m uvicorn main:app --host 0.0.0.0 --port ${AGENT_PORT}
+        python -m demos.workshop_template_system --agent-name workshop_chat --host 0.0.0.0 --port ${AGENT_PORT}
         ;;
-    "template_converter")
+    "template_converter"|"template-converter")
         echo "Starting Template Converter Agent..."
-        cd demos/workshop_template_system/agents/template_converter
-        python -m uvicorn main:app --host 0.0.0.0 --port ${AGENT_PORT}
+        python -m demos.workshop_template_system --agent-name template_converter --host 0.0.0.0 --port ${AGENT_PORT}
         ;;
-    "content_creator")
+    "content_creator"|"content-creator")
         echo "Starting Content Creator Agent..."
-        cd demos/workshop_template_system/agents/content_creator
-        python -m uvicorn main:app --host 0.0.0.0 --port ${AGENT_PORT}
+        python -m demos.workshop_template_system --agent-name content_creator --host 0.0.0.0 --port ${AGENT_PORT}
         ;;
-    "source_manager")
+    "source_manager"|"source-manager")
         echo "Starting Source Manager Agent..."
-        cd demos/workshop_template_system/agents/source_manager
-        python -m uvicorn main:app --host 0.0.0.0 --port ${AGENT_PORT}
+        python -m demos.workshop_template_system --agent-name source_manager --host 0.0.0.0 --port ${AGENT_PORT}
         ;;
-    "research_validation")
+    "research_validation"|"research-validation")
         echo "Starting Research Validation Agent..."
-        cd demos/workshop_template_system/agents/research_validation
-        python -m uvicorn main:app --host 0.0.0.0 --port ${AGENT_PORT}
+        python -m demos.workshop_template_system --agent-name research_validation --host 0.0.0.0 --port ${AGENT_PORT}
         ;;
-    "documentation_pipeline")
+    "documentation_pipeline"|"documentation-pipeline")
         echo "Starting Documentation Pipeline Agent..."
-        cd demos/workshop_template_system/agents/documentation_pipeline
-        python -m uvicorn main:app --host 0.0.0.0 --port ${AGENT_PORT}
+        python -m demos.workshop_template_system --agent-name documentation_pipeline --host 0.0.0.0 --port ${AGENT_PORT}
         ;;
     *)
         echo "Unknown agent: ${AGENT_NAME}"
+        echo "Available agents: workshop_chat, template_converter, content_creator, source_manager, research_validation, documentation_pipeline"
         echo "Starting simple HTTP server as fallback..."
         python -m http.server ${AGENT_PORT}
         ;;

@@ -1,0 +1,31 @@
+# Workshop Template System Requirements
+# Essential dependencies for Python 3.9 compatibility
+
+# Core web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# HTTP clients
+httpx==0.25.2
+requests==2.31.0
+
+# Data processing
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# AI/ML libraries
+llama-stack-client==0.0.53
+click==8.1.7
+
+# Basic utilities
+python-dotenv==1.0.0
+PyYAML==6.0.1
+Jinja2==3.1.2
+markdown==3.5.1
+
+# Git operations
+GitPython==3.1.40
+
+# Development utilities
+pytest==7.4.3
+pytest-asyncio==0.21.1
