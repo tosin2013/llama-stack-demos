@@ -1,0 +1,202 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: workflow-1-new-workshop
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    workflow: "1"
+    type: new-workshop-creation
+spec:
+  description: |
+    ADR-0001 Workflow 1: New Workshop Creation Pipeline
+    Creates new workshops from repositories using showroom_template_default base template.
+    Integrates with 6-agent system and human oversight coordinator.
+  
+  params:
+  - name: repository-url
+    type: string
+    description: Source repository URL to convert into workshop
+  - name: workshop-name
+    type: string
+    description: Name for the new workshop
+  - name: base-template
+    type: string
+    description: Base template to use (showroom_template_default)
+    default: "showroom_template_default"
+  - name: gitea-repo-name
+    type: string
+    description: Name for the Gitea repository to create
+  - name: human-approver
+    type: string
+    description: Human approver for oversight gates
+    default: "system-operator"
+
+  workspaces:
+  - name: shared-data
+    description: Shared workspace for pipeline data
+  - name: gitea-auth
+    description: Gitea authentication credentials
+
+  tasks:
+  
+  # Task 1: Repository Analysis (Template Converter Agent)
+  - name: repository-analysis
+    taskRef:
+      name: agent-task-template-converter
+    params:
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: analysis-type
+      value: "new-workshop-classification"
+
+  # Task 2: Human Oversight - Repository Analysis Approval
+  - name: human-approval-repository-analysis
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "repository-analysis"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Repository: $(params.repository-url), Classification: $(tasks.repository-analysis.results.repository-classification), Workflow: $(tasks.repository-analysis.results.workflow-type)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    runAfter: [repository-analysis]
+
+  # Task 3: Content Creation (Content Creator Agent)
+  - name: content-creation
+    taskRef:
+      name: agent-task-content-creator
+    params:
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: base-template
+      value: $(tasks.repository-analysis.results.template-source)
+    - name: analysis-result
+      value: "$(tasks.repository-analysis.results.analysis-result)"
+    runAfter: [human-approval-repository-analysis]
+
+  # Task 4: Content Validation (Research Validation Agent)
+  - name: content-validation
+    taskRef:
+      name: agent-task-research-validation
+    params:
+    - name: workshop-content
+      value: "$(tasks.content-creation.results.workshop-content)"
+    - name: validation-type
+      value: "new-workshop-validation"
+    runAfter: [content-creation]
+
+  # Task 5: Human Oversight - Content Quality Approval
+  - name: human-approval-content-quality
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "content-quality"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Workshop: $(params.workshop-name), Accuracy: $(tasks.content-validation.results.accuracy-score)%, Validation: $(tasks.content-validation.results.validation-result)"
+    - name: repository-url
+      value: $(params.repository-url)
+    runAfter: [content-validation]
+
+  # Task 6: Gitea Repository Creation (Source Manager Agent)
+  - name: gitea-repository-creation
+    taskRef:
+      name: agent-task-source-manager
+    params:
+    - name: action
+      value: "create-gitea-repository"
+    - name: repository-name
+      value: $(params.gitea-repo-name)
+    - name: workshop-content
+      value: "$(tasks.content-creation.results.workshop-content)"
+    - name: base-template
+      value: $(tasks.repository-analysis.results.template-source)
+    workspaces:
+    - name: gitea-auth
+      workspace: gitea-auth
+    runAfter: [human-approval-content-quality]
+
+  # Task 7: BuildConfig Creation and Trigger
+  - name: buildconfig-deployment
+    taskRef:
+      name: openshift-buildconfig-trigger
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: gitea-repository-url
+      value: "$(tasks.gitea-repository-creation.results.gitea-repo-url)"
+    - name: build-type
+      value: "new-workshop"
+    runAfter: [gitea-repository-creation]
+
+  # Task 8: Documentation Pipeline (Documentation Pipeline Agent)
+  - name: documentation-generation
+    taskRef:
+      name: agent-task-documentation-pipeline
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: gitea-repository-url
+      value: "$(tasks.gitea-repository-creation.results.gitea-repo-url)"
+    - name: documentation-type
+      value: "new-workshop-docs"
+    runAfter: [buildconfig-deployment]
+
+  # Task 9: Workshop Chat Setup (Workshop Chat Agent)
+  - name: workshop-chat-setup
+    taskRef:
+      name: agent-task-workshop-chat
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: workshop-content
+      value: "$(tasks.content-creation.results.workshop-content)"
+    - name: setup-type
+      value: "new-workshop-chat"
+    runAfter: [documentation-generation]
+
+  # Task 10: Human Oversight - Final Deployment Approval
+  - name: human-approval-final-deployment
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "final-deployment"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Workshop: $(params.workshop-name), Repository: $(tasks.gitea-repository-creation.results.gitea-repo-url), Build: $(tasks.buildconfig-deployment.results.build-status), Chat: $(tasks.workshop-chat-setup.results.chat-setup-status)"
+    - name: repository-url
+      value: $(params.repository-url)
+    runAfter: [workshop-chat-setup]
+
+  results:
+  - name: workshop-url
+    description: URL of the deployed workshop
+    value: "$(tasks.buildconfig-deployment.results.workshop-url)"
+  - name: gitea-repository-url
+    description: URL of the created Gitea repository
+    value: "$(tasks.gitea-repository-creation.results.gitea-repo-url)"
+  - name: workflow-status
+    description: Overall workflow completion status
+    value: "completed"

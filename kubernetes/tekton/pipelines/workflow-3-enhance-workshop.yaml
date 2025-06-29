@@ -1,0 +1,243 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: workflow-3-enhance-workshop
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    workflow: "3"
+    type: existing-workshop-enhancement
+spec:
+  description: |
+    ADR-0001 Workflow 3: Existing Workshop Enhancement Pipeline
+    Enhances existing workshops by cloning original workshop and applying improvements.
+    Integrates with 6-agent system and human oversight coordinator.
+  
+  params:
+  - name: repository-url
+    type: string
+    description: Source repository URL of existing workshop to enhance
+  - name: workshop-name
+    type: string
+    description: Name for the enhanced workshop
+  - name: original-workshop-url
+    type: string
+    description: URL of the original workshop to clone and enhance
+  - name: gitea-repo-name
+    type: string
+    description: Name for the enhanced Gitea repository
+  - name: human-approver
+    type: string
+    description: Human approver for oversight gates
+    default: "system-operator"
+  - name: enhancement-type
+    type: string
+    description: Type of enhancement to apply
+    default: "content-update"
+
+  workspaces:
+  - name: shared-data
+    description: Shared workspace for pipeline data
+  - name: gitea-auth
+    description: Gitea authentication credentials
+
+  tasks:
+  
+  # Task 1: Workshop Detection and Analysis (Template Converter Agent)
+  - name: workshop-detection
+    taskRef:
+      name: agent-task-template-converter
+    params:
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: analysis-type
+      value: "existing-workshop-detection"
+
+  # Task 2: Enhancement Analysis (Research Validation Agent)
+  - name: enhancement-analysis
+    taskRef:
+      name: agent-task-research-validation
+    params:
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: original-workshop-url
+      value: $(params.original-workshop-url)
+    - name: validation-type
+      value: "enhancement-analysis"
+    - name: workshop-detection-result
+      value: "$(tasks.workshop-detection.results.analysis-result)"
+    runAfter: [workshop-detection]
+
+  # Task 3: Human Oversight - Enhancement Strategy Approval
+  - name: human-approval-enhancement-strategy
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "enhancement-strategy"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Repository: $(params.repository-url), Original: $(params.original-workshop-url), Enhancement Plan: $(tasks.enhancement-analysis.results.enhancement-plan)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    runAfter: [enhancement-analysis]
+
+  # Task 4: Original Workshop Cloning (Source Manager Agent)
+  - name: original-workshop-cloning
+    taskRef:
+      name: agent-task-source-manager
+    params:
+    - name: action
+      value: "clone-original-workshop"
+    - name: original-workshop-url
+      value: $(params.original-workshop-url)
+    - name: repository-name
+      value: $(params.gitea-repo-name)
+    workspaces:
+    - name: gitea-auth
+      workspace: gitea-auth
+    runAfter: [human-approval-enhancement-strategy]
+
+  # Task 5: Content Enhancement (Content Creator Agent)
+  - name: content-enhancement
+    taskRef:
+      name: agent-task-content-creator
+    params:
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: enhancement-plan
+      value: "$(tasks.enhancement-analysis.results.enhancement-plan)"
+    - name: original-content
+      value: "$(tasks.original-workshop-cloning.results.cloned-content)"
+    runAfter: [original-workshop-cloning]
+
+  # Task 6: Enhanced Content Validation (Research Validation Agent)
+  - name: enhanced-content-validation
+    taskRef:
+      name: agent-task-research-validation
+    params:
+    - name: workshop-content
+      value: "$(tasks.content-enhancement.results.enhanced-content)"
+    - name: original-content
+      value: "$(tasks.original-workshop-cloning.results.cloned-content)"
+    - name: validation-type
+      value: "enhancement-validation"
+    runAfter: [content-enhancement]
+
+  # Task 7: Human Oversight - Quality Review Approval
+  - name: human-approval-quality-review
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "quality-review"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Workshop: $(params.workshop-name), Enhancement Quality: $(tasks.enhanced-content-validation.results.accuracy-score)%, Validation: $(tasks.enhanced-content-validation.results.validation-result)"
+    - name: repository-url
+      value: $(params.repository-url)
+    runAfter: [enhanced-content-validation]
+
+  # Task 8: Gitea Repository Update (Source Manager Agent)
+  - name: gitea-repository-update
+    taskRef:
+      name: agent-task-source-manager
+    params:
+    - name: action
+      value: "update-gitea-repository"
+    - name: repository-name
+      value: $(params.gitea-repo-name)
+    - name: enhanced-content
+      value: "$(tasks.content-enhancement.results.enhanced-content)"
+    - name: commit-message
+      value: "Enhanced workshop content via Workflow 3 pipeline"
+    workspaces:
+    - name: gitea-auth
+      workspace: gitea-auth
+    runAfter: [human-approval-quality-review]
+
+  # Task 9: BuildConfig Trigger for Enhanced Workshop
+  - name: buildconfig-trigger
+    taskRef:
+      name: openshift-buildconfig-trigger
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: gitea-repository-url
+      value: "$(tasks.gitea-repository-update.results.updated-repo-url)"
+    - name: build-type
+      value: "enhanced-workshop"
+    runAfter: [gitea-repository-update]
+
+  # Task 10: Documentation Update (Documentation Pipeline Agent)
+  - name: documentation-update
+    taskRef:
+      name: agent-task-documentation-pipeline
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: gitea-repository-url
+      value: "$(tasks.gitea-repository-update.results.updated-repo-url)"
+    - name: documentation-type
+      value: "enhanced-workshop-docs"
+    - name: enhancement-summary
+      value: "$(tasks.content-enhancement.results.enhancement-summary)"
+    runAfter: [buildconfig-trigger]
+
+  # Task 11: Workshop Chat Update (Workshop Chat Agent)
+  - name: workshop-chat-update
+    taskRef:
+      name: agent-task-workshop-chat
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: enhanced-content
+      value: "$(tasks.content-enhancement.results.enhanced-content)"
+    - name: setup-type
+      value: "enhanced-workshop-chat"
+    runAfter: [documentation-update]
+
+  # Task 12: Human Oversight - Final Deployment Approval
+  - name: human-approval-final-deployment
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "final-deployment"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Enhanced Workshop: $(params.workshop-name), Repository: $(tasks.gitea-repository-update.results.updated-repo-url), Build: $(tasks.buildconfig-trigger.results.build-status), Enhancements: $(tasks.content-enhancement.results.enhancement-summary)"
+    - name: repository-url
+      value: $(params.repository-url)
+    runAfter: [workshop-chat-update]
+
+  results:
+  - name: enhanced-workshop-url
+    description: URL of the enhanced workshop deployment
+    value: "$(tasks.buildconfig-trigger.results.workshop-url)"
+  - name: gitea-repository-url
+    description: URL of the updated Gitea repository
+    value: "$(tasks.gitea-repository-update.results.updated-repo-url)"
+  - name: enhancement-summary
+    description: Summary of enhancements applied
+    value: "$(tasks.content-enhancement.results.enhancement-summary)"
+  - name: workflow-status
+    description: Overall workflow completion status
+    value: "completed"
