@@ -408,11 +408,37 @@ def monitor_pipeline_status(
 - Performance optimization and resource tuning
 - Documentation and training materials
 
-## Human Oversight Pipeline Integration
+## Hybrid Tekton-Python Pipeline Integration
+
+### Architecture Overview
+
+The Workshop Template System now implements a **hybrid Tekton-Python architecture** that combines cloud-native pipeline orchestration with flexible human oversight capabilities:
+
+- **Tekton Pipelines**: Handle core workflow orchestration for ADR-0001 processes
+- **Python Interface**: Provides human-in-the-loop interaction with pipelines and agents
+- **Human Oversight Integration**: Seamless integration with existing oversight APIs
+- **Kustomize Configuration**: Repository-specific and environment-specific configurations
+
+### Core Components
+
+#### 1. Tekton Pipeline Orchestration
+- **Workflow 1 Pipeline**: `tekton/pipelines/workflow-1-new-workshop.yaml` for new workshop creation
+- **Workflow 3 Pipeline**: `tekton/pipelines/workflow-3-enhance-workshop.yaml` for existing workshop enhancement
+- **Agent Task Integration**: Reusable Tekton tasks for each of the 6 agents
+- **Human Approval Gates**: Manual Tekton tasks integrated with human oversight APIs
+
+#### 2. Python Human Interface Layer
+- **Pipeline Triggering**: Python scripts analyze repositories and trigger appropriate Tekton pipelines
+- **Human Oversight Integration**: Real-time interaction with existing oversight APIs during pipeline execution
+- **Monitoring and Control**: Pipeline progress monitoring and human intervention capabilities
+- **End-to-End Testing**: Comprehensive testing framework for complete workflows
+
+#### 3. Kustomize Configuration Management
+- **Repository-Specific Overlays**: Configurations for DDD Hexagonal, Ansible CaC, Llama Stack Demos
+- **Workflow Parameters**: Different configurations for Workflow 1 vs Workflow 3
+- **Environment Management**: Dev, staging, production environment configurations
 
 ### Interactive Coordination Capabilities
-
-The Human Oversight Coordinator now provides comprehensive pipeline integration through multiple interaction modes:
 
 #### 1. Natural Language Chat Interface
 - **Pipeline Status Queries**: "What workflows need my attention?"
@@ -427,14 +453,14 @@ The Human Oversight Coordinator now provides comprehensive pipeline integration 
 - **Integration**: Direct integration with AgentHealthService and monitoring infrastructure
 
 #### 3. Workflow Approval Integration
-- **Approval Workflows**: Human approval gates integrated with pipeline execution
+- **Approval Workflows**: Human approval gates integrated with Tekton pipeline execution
 - **Rejection Handling**: Comprehensive rejection workflows with audit trails
 - **Decision Tracking**: Complete audit trail of human oversight decisions
 - **Multi-platform Coordination**: Approval workflows across OpenShift, GitHub Pages, RHPDS
 
-### Implementation Status (COMPLETED)
+### Implementation Status
 
-✅ **Backend APIs**: All human oversight APIs implemented and tested
+✅ **Human Oversight APIs**: All oversight APIs implemented and tested
 - `/api/oversight/chat` - Natural language interaction
 - `/api/oversight/coordinate` - Command execution and workflow coordination
 - `/api/oversight/workflows/{id}/reject` - Workflow rejection with audit trail
@@ -450,11 +476,23 @@ The Human Oversight Coordinator now provides comprehensive pipeline integration 
 - 7 agents reporting HEALTHY status with performance metrics
 - Real-time monitoring and coordination capabilities
 
+🚧 **Tekton Pipeline Integration**: In Progress
+- Tekton pipeline definitions for Workflow 1 and Workflow 3
+- Kustomize overlays for repository-specific configurations
+- Python interface for pipeline interaction and human oversight
+
 ### Testing and Validation
 
-**Test Repository**: https://github.com/jeremyrdavis/dddhexagonalworkshop
-**Test Script**: `test_human_oversight_workflow.sh`
-**Validation Results**: All human oversight features operational and tested
+**Test Repositories**:
+- https://github.com/jeremyrdavis/dddhexagonalworkshop (Workflow 3)
+- https://github.com/tosin2013/ansible-controller-cac.git (Workflow 1)
+- https://github.com/tosin2013/llama-stack-demos (Workflow 1)
+
+**Test Scripts**:
+- `test_human_oversight_workflow.sh` - Human oversight API testing
+- `test_e2e_tekton_human_oversight.py` - Hybrid Tekton-Python workflow testing
+
+**Validation Results**: Human oversight features operational, Tekton integration in progress
 
 ## Review and Monitoring
 
@@ -464,10 +502,28 @@ The Human Oversight Coordinator now provides comprehensive pipeline integration 
 - **Security Review**: Annual security assessment of pipeline infrastructure
 - **Human Oversight Metrics**: Monthly review of approval efficiency and decision quality
 
+## ADR-0005 Supersession Notice
+
+**ADR-0005 (End-to-End Python Testing Workflow) has been superseded by this enhanced ADR-0003.**
+
+The concepts from ADR-0005 have been integrated into this hybrid Tekton-Python approach:
+- **Python Testing Framework**: Absorbed into Python Human Interface Layer
+- **End-to-End Validation**: Implemented as Tekton pipeline testing with Python oversight
+- **Repository Testing**: Integrated into Kustomize overlay configurations
+- **Human Oversight Testing**: Maintained and enhanced with Tekton integration
+
+**Migration Path**:
+- Use `test_e2e_tekton_human_oversight.py` instead of the proposed ADR-0005 Python scripts
+- Tekton pipelines provide the orchestration framework that ADR-0005 attempted to recreate in Python
+- Human oversight integration remains unchanged and is enhanced with pipeline approval gates
+
 ---
 
 **Date**: 2025-06-29
 **Participants**: Workshop Template System Development Team
 **Review Date**: 2025-09-29 (3 months)
 **Dependencies**: ADR-0001 (Workshop Template Strategy), ADR-0002 (Human-in-the-Loop Integration)
-**Status Update**: Human Oversight Pipeline Integration COMPLETED (2025-06-29)
+**Status Update**:
+- Human Oversight Pipeline Integration COMPLETED (2025-06-29)
+- Hybrid Tekton-Python Integration IN PROGRESS (2025-06-29)
+- ADR-0005 SUPERSEDED by enhanced ADR-0003 (2025-06-29)
