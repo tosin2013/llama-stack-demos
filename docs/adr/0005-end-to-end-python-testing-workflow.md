@@ -84,14 +84,6 @@ TEST_REPOSITORIES = {
         "gitea_repo_name": "dddhexagonalworkshop-enhanced",
         "human_oversight_points": ["content_validation", "quality_review", "deployment_approval"]
     },
-    "openshift_bare_metal_workshop": {
-        "url": "https://github.com/tosin2013/openshift-bare-metal-deployment-workshop",
-        "adr_workflow": "Workflow 3",  # ADR-0001: Existing workshop enhancement
-        "expected_classification": "existing_workshop",
-        "base_template": "clone_original_workshop",
-        "gitea_repo_name": "openshift-bare-metal-deployment-workshop-enhanced",
-        "human_oversight_points": ["content_validation", "technical_review", "deployment_approval"]
-    },
     "llama_stack_demos": {
         "url": "https://github.com/tosin2013/llama-stack-demos",
         "adr_workflow": "Workflow 1",  # ADR-0001: New workshop creation
