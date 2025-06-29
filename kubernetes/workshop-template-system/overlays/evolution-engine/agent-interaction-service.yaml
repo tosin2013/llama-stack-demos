@@ -1,0 +1,265 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-interaction-service
+  namespace: workshop-system
+  labels:
+    app: agent-interaction-service
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: agent-interaction
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-interaction-service
+  template:
+    metadata:
+      labels:
+        app: agent-interaction-service
+        app.kubernetes.io/name: workshop-evolution-engine
+        app.kubernetes.io/component: agent-interaction
+    spec:
+      serviceAccountName: workshop-evolution-service-account
+      containers:
+      - name: agent-interaction-service
+        image: quay.io/workshop-system/agent-interaction-service:latest
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        # Agent Endpoints Configuration
+        - name: WORKSHOP_CHAT_AGENT_URL
+          value: "http://workshop-chat-agent:80"
+        - name: TEMPLATE_CONVERTER_AGENT_URL
+          value: "http://template-converter-agent:80"
+        - name: CONTENT_CREATOR_AGENT_URL
+          value: "http://content-creator-agent:80"
+        - name: SOURCE_MANAGER_AGENT_URL
+          value: "http://source-manager-agent:80"
+        - name: RESEARCH_VALIDATION_AGENT_URL
+          value: "http://research-validation-agent:80"
+        - name: DOCUMENTATION_PIPELINE_AGENT_URL
+          value: "http://documentation-pipeline-agent:80"
+        - name: HUMAN_OVERSIGHT_AGENT_URL
+          value: "http://human-oversight-coordinator:80"
+        
+        # API Configuration
+        - name: MONITORING_SERVICE_URL
+          value: "http://workshop-monitoring-service:8080"
+        - name: EVOLUTION_API_URL
+          value: "http://workshop-monitoring-service:8080/api/evolution"
+        - name: APPROVAL_API_URL
+          value: "http://workshop-monitoring-service:8080/api/approvals"
+        
+        # Security Configuration
+        - name: CORS_ENABLED
+          value: "true"
+        - name: CORS_ORIGINS
+          value: "https://*.apps.cluster.local"
+        - name: API_RATE_LIMIT_ENABLED
+          value: "true"
+        - name: API_RATE_LIMIT_REQUESTS_PER_MINUTE
+          value: "100"
+        
+        # Agent Interaction Configuration
+        - name: AGENT_TIMEOUT_SECONDS
+          value: "30"
+        - name: AGENT_RETRY_ATTEMPTS
+          value: "3"
+        - name: WORKFLOW_COORDINATION_ENABLED
+          value: "true"
+        - name: REAL_TIME_UPDATES_ENABLED
+          value: "true"
+        
+        # Logging Configuration
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: AUDIT_LOGGING_ENABLED
+          value: "true"
+        
+        # Health Check Configuration
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        
+        # Resource Management
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        
+        # Volume Mounts
+        volumeMounts:
+        - name: agent-ui-config
+          mountPath: /app/config
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+      
+      # Volumes
+      volumes:
+      - name: agent-ui-config
+        configMap:
+          name: agent-interaction-ui-config
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 100Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-interaction-service
+  namespace: workshop-system
+  labels:
+    app: agent-interaction-service
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: agent-interaction
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: agent-interaction-service
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: agent-interaction-dashboard
+  namespace: workshop-system
+  labels:
+    app: agent-interaction-service
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: agent-interaction
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+    haproxy.router.openshift.io/balance: roundrobin
+spec:
+  to:
+    kind: Service
+    name: agent-interaction-service
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-interaction-endpoints
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: agent-interaction
+data:
+  endpoints.yaml: |
+    # Agent Interaction API Endpoints
+    agents:
+      workshop-chat:
+        base_url: "http://workshop-chat-agent:80"
+        endpoints:
+          chat: "/chat"
+          rag_update: "/rag/update"
+          health: "/health"
+      
+      template-converter:
+        base_url: "http://template-converter-agent:80"
+        endpoints:
+          analyze: "/analyze"
+          strategy: "/strategy"
+          health: "/health"
+      
+      content-creator:
+        base_url: "http://content-creator-agent:80"
+        endpoints:
+          create: "/create"
+          generate: "/generate"
+          health: "/health"
+      
+      source-manager:
+        base_url: "http://source-manager-agent:80"
+        endpoints:
+          repository_create: "/repository/create"
+          deploy: "/deploy"
+          health: "/health"
+      
+      research-validation:
+        base_url: "http://research-validation-agent:80"
+        endpoints:
+          research: "/research"
+          validate: "/validate"
+          health: "/health"
+      
+      documentation-pipeline:
+        base_url: "http://documentation-pipeline-agent:80"
+        endpoints:
+          monitor_setup: "/monitor/setup"
+          updates_check: "/updates/check"
+          health: "/health"
+      
+      human-oversight:
+        base_url: "http://human-oversight-coordinator:80"
+        endpoints:
+          approval_submit: "/approval/submit"
+          approval_pending: "/approval/pending"
+          workflow_coordinate: "/workflow/coordinate"
+          health: "/health"
+    
+    workflows:
+      repository_to_workshop:
+        name: "Repository to Workshop"
+        description: "Convert GitHub repository to workshop"
+        steps:
+          - agent: "template-converter"
+            action: "analyze"
+          - agent: "research-validation"
+            action: "validate"
+          - agent: "content-creator"
+            action: "create"
+          - agent: "human-oversight"
+            action: "approval_submit"
+          - agent: "source-manager"
+            action: "deploy"
+      
+      original_content_workshop:
+        name: "Original Content Workshop"
+        description: "Create workshop from learning objectives"
+        steps:
+          - agent: "content-creator"
+            action: "create"
+          - agent: "research-validation"
+            action: "research"
+          - agent: "human-oversight"
+            action: "approval_submit"
+          - agent: "source-manager"
+            action: "deploy"

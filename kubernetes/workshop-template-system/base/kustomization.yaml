@@ -14,9 +14,10 @@ resources:
   - agents-deployment.yaml
   - agents-service.yaml
   - agents-routes.yaml
-  - workshops-deployment.yaml
-  - workshops-service.yaml
-  - workshops-route.yaml
+  # Workshop deployments moved to overlays for dynamic creation
+  # - workshops-deployment.yaml
+  # - workshops-service.yaml
+  # - workshops-route.yaml
   - buildconfigs.yaml
   - imagestreams.yaml
   - workshop-system-buildconfig.yaml

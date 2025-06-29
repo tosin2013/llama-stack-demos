@@ -1,0 +1,332 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-interaction-ui-config
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: ui-config
+data:
+  agent-menu-config.json: |
+    {
+      "agentInteractionMenu": {
+        "title": "Workshop Agent Interaction",
+        "description": "Direct interaction with workshop agents for content creation, analysis, and management",
+        "agents": [
+          {
+            "id": "workshop-chat",
+            "name": "Workshop Chat Agent",
+            "description": "RAG-based participant assistance and Q&A support",
+            "icon": "MessageCircle",
+            "color": "blue",
+            "capabilities": [
+              "Answer workshop questions",
+              "Navigate workshop content",
+              "Provide contextual help",
+              "Update RAG content"
+            ],
+            "interactionTypes": [
+              {
+                "type": "chat",
+                "label": "Chat Interface",
+                "endpoint": "/api/agents/workshop-chat/chat",
+                "method": "POST"
+              },
+              {
+                "type": "rag-update",
+                "label": "Update RAG Content",
+                "endpoint": "/api/agents/workshop-chat/rag/update",
+                "method": "POST"
+              }
+            ]
+          },
+          {
+            "id": "template-converter",
+            "name": "Template Converter Agent",
+            "description": "Repository-to-workshop transformation engine",
+            "icon": "GitBranch",
+            "color": "green",
+            "capabilities": [
+              "Analyze repository structure",
+              "Detect workshop vs application",
+              "Generate conversion recommendations",
+              "Assess workshop quality"
+            ],
+            "interactionTypes": [
+              {
+                "type": "analyze-repository",
+                "label": "Analyze Repository",
+                "endpoint": "/api/agents/template-converter/analyze",
+                "method": "POST",
+                "inputSchema": {
+                  "repository_url": "string",
+                  "analysis_depth": "enum:basic,standard,deep"
+                }
+              },
+              {
+                "type": "conversion-strategy",
+                "label": "Get Conversion Strategy",
+                "endpoint": "/api/agents/template-converter/strategy",
+                "method": "POST"
+              }
+            ]
+          },
+          {
+            "id": "content-creator",
+            "name": "Content Creator Agent",
+            "description": "Original workshop content creation and generation",
+            "icon": "FileText",
+            "color": "purple",
+            "capabilities": [
+              "Design workshops from objectives",
+              "Create educational content",
+              "Generate hands-on exercises",
+              "Integrate with Showroom template"
+            ],
+            "interactionTypes": [
+              {
+                "type": "create-workshop",
+                "label": "Create Workshop",
+                "endpoint": "/api/agents/content-creator/create",
+                "method": "POST",
+                "inputSchema": {
+                  "learning_objectives": "array",
+                  "target_audience": "string",
+                  "workshop_type": "enum:conceptual,hands-on,hybrid,assessment"
+                }
+              },
+              {
+                "type": "generate-content",
+                "label": "Generate Content",
+                "endpoint": "/api/agents/content-creator/generate",
+                "method": "POST"
+              }
+            ]
+          },
+          {
+            "id": "source-manager",
+            "name": "Source Manager Agent",
+            "description": "Repository management and deployment coordination",
+            "icon": "Database",
+            "color": "orange",
+            "capabilities": [
+              "Create workshop repositories",
+              "Coordinate deployments",
+              "Synchronize content",
+              "Manage workshop lifecycle"
+            ],
+            "interactionTypes": [
+              {
+                "type": "create-repository",
+                "label": "Create Repository",
+                "endpoint": "/api/agents/source-manager/repository/create",
+                "method": "POST"
+              },
+              {
+                "type": "deploy-workshop",
+                "label": "Deploy Workshop",
+                "endpoint": "/api/agents/source-manager/deploy",
+                "method": "POST",
+                "inputSchema": {
+                  "target_platform": "enum:openshift,github-pages,showroom,rhpds"
+                }
+              }
+            ]
+          },
+          {
+            "id": "research-validation",
+            "name": "Research & Validation Agent",
+            "description": "Internet-grounded fact-checking and validation",
+            "icon": "Search",
+            "color": "teal",
+            "capabilities": [
+              "Research current technology",
+              "Validate content accuracy",
+              "Find learning resources",
+              "Fact-check materials"
+            ],
+            "interactionTypes": [
+              {
+                "type": "research-topic",
+                "label": "Research Topic",
+                "endpoint": "/api/agents/research-validation/research",
+                "method": "POST",
+                "inputSchema": {
+                  "topic": "string",
+                  "depth": "enum:basic,comprehensive,expert"
+                }
+              },
+              {
+                "type": "validate-content",
+                "label": "Validate Content",
+                "endpoint": "/api/agents/research-validation/validate",
+                "method": "POST"
+              }
+            ]
+          },
+          {
+            "id": "documentation-pipeline",
+            "name": "Documentation Pipeline Agent",
+            "description": "Content monitoring and documentation updates",
+            "icon": "BookOpen",
+            "color": "indigo",
+            "capabilities": [
+              "Monitor repository changes",
+              "Track documentation sources",
+              "Analyze content impact",
+              "Generate update proposals"
+            ],
+            "interactionTypes": [
+              {
+                "type": "setup-monitoring",
+                "label": "Setup Monitoring",
+                "endpoint": "/api/agents/documentation-pipeline/monitor/setup",
+                "method": "POST"
+              },
+              {
+                "type": "check-updates",
+                "label": "Check for Updates",
+                "endpoint": "/api/agents/documentation-pipeline/updates/check",
+                "method": "GET"
+              }
+            ]
+          },
+          {
+            "id": "human-oversight",
+            "name": "Human Oversight Coordinator",
+            "description": "Approval workflows and quality assurance coordination",
+            "icon": "Users",
+            "color": "red",
+            "capabilities": [
+              "Orchestrate approval workflows",
+              "Coordinate agent activities",
+              "Maintain quality assurance",
+              "Manage compliance requirements"
+            ],
+            "interactionTypes": [
+              {
+                "type": "submit-approval",
+                "label": "Submit for Approval",
+                "endpoint": "/api/agents/human-oversight/approval/submit",
+                "method": "POST"
+              },
+              {
+                "type": "check-approvals",
+                "label": "Check Pending Approvals",
+                "endpoint": "/api/agents/human-oversight/approval/pending",
+                "method": "GET"
+              },
+              {
+                "type": "coordinate-workflow",
+                "label": "Coordinate Workflow",
+                "endpoint": "/api/agents/human-oversight/workflow/coordinate",
+                "method": "POST"
+              }
+            ]
+          }
+        ],
+        "workflowTemplates": [
+          {
+            "id": "repository-to-workshop",
+            "name": "Repository to Workshop",
+            "description": "Convert a GitHub repository into a workshop",
+            "agents": ["template-converter", "research-validation", "content-creator", "source-manager", "human-oversight"],
+            "steps": [
+              {
+                "agent": "template-converter",
+                "action": "analyze-repository",
+                "description": "Analyze repository structure and type"
+              },
+              {
+                "agent": "research-validation", 
+                "action": "validate-content",
+                "description": "Validate technical accuracy"
+              },
+              {
+                "agent": "content-creator",
+                "action": "create-workshop",
+                "description": "Generate workshop content"
+              },
+              {
+                "agent": "human-oversight",
+                "action": "submit-approval",
+                "description": "Submit for human review"
+              },
+              {
+                "agent": "source-manager",
+                "action": "deploy-workshop",
+                "description": "Deploy approved workshop"
+              }
+            ]
+          },
+          {
+            "id": "original-content-workshop",
+            "name": "Original Content Workshop",
+            "description": "Create workshop from learning objectives",
+            "agents": ["content-creator", "research-validation", "source-manager", "human-oversight"],
+            "steps": [
+              {
+                "agent": "content-creator",
+                "action": "create-workshop",
+                "description": "Design workshop from objectives"
+              },
+              {
+                "agent": "research-validation",
+                "action": "research-topic",
+                "description": "Research and validate content"
+              },
+              {
+                "agent": "human-oversight",
+                "action": "submit-approval",
+                "description": "Submit for quality review"
+              },
+              {
+                "agent": "source-manager",
+                "action": "deploy-workshop",
+                "description": "Deploy approved workshop"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-interaction-api
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: agent-api
+spec:
+  selector:
+    app: workshop-monitoring-service
+  ports:
+  - name: agent-api
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: agent-interaction-api
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: agent-api
+spec:
+  to:
+    kind: Service
+    name: agent-interaction-api
+    weight: 100
+  port:
+    targetPort: agent-api
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

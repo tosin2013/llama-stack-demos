@@ -7,7 +7,9 @@ FROM registry.access.redhat.com/ubi8/openjdk-17:1.20 AS builder
 WORKDIR /app
 
 # Install Maven and copy pom.xml first for better caching
-RUN microdnf install -y maven && microdnf clean all
+USER root
+RUN dnf install -y maven && dnf clean all
+USER jboss
 
 # Copy pom.xml first for better caching
 COPY pom.xml ./

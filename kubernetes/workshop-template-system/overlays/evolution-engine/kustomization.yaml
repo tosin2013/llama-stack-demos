@@ -16,6 +16,8 @@ resources:
   - evolution-rbac.yaml
   - evolution-storage.yaml
   - agent-deployment-patches.yaml
+  - agent-interaction-ui.yaml
+  - agent-interaction-service.yaml
 
 # Configuration patches
 patchesStrategicMerge:
