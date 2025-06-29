@@ -38,10 +38,10 @@ def fetch_repository_structure(repository_url: str) -> dict:
         # GitHub API endpoint for repository contents
         api_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
 
-        # Get GitHub token from environment if available
+        # Get GitHub token from environment if available and valid
         github_token = os.getenv('GITHUB_TOKEN')
         headers = {}
-        if github_token:
+        if github_token and github_token != 'placeholder-github-token' and len(github_token) > 10:
             headers['Authorization'] = f'token {github_token}'
 
         # Fetch repository contents
