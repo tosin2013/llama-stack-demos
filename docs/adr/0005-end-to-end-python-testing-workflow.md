@@ -84,13 +84,13 @@ TEST_REPOSITORIES = {
         "gitea_repo_name": "dddhexagonalworkshop-enhanced",
         "human_oversight_points": ["content_validation", "quality_review", "deployment_approval"]
     },
-    "tutorial_repository": {
-        "url": "https://github.com/example/tutorial-content",
-        "adr_workflow": "Workflow 1",  # ADR-0001: New workshop creation
-        "expected_classification": "tutorial_content",
-        "base_template": "showroom_template_default",
-        "gitea_repo_name": "tutorial-content-workshop",
-        "human_oversight_points": ["repository_analysis", "content_creation", "structure_validation", "deployment_approval"]
+    "openshift_bare_metal_workshop": {
+        "url": "https://github.com/tosin2013/openshift-bare-metal-deployment-workshop",
+        "adr_workflow": "Workflow 3",  # ADR-0001: Existing workshop enhancement
+        "expected_classification": "existing_workshop",
+        "base_template": "clone_original_workshop",
+        "gitea_repo_name": "openshift-bare-metal-deployment-workshop-enhanced",
+        "human_oversight_points": ["content_validation", "technical_review", "deployment_approval"]
     },
     "llama_stack_demos": {
         "url": "https://github.com/tosin2013/llama-stack-demos",
@@ -99,6 +99,14 @@ TEST_REPOSITORIES = {
         "base_template": "showroom_template_default",
         "gitea_repo_name": "llama-stack-demos-workshop",
         "human_oversight_points": ["repository_analysis", "content_adaptation", "technical_validation", "deployment_approval"]
+    },
+    "ansible_controller_cac": {
+        "url": "https://github.com/tosin2013/ansible-controller-cac.git",
+        "adr_workflow": "Workflow 1",  # ADR-0001: New workshop creation
+        "expected_classification": "tutorial_content",
+        "base_template": "showroom_template_default",
+        "gitea_repo_name": "ansible-controller-cac-workshop",
+        "human_oversight_points": ["repository_analysis", "ansible_validation", "content_creation", "deployment_approval"]
     }
 }
 ```
