@@ -96,21 +96,38 @@ const HumanOversightPanel = () => {
     setChatMessages(prev => [...prev, userMessage]);
 
     try {
-      // Simulate chat with oversight coordinator
+      // Chat with oversight coordinator via backend API
       const response = await fetch('/api/oversight/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: chatInput })
       });
 
-      const botMessage = {
-        type: 'assistant',
-        content: 'I understand your request. Let me coordinate with the agents to help you.',
-        timestamp: new Date()
-      };
-      setChatMessages(prev => [...prev, botMessage]);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data && result.data.message) {
+          const botMessage = {
+            type: 'assistant',
+            content: result.data.message.content,
+            timestamp: new Date(),
+            responseTime: result.data.message.response_time_ms,
+            confidence: result.data.message.confidence_score
+          };
+          setChatMessages(prev => [...prev, botMessage]);
+        } else {
+          throw new Error('Invalid response format from chat API');
+        }
+      } else {
+        throw new Error(`Chat API error: ${response.status} ${response.statusText}`);
+      }
     } catch (err) {
       console.error('Chat error:', err);
+      const errorMessage = {
+        type: 'assistant',
+        content: 'I apologize, but I encountered an error processing your request. Please try again.',
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, errorMessage]);
     }
 
     setChatInput('');
