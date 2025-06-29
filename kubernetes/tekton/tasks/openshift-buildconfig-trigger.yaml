@@ -1,0 +1,347 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: openshift-buildconfig-trigger
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: buildconfig-trigger
+    version: v1.0.0
+spec:
+  description: |
+    OpenShift BuildConfig Trigger Task
+    Creates and triggers OpenShift BuildConfig for workshop deployment.
+    Integrates with existing BuildConfig patterns and Gitea repositories.
+  
+  params:
+  - name: workshop-name
+    type: string
+    description: Name of the workshop
+  - name: gitea-repository-url
+    type: string
+    description: URL of the Gitea repository to build
+  - name: build-type
+    type: string
+    description: Type of build (new-workshop, enhanced-workshop)
+    default: "new-workshop"
+  - name: openshift-namespace
+    type: string
+    description: OpenShift namespace for deployment
+    default: "workshop-system"
+  - name: base-image
+    type: string
+    description: Base image for the build
+    default: "registry.access.redhat.com/ubi8/httpd-24:latest"
+  - name: timeout-minutes
+    type: string
+    description: Build timeout in minutes
+    default: "30"
+
+  results:
+  - name: build-id
+    description: OpenShift build identifier
+  - name: workshop-url
+    description: URL of the deployed workshop
+  - name: build-status
+    description: Build completion status
+  - name: imagestream-tag
+    description: ImageStream tag created
+
+  steps:
+  - name: setup-openshift-cli
+    image: registry.redhat.io/openshift4/ose-cli:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🔧 OpenShift BuildConfig Trigger Task"
+      echo "====================================="
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Repository URL: $(params.gitea-repository-url)"
+      echo "Build Type: $(params.build-type)"
+      echo "Namespace: $(params.openshift-namespace)"
+      echo ""
+      
+      # Verify OpenShift connectivity
+      echo "🔍 Verifying OpenShift connectivity..."
+      oc whoami
+      oc project $(params.openshift-namespace)
+      echo "✅ Connected to OpenShift cluster"
+      echo ""
+
+  - name: create-or-update-buildconfig
+    image: registry.redhat.io/openshift4/ose-cli:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      BUILDCONFIG_NAME="$(params.workshop-name)-build"
+      IMAGESTREAM_NAME="$(params.workshop-name)"
+      
+      echo "🏗️ Creating/Updating BuildConfig: $BUILDCONFIG_NAME"
+      echo ""
+      
+      # Check if BuildConfig already exists
+      if oc get buildconfig "$BUILDCONFIG_NAME" -n $(params.openshift-namespace) >/dev/null 2>&1; then
+        echo "📝 BuildConfig $BUILDCONFIG_NAME already exists, updating..."
+        
+        # Update existing BuildConfig with new source URL
+        oc patch buildconfig "$BUILDCONFIG_NAME" -n $(params.openshift-namespace) --type='merge' -p="{
+          \"spec\": {
+            \"source\": {
+              \"git\": {
+                \"uri\": \"$(params.gitea-repository-url)\"
+              }
+            }
+          }
+        }"
+        
+        echo "✅ BuildConfig updated with new repository URL"
+      else
+        echo "🆕 Creating new BuildConfig: $BUILDCONFIG_NAME"
+        
+        # Create ImageStream if it doesn't exist
+        if ! oc get imagestream "$IMAGESTREAM_NAME" -n $(params.openshift-namespace) >/dev/null 2>&1; then
+          echo "📦 Creating ImageStream: $IMAGESTREAM_NAME"
+          oc create imagestream "$IMAGESTREAM_NAME" -n $(params.openshift-namespace)
+        fi
+        
+        # Create new BuildConfig
+        cat <<EOF | oc apply -f -
+      apiVersion: build.openshift.io/v1
+      kind: BuildConfig
+      metadata:
+        name: $BUILDCONFIG_NAME
+        namespace: $(params.openshift-namespace)
+        labels:
+          app: workshop-template-system
+          workshop: $(params.workshop-name)
+          build-type: $(params.build-type)
+      spec:
+        source:
+          type: Git
+          git:
+            uri: $(params.gitea-repository-url)
+            ref: main
+        strategy:
+          type: Source
+          sourceStrategy:
+            from:
+              kind: DockerImage
+              name: $(params.base-image)
+        output:
+          to:
+            kind: ImageStreamTag
+            name: $IMAGESTREAM_NAME:latest
+        triggers:
+        - type: ConfigChange
+        - type: ImageChange
+          imageChange: {}
+        - type: Generic
+          generic:
+            secret: workshop-webhook-secret
+      EOF
+        
+        echo "✅ BuildConfig created successfully"
+      fi
+      
+      echo ""
+      echo "📋 BuildConfig Details:"
+      oc describe buildconfig "$BUILDCONFIG_NAME" -n $(params.openshift-namespace)
+
+  - name: trigger-build
+    image: registry.redhat.io/openshift4/ose-cli:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      BUILDCONFIG_NAME="$(params.workshop-name)-build"
+      
+      echo "🚀 Triggering Build for: $BUILDCONFIG_NAME"
+      echo ""
+      
+      # Start the build
+      BUILD_NAME=$(oc start-build "$BUILDCONFIG_NAME" -n $(params.openshift-namespace) --output=name | cut -d'/' -f2)
+      
+      if [ -z "$BUILD_NAME" ]; then
+        echo "❌ Failed to start build"
+        exit 1
+      fi
+      
+      echo "🏗️ Build started: $BUILD_NAME"
+      echo "$BUILD_NAME" > $(results.build-id.path)
+      
+      # Monitor build progress
+      echo "⏳ Monitoring build progress (timeout: $(params.timeout-minutes) minutes)..."
+      
+      if oc logs -f "build/$BUILD_NAME" -n $(params.openshift-namespace) --timeout=$(params.timeout-minutes)m; then
+        echo "✅ Build logs completed"
+      else
+        echo "⚠️ Build logs timed out or interrupted"
+      fi
+      
+      # Check final build status
+      BUILD_STATUS=$(oc get build "$BUILD_NAME" -n $(params.openshift-namespace) -o jsonpath='{.status.phase}')
+      echo "$BUILD_STATUS" > $(results.build-status.path)
+      
+      echo ""
+      echo "📊 Final Build Status: $BUILD_STATUS"
+      
+      if [ "$BUILD_STATUS" = "Complete" ]; then
+        echo "🎉 Build completed successfully!"
+        
+        # Get ImageStream tag
+        IMAGESTREAM_TAG="$(params.workshop-name):latest"
+        echo "$IMAGESTREAM_TAG" > $(results.imagestream-tag.path)
+        
+        # Generate workshop URL (this would be customized based on your routing)
+        WORKSHOP_URL="https://$(params.workshop-name)-$(params.openshift-namespace).apps.cluster.local"
+        echo "$WORKSHOP_URL" > $(results.workshop-url.path)
+        
+        echo "🌐 Workshop URL: $WORKSHOP_URL"
+        echo "📦 ImageStream Tag: $IMAGESTREAM_TAG"
+        
+      elif [ "$BUILD_STATUS" = "Failed" ]; then
+        echo "❌ Build failed!"
+        echo ""
+        echo "🔍 Build failure details:"
+        oc describe build "$BUILD_NAME" -n $(params.openshift-namespace)
+        exit 1
+      else
+        echo "⚠️ Build status: $BUILD_STATUS"
+        echo "This may indicate the build is still in progress or in an unexpected state"
+        exit 1
+      fi
+
+  - name: create-deployment-resources
+    image: registry.redhat.io/openshift4/ose-cli:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      BUILD_STATUS=$(cat $(results.build-status.path))
+      
+      if [ "$BUILD_STATUS" != "Complete" ]; then
+        echo "⏭️ Skipping deployment resource creation - build not completed"
+        exit 0
+      fi
+      
+      echo "🚀 Creating Deployment Resources"
+      echo "================================"
+      
+      DEPLOYMENT_NAME="$(params.workshop-name)"
+      SERVICE_NAME="$(params.workshop-name)-service"
+      ROUTE_NAME="$(params.workshop-name)-route"
+      
+      # Create Deployment
+      if ! oc get deployment "$DEPLOYMENT_NAME" -n $(params.openshift-namespace) >/dev/null 2>&1; then
+        echo "📦 Creating Deployment: $DEPLOYMENT_NAME"
+        
+        cat <<EOF | oc apply -f -
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: $DEPLOYMENT_NAME
+        namespace: $(params.openshift-namespace)
+        labels:
+          app: workshop-template-system
+          workshop: $(params.workshop-name)
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: $(params.workshop-name)
+        template:
+          metadata:
+            labels:
+              app: $(params.workshop-name)
+          spec:
+            containers:
+            - name: workshop
+              image: image-registry.openshift-image-registry.svc:5000/$(params.openshift-namespace)/$(params.workshop-name):latest
+              ports:
+              - containerPort: 8080
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "250m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+      EOF
+      else
+        echo "🔄 Triggering deployment rollout for updated image"
+        oc rollout restart deployment/"$DEPLOYMENT_NAME" -n $(params.openshift-namespace)
+      fi
+      
+      # Create Service
+      if ! oc get service "$SERVICE_NAME" -n $(params.openshift-namespace) >/dev/null 2>&1; then
+        echo "🌐 Creating Service: $SERVICE_NAME"
+        oc expose deployment "$DEPLOYMENT_NAME" --name="$SERVICE_NAME" --port=8080 -n $(params.openshift-namespace)
+      fi
+      
+      # Create Route
+      if ! oc get route "$ROUTE_NAME" -n $(params.openshift-namespace) >/dev/null 2>&1; then
+        echo "🔗 Creating Route: $ROUTE_NAME"
+        oc expose service "$SERVICE_NAME" --name="$ROUTE_NAME" -n $(params.openshift-namespace)
+        
+        # Get the actual route URL
+        sleep 5  # Wait for route to be created
+        ACTUAL_WORKSHOP_URL=$(oc get route "$ROUTE_NAME" -n $(params.openshift-namespace) -o jsonpath='{.spec.host}')
+        if [ -n "$ACTUAL_WORKSHOP_URL" ]; then
+          echo "https://$ACTUAL_WORKSHOP_URL" > $(results.workshop-url.path)
+          echo "🌐 Workshop accessible at: https://$ACTUAL_WORKSHOP_URL"
+        fi
+      fi
+      
+      echo ""
+      echo "✅ All deployment resources created successfully"
+
+  - name: log-deployment-summary
+    image: registry.redhat.io/openshift4/ose-cli:latest
+    script: |
+      #!/bin/bash
+      
+      echo "📋 OpenShift BuildConfig Deployment Summary"
+      echo "==========================================="
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Build Type: $(params.build-type)"
+      echo ""
+      
+      if [ -f "$(results.build-id.path)" ]; then
+        BUILD_ID=$(cat $(results.build-id.path))
+        echo "🏗️ Build ID: $BUILD_ID"
+      fi
+      
+      if [ -f "$(results.build-status.path)" ]; then
+        BUILD_STATUS=$(cat $(results.build-status.path))
+        echo "📊 Build Status: $BUILD_STATUS"
+      fi
+      
+      if [ -f "$(results.imagestream-tag.path)" ]; then
+        IMAGESTREAM_TAG=$(cat $(results.imagestream-tag.path))
+        echo "📦 ImageStream Tag: $IMAGESTREAM_TAG"
+      fi
+      
+      if [ -f "$(results.workshop-url.path)" ]; then
+        WORKSHOP_URL=$(cat $(results.workshop-url.path))
+        echo "🌐 Workshop URL: $WORKSHOP_URL"
+      fi
+      
+      echo ""
+      echo "🎯 Deployment Results:"
+      case "$(params.build-type)" in
+        "new-workshop")
+          echo "  ✅ New workshop deployed successfully"
+          echo "  🎨 Based on Gitea repository content"
+          echo "  🚀 Ready for participant access"
+          ;;
+        "enhanced-workshop")
+          echo "  ✅ Enhanced workshop deployed successfully"
+          echo "  🔄 Updated with latest enhancements"
+          echo "  📈 Improved workshop experience"
+          ;;
+      esac
+      
+      echo ""
+      echo "🎉 Workshop deployment completed successfully!"

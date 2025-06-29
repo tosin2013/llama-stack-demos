@@ -158,11 +158,11 @@ spec:
     image: registry.access.redhat.com/ubi8/ubi:latest
     script: |
       #!/bin/bash
-      
+
       APPROVAL_STATUS=$(cat $(results.approval-status.path))
       APPROVAL_COMMENT=$(cat $(results.approval-comment.path))
       APPROVAL_TIMESTAMP=$(cat $(results.approval-timestamp.path))
-      
+
       echo "📊 Human Oversight Approval Result"
       echo "=================================="
       echo "Status: $APPROVAL_STATUS"
@@ -171,9 +171,22 @@ spec:
       echo "Workflow ID: $(params.workflow-id)"
       echo "Approval Type: $(params.approval-type)"
       echo ""
-      
+
       if [ "$APPROVAL_STATUS" = "approved" ]; then
         echo "🎉 Pipeline can proceed to next stage"
+        echo "✅ Human oversight coordinator approved the workflow"
+        echo "📋 Approval Details:"
+        echo "   - Approver: $(params.approver)"
+        echo "   - Repository: $(params.repository-url)"
+        echo "   - Workshop: $(params.workshop-name)"
+        echo "   - Decision Time: $APPROVAL_TIMESTAMP"
       else
         echo "🛑 Pipeline execution halted due to approval failure"
+        echo "❌ Human oversight coordinator decision: $APPROVAL_STATUS"
+        echo "💬 Reason: $APPROVAL_COMMENT"
+        echo ""
+        echo "🔄 To retry this pipeline:"
+        echo "   1. Address the concerns raised in the approval comment"
+        echo "   2. Resubmit the workflow for approval"
+        echo "   3. Or contact the approver: $(params.approver)"
       fi
