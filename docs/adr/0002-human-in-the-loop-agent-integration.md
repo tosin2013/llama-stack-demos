@@ -185,7 +185,11 @@ Smart Features:
 
 ---
 
-**Date**: 2025-06-29  
-**Participants**: Workshop Template System Development Team  
-**Review Date**: 2025-09-29 (3 months)  
+**Date**: 2025-06-29
+**Participants**: Workshop Template System Development Team
+**Review Date**: 2025-09-29 (3 months)
 **Dependencies**: ADR-0001 (Workshop Template Strategy)
+**Related ADRs**:
+- ADR-0003 (Agent-Pipeline Integration) - Pipeline integration with human oversight
+- ADR-0006 (Tekton-Agent Integration Architecture) - Detailed agent-pipeline integration
+**Status Update**: Human-in-the-Loop Agent Integration COMPLETED (2025-06-29)

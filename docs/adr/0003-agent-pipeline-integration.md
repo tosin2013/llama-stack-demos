@@ -523,7 +523,9 @@ The concepts from ADR-0005 have been integrated into this hybrid Tekton-Python a
 **Participants**: Workshop Template System Development Team
 **Review Date**: 2025-09-29 (3 months)
 **Dependencies**: ADR-0001 (Workshop Template Strategy), ADR-0002 (Human-in-the-Loop Integration)
+**Related ADRs**: ADR-0006 (Tekton-Agent Integration Architecture) - Detailed implementation of hybrid approach
 **Status Update**:
 - Human Oversight Pipeline Integration COMPLETED (2025-06-29)
 - Hybrid Tekton-Python Integration IN PROGRESS (2025-06-29)
 - ADR-0005 SUPERSEDED by enhanced ADR-0003 (2025-06-29)
+- ADR-0006 CREATED for detailed Tekton-Agent integration architecture (2025-06-29)

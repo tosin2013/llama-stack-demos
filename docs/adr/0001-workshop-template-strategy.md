@@ -164,3 +164,8 @@ def classify_repository(repo_structure, repo_content):
 **Date**: 2025-06-28 (Updated with implementation results)
 **Participants**: Workshop Template System Development Team
 **Review Date**: 2025-09-28 (3 months)
+**Related ADRs**:
+- ADR-0002 (Human-in-the-Loop Agent Integration) - Adds human oversight to workflows
+- ADR-0003 (Agent-Pipeline Integration) - Pipeline implementation of workflows
+- ADR-0006 (Tekton-Agent Integration Architecture) - Detailed pipeline-agent integration
+**Status Update**: Workshop Template Strategy IMPLEMENTED (2025-06-29)
