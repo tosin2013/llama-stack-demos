@@ -1,4 +1,25 @@
-# Dockerfile for Workshop Monitoring Service with Evolution Engine
+# Multi-stage Dockerfile for Workshop Monitoring Service with Evolution Engine
+
+# Build stage
+FROM registry.access.redhat.com/ubi8/openjdk-17:1.20 AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy Maven wrapper and pom.xml first for better caching
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+
+# Download dependencies (this layer will be cached if pom.xml doesn't change)
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Build the application
+RUN ./mvnw clean package -DskipTests -Dquarkus.package.type=uber-jar
+
+# Runtime stage
 FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.20
 
 # Set environment variables
@@ -8,8 +29,8 @@ ENV AB_ENABLED=jmx_exporter
 # Set working directory
 WORKDIR /deployments
 
-# Copy the uber jar (built by Maven)
-COPY target/workshop-monitoring-service-1.0.0-SNAPSHOT-runner.jar app.jar
+# Copy the uber jar from builder stage
+COPY --from=builder /app/target/*-runner.jar app.jar
 
 # Expose ports
 EXPOSE 8080 8443
