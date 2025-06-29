@@ -19,14 +19,16 @@ FROM registry.access.redhat.com/ubi9/nodejs-18:latest AS frontend-builder
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY src/main/webui/package*.json ./
+# Copy package files and set permissions
+COPY --chown=1001:1001 src/main/webui/package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies as root, then fix permissions
+USER root
+RUN npm install --omit=dev && chown -R 1001:1001 /app
+USER 1001
 
 # Copy source code
-COPY src/main/webui/ ./
+COPY --chown=1001:1001 src/main/webui/ ./
 
 # Build the React application
 RUN npm run build

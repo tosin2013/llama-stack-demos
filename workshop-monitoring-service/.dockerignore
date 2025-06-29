@@ -1,5 +1,16 @@
-*
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
+# Multi-stage build .dockerignore
+# Allow source files for building
+
+# Exclude build artifacts that will be generated
+target/
+node_modules/
+.git/
+.gitignore
+*.md
+.mvn/wrapper/maven-wrapper.jar
+
+# Allow source code
+!src/
+!pom.xml
+!mvnw
+!.mvn/
