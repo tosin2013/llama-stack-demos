@@ -1,0 +1,179 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: human-oversight-approval
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: human-oversight
+spec:
+  description: |
+    Human Oversight Approval Task
+    Integrates with existing Human Oversight Coordinator APIs for pipeline approval gates.
+    Supports chat interface, command execution, and approval workflows.
+  
+  params:
+  - name: approval-type
+    type: string
+    description: Type of approval required (repository-analysis, content-quality, enhancement-strategy, quality-review, final-deployment)
+  - name: workflow-id
+    type: string
+    description: Unique workflow identifier for tracking
+  - name: approver
+    type: string
+    description: Human approver identifier
+    default: "system-operator"
+  - name: approval-data
+    type: string
+    description: Data to present for approval decision
+  - name: repository-url
+    type: string
+    description: Repository URL being processed
+    default: ""
+  - name: workshop-name
+    type: string
+    description: Workshop name being processed
+    default: ""
+  - name: timeout-minutes
+    type: string
+    description: Timeout for approval in minutes
+    default: "60"
+
+  results:
+  - name: approval-status
+    description: Approval decision (approved/rejected)
+  - name: approval-comment
+    description: Human approver comment
+  - name: approval-timestamp
+    description: Timestamp of approval decision
+
+  steps:
+  - name: request-human-approval
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🤖 Human Oversight Approval Gate"
+      echo "================================"
+      echo "Approval Type: $(params.approval-type)"
+      echo "Workflow ID: $(params.workflow-id)"
+      echo "Approver: $(params.approver)"
+      echo "Repository: $(params.repository-url)"
+      echo "Workshop: $(params.workshop-name)"
+      echo ""
+      
+      # Install required tools
+      dnf install -y curl jq
+      
+      # Get monitoring service URL from environment or use default
+      MONITORING_URL="${MONITORING_SERVICE_URL:-https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com}"
+      
+      # Create approval request payload
+      APPROVAL_PAYLOAD=$(cat <<EOF
+      {
+        "workflow_id": "$(params.workflow-id)",
+        "approval_type": "$(params.approval-type)",
+        "approver": "$(params.approver)",
+        "repository_url": "$(params.repository-url)",
+        "workshop_name": "$(params.workshop-name)",
+        "approval_data": "$(params.approval-data)",
+        "timeout_minutes": $(params.timeout-minutes)
+      }
+      EOF
+      )
+      
+      echo "📝 Submitting approval request..."
+      
+      # Submit approval request via chat interface
+      CHAT_RESPONSE=$(curl -k -s -X POST "${MONITORING_URL}/api/oversight/chat" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"message\": \"Approval required for $(params.approval-type): $(params.workflow-id). Repository: $(params.repository-url). Data: $(params.approval-data)\",
+          \"sessionId\": \"pipeline-$(params.workflow-id)\"
+        }")
+      
+      echo "💬 Chat notification sent: $CHAT_RESPONSE"
+      
+      # Create workflow for approval tracking
+      WORKFLOW_RESPONSE=$(curl -k -s -X POST "${MONITORING_URL}/api/oversight/workflows/$(params.workflow-id)/approve" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"comment\": \"Pipeline approval gate for $(params.approval-type)\",
+          \"approver\": \"$(params.approver)\",
+          \"workflow_data\": $(echo "$APPROVAL_PAYLOAD" | jq -c .)
+        }")
+      
+      echo "📋 Workflow approval request created: $WORKFLOW_RESPONSE"
+      
+      # Wait for human approval with timeout
+      TIMEOUT_SECONDS=$(($(params.timeout-minutes) * 60))
+      POLL_INTERVAL=30
+      ELAPSED=0
+      
+      echo "⏳ Waiting for human approval (timeout: $(params.timeout-minutes) minutes)..."
+      
+      while [ $ELAPSED -lt $TIMEOUT_SECONDS ]; do
+        # Check for approval via command execution
+        COMMAND_RESPONSE=$(curl -k -s -X POST "${MONITORING_URL}/api/oversight/coordinate" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"action\": \"execute_command\",
+            \"command\": \"list workflows\",
+            \"executor\": \"pipeline-$(params.workflow-id)\"
+          }")
+        
+        # Check if workflow has been approved
+        if echo "$COMMAND_RESPONSE" | jq -e '.success' > /dev/null; then
+          WORKFLOW_STATUS=$(echo "$COMMAND_RESPONSE" | jq -r '.data.result.workflows[] | select(.id == "$(params.workflow-id)") | .status // "pending"')
+          
+          if [ "$WORKFLOW_STATUS" = "approved" ]; then
+            echo "✅ Workflow approved by human oversight"
+            echo "approved" > $(results.approval-status.path)
+            echo "Approved via human oversight coordinator" > $(results.approval-comment.path)
+            date -Iseconds > $(results.approval-timestamp.path)
+            exit 0
+          elif [ "$WORKFLOW_STATUS" = "rejected" ]; then
+            echo "❌ Workflow rejected by human oversight"
+            echo "rejected" > $(results.approval-status.path)
+            echo "Rejected via human oversight coordinator" > $(results.approval-comment.path)
+            date -Iseconds > $(results.approval-timestamp.path)
+            exit 1
+          fi
+        fi
+        
+        echo "⏱️  Still waiting for approval... (${ELAPSED}s elapsed)"
+        sleep $POLL_INTERVAL
+        ELAPSED=$((ELAPSED + POLL_INTERVAL))
+      done
+      
+      # Timeout reached
+      echo "⏰ Approval timeout reached ($(params.timeout-minutes) minutes)"
+      echo "timeout" > $(results.approval-status.path)
+      echo "Approval timeout - no human response within $(params.timeout-minutes) minutes" > $(results.approval-comment.path)
+      date -Iseconds > $(results.approval-timestamp.path)
+      exit 1
+
+  - name: log-approval-result
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      
+      APPROVAL_STATUS=$(cat $(results.approval-status.path))
+      APPROVAL_COMMENT=$(cat $(results.approval-comment.path))
+      APPROVAL_TIMESTAMP=$(cat $(results.approval-timestamp.path))
+      
+      echo "📊 Human Oversight Approval Result"
+      echo "=================================="
+      echo "Status: $APPROVAL_STATUS"
+      echo "Comment: $APPROVAL_COMMENT"
+      echo "Timestamp: $APPROVAL_TIMESTAMP"
+      echo "Workflow ID: $(params.workflow-id)"
+      echo "Approval Type: $(params.approval-type)"
+      echo ""
+      
+      if [ "$APPROVAL_STATUS" = "approved" ]; then
+        echo "🎉 Pipeline can proceed to next stage"
+      else
+        echo "🛑 Pipeline execution halted due to approval failure"
+      fi

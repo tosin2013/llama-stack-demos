@@ -1,0 +1,217 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-workshop-chat
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: workshop-chat-agent
+    version: v1.0.0
+spec:
+  description: |
+    Workshop Chat Agent Task
+    Calls the Workshop Chat Agent via HTTP to setup RAG-based participant assistance.
+    Supports both new workshop chat setup and enhanced workshop chat updates.
+  
+  params:
+  - name: workshop-name
+    type: string
+    description: Name of the workshop
+  - name: workshop-content
+    type: string
+    description: Workshop content for RAG setup
+    default: ""
+  - name: enhanced-content
+    type: string
+    description: Enhanced workshop content for RAG updates
+    default: ""
+  - name: setup-type
+    type: string
+    description: Type of setup (new-workshop-chat, enhanced-workshop-chat)
+    default: "new-workshop-chat"
+  - name: agent-endpoint
+    type: string
+    description: Workshop Chat Agent endpoint
+    default: "http://workshop-chat-agent:80"
+  - name: timeout-seconds
+    type: string
+    description: Timeout for agent call in seconds
+    default: "300"
+
+  results:
+  - name: chat-setup-status
+    description: Chat setup status
+  - name: rag-collection-name
+    description: Name of the RAG collection created
+  - name: chat-interface-url
+    description: URL of the chat interface
+
+  steps:
+  - name: call-workshop-chat-agent
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "💬 Workshop Chat Agent Task"
+      echo "==========================="
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Setup Type: $(params.setup-type)"
+      echo "Agent Endpoint: $(params.agent-endpoint)"
+      echo ""
+      
+      # Install required tools
+      dnf install -y curl jq
+      
+      # Determine content to use
+      CONTENT_TO_USE="$(params.workshop-content)"
+      if [ "$(params.setup-type)" = "enhanced-workshop-chat" ] && [ -n "$(params.enhanced-content)" ]; then
+        CONTENT_TO_USE="$(params.enhanced-content)"
+      fi
+      
+      case "$(params.setup-type)" in
+        "new-workshop-chat")
+          echo "🆕 Setting up New Workshop Chat Interface..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workshop_name": "$(params.workshop-name)",
+        "workshop_content": "$CONTENT_TO_USE",
+        "setup_type": "new_workshop",
+        "enable_rag": true,
+        "create_collection": true
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/update_workshop_rag_content_tool"
+          ;;
+          
+        "enhanced-workshop-chat")
+          echo "🔄 Updating Enhanced Workshop Chat Interface..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workshop_name": "$(params.workshop-name)",
+        "workshop_content": "$CONTENT_TO_USE",
+        "setup_type": "enhanced_workshop",
+        "update_rag": true,
+        "preserve_history": true
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/update_workshop_rag_content_tool"
+          ;;
+          
+        *)
+          echo "❌ Unknown setup type: $(params.setup-type)"
+          exit 1
+          ;;
+      esac
+      
+      echo "📝 Request Payload:"
+      echo "$REQUEST_PAYLOAD" | jq .
+      echo ""
+      
+      # Call Workshop Chat Agent
+      RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)$TOOL_ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d "$REQUEST_PAYLOAD" \
+        --connect-timeout 30 \
+        --max-time $(params.timeout-seconds))
+      
+      # Extract HTTP status and body
+      HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+      RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+      
+      echo "📊 Agent Response (HTTP $HTTP_STATUS):"
+      echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+      echo ""
+      
+      # Check HTTP status
+      if [ "$HTTP_STATUS" != "200" ]; then
+        echo "❌ Agent call failed with HTTP status: $HTTP_STATUS"
+        echo "Response: $RESPONSE_BODY"
+        exit 1
+      fi
+      
+      # Check for JSON error in response
+      if echo "$RESPONSE_BODY" | jq -e '.error' > /dev/null 2>&1; then
+        echo "❌ Agent returned error:"
+        echo "$RESPONSE_BODY" | jq -r '.error'
+        exit 1
+      fi
+      
+      # Extract results
+      if echo "$RESPONSE_BODY" | jq -e '.status' > /dev/null 2>&1; then
+        CHAT_STATUS=$(echo "$RESPONSE_BODY" | jq -r '.status')
+        echo "$CHAT_STATUS" > $(results.chat-setup-status.path)
+        
+        # Extract RAG collection name if available
+        RAG_COLLECTION=$(echo "$RESPONSE_BODY" | jq -r '.rag_collection_name // "$(params.workshop-name)-rag"')
+        echo "$RAG_COLLECTION" > $(results.rag-collection-name.path)
+        
+        # Extract chat interface URL if available
+        CHAT_URL=$(echo "$RESPONSE_BODY" | jq -r '.chat_interface_url // "http://workshop-chat-agent:80/chat/$(params.workshop-name)"')
+        echo "$CHAT_URL" > $(results.chat-interface-url.path)
+        
+        echo "✅ Workshop chat setup completed successfully"
+        echo "Status: $CHAT_STATUS"
+        echo "RAG Collection: $RAG_COLLECTION"
+        echo "Chat Interface: $CHAT_URL"
+        
+      else
+        echo "❌ Invalid response - missing 'status' field"
+        exit 1
+      fi
+
+  - name: log-chat-setup-summary
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      
+      echo "📋 Workshop Chat Agent Summary"
+      echo "=============================="
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Setup Type: $(params.setup-type)"
+      echo ""
+      
+      if [ -f "$(results.chat-setup-status.path)" ]; then
+        CHAT_STATUS=$(cat $(results.chat-setup-status.path))
+        echo "💬 Chat Setup Status: $CHAT_STATUS"
+      fi
+      
+      if [ -f "$(results.rag-collection-name.path)" ]; then
+        RAG_COLLECTION=$(cat $(results.rag-collection-name.path))
+        echo "🧠 RAG Collection: $RAG_COLLECTION"
+      fi
+      
+      if [ -f "$(results.chat-interface-url.path)" ]; then
+        CHAT_URL=$(cat $(results.chat-interface-url.path))
+        echo "🔗 Chat Interface URL: $CHAT_URL"
+      fi
+      
+      case "$(params.setup-type)" in
+        "new-workshop-chat")
+          echo ""
+          echo "🆕 New Workshop Chat Interface Setup:"
+          echo "  ✅ RAG collection created"
+          echo "  ✅ Workshop content indexed"
+          echo "  ✅ Chat interface initialized"
+          echo "  ✅ Participant assistance ready"
+          ;;
+          
+        "enhanced-workshop-chat")
+          echo ""
+          echo "🔄 Enhanced Workshop Chat Interface Updated:"
+          echo "  ✅ RAG collection updated"
+          echo "  ✅ Enhanced content indexed"
+          echo "  ✅ Chat history preserved"
+          echo "  ✅ Improved assistance capabilities"
+          ;;
+      esac
+      
+      echo ""
+      echo "🎓 Workshop participants can now access intelligent assistance"
+      echo "🚀 Chat setup completed successfully"

@@ -1,0 +1,178 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-template-converter
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: template-converter-agent
+    version: v1.0.0
+spec:
+  description: |
+    Template Converter Agent Task
+    Calls the Template Converter Agent via HTTP to analyze repository structure and classify repositories.
+    Implements ADR-0001 repository classification logic through existing agent endpoints.
+  
+  params:
+  - name: repository-url
+    type: string
+    description: GitHub repository URL to analyze
+  - name: analysis-type
+    type: string
+    description: Type of analysis to perform (new-workshop-classification, existing-workshop-detection, repository-structure)
+    default: "repository-structure"
+  - name: agent-endpoint
+    type: string
+    description: Template Converter Agent endpoint
+    default: "http://template-converter-agent:80"
+  - name: timeout-seconds
+    type: string
+    description: Timeout for agent call in seconds
+    default: "300"
+
+  results:
+  - name: analysis-result
+    description: Repository analysis result from Template Converter Agent
+  - name: repository-classification
+    description: Repository classification (existing_workshop, tutorial_content, application)
+  - name: workflow-type
+    description: Recommended workflow type (1 or 3)
+  - name: template-source
+    description: Recommended template source for workshop creation
+
+  steps:
+  - name: call-template-converter-agent
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🔍 Template Converter Agent Task"
+      echo "================================"
+      echo "Repository URL: $(params.repository-url)"
+      echo "Analysis Type: $(params.analysis-type)"
+      echo "Agent Endpoint: $(params.agent-endpoint)"
+      echo ""
+      
+      # Install required tools
+      dnf install -y curl jq
+      
+      # Prepare request payload
+      REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "repository_url": "$(params.repository-url)",
+        "analysis_type": "$(params.analysis-type)"
+      }
+      EOF
+      )
+      
+      echo "📝 Calling Template Converter Agent..."
+      echo "Request: $REQUEST_PAYLOAD"
+      
+      # Call Template Converter Agent endpoint
+      RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)/tools/analyze_repository_structure_tool" \
+        -H "Content-Type: application/json" \
+        -d "$REQUEST_PAYLOAD" \
+        --connect-timeout 30 \
+        --max-time $(params.timeout-seconds))
+      
+      # Extract HTTP status and body
+      HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+      RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+      
+      echo "📊 Agent Response (HTTP $HTTP_STATUS):"
+      echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+      echo ""
+      
+      # Check HTTP status
+      if [ "$HTTP_STATUS" != "200" ]; then
+        echo "❌ Agent call failed with HTTP status: $HTTP_STATUS"
+        echo "Response: $RESPONSE_BODY"
+        exit 1
+      fi
+      
+      # Check for JSON error in response
+      if echo "$RESPONSE_BODY" | jq -e '.error' > /dev/null 2>&1; then
+        echo "❌ Agent returned error:"
+        echo "$RESPONSE_BODY" | jq -r '.error'
+        exit 1
+      fi
+      
+      # Extract and validate results
+      if echo "$RESPONSE_BODY" | jq -e '.result' > /dev/null 2>&1; then
+        # Extract main analysis result
+        ANALYSIS_RESULT=$(echo "$RESPONSE_BODY" | jq -r '.result')
+        echo "$ANALYSIS_RESULT" > $(results.analysis-result.path)
+        
+        # Extract repository classification
+        REPO_CLASSIFICATION=$(echo "$ANALYSIS_RESULT" | jq -r '.repository_classification // "application"')
+        echo "$REPO_CLASSIFICATION" > $(results.repository-classification.path)
+        
+        # Determine workflow type based on classification
+        if [ "$REPO_CLASSIFICATION" = "existing_workshop" ]; then
+          echo "3" > $(results.workflow-type.path)
+          echo "original_repository" > $(results.template-source.path)
+        else
+          echo "1" > $(results.workflow-type.path)
+          echo "showroom_template_default" > $(results.template-source.path)
+        fi
+        
+        echo "✅ Template Converter Agent analysis completed successfully"
+        echo "Repository Classification: $REPO_CLASSIFICATION"
+        echo "Recommended Workflow: $(cat $(results.workflow-type.path))"
+        echo "Template Source: $(cat $(results.template-source.path))"
+        
+      else
+        echo "❌ Invalid response format - missing 'result' field"
+        echo "Response: $RESPONSE_BODY"
+        exit 1
+      fi
+
+  - name: log-analysis-summary
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      
+      echo "📋 Template Converter Agent Analysis Summary"
+      echo "==========================================="
+      echo "Repository URL: $(params.repository-url)"
+      echo "Analysis Type: $(params.analysis-type)"
+      echo ""
+      
+      REPO_CLASSIFICATION=$(cat $(results.repository-classification.path))
+      WORKFLOW_TYPE=$(cat $(results.workflow-type.path))
+      TEMPLATE_SOURCE=$(cat $(results.template-source.path))
+      
+      echo "🎯 Analysis Results:"
+      echo "  Repository Classification: $REPO_CLASSIFICATION"
+      echo "  Recommended Workflow: $WORKFLOW_TYPE"
+      echo "  Template Source: $TEMPLATE_SOURCE"
+      echo ""
+      
+      case "$REPO_CLASSIFICATION" in
+        "existing_workshop")
+          echo "📚 Existing Workshop Detected"
+          echo "  → Will use Workflow 3 (Enhancement and Modernization)"
+          echo "  → Will clone original repository as base"
+          echo "  → Will enhance existing workshop content"
+          ;;
+        "tutorial_content")
+          echo "📖 Tutorial Content Detected"
+          echo "  → Will use Workflow 1 (Repository-Based Workshop Creation)"
+          echo "  → Will use showroom_template_default as base"
+          echo "  → Will transform tutorial into structured workshop"
+          ;;
+        "application")
+          echo "💻 Application Repository Detected"
+          echo "  → Will use Workflow 1 (Repository-Based Workshop Creation)"
+          echo "  → Will use showroom_template_default as base"
+          echo "  → Will generate workshop content from application analysis"
+          ;;
+        *)
+          echo "❓ Unknown Classification: $REPO_CLASSIFICATION"
+          echo "  → Defaulting to Workflow 1"
+          ;;
+      esac
+      
+      echo ""
+      echo "🚀 Ready for next pipeline stage"

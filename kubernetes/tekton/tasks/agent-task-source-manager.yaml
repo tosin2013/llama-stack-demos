@@ -1,0 +1,263 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-source-manager
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: source-manager-agent
+    version: v1.0.0
+spec:
+  description: |
+    Source Manager Agent Task
+    Calls the Source Manager Agent via HTTP to handle Git operations and repository management.
+    Supports repository creation, cloning, updates, and Gitea integration.
+  
+  params:
+  - name: action
+    type: string
+    description: Action to perform (create-gitea-repository, clone-original-workshop, update-gitea-repository)
+  - name: repository-name
+    type: string
+    description: Name for the repository
+    default: ""
+  - name: repository-url
+    type: string
+    description: Source repository URL
+    default: ""
+  - name: original-workshop-url
+    type: string
+    description: Original workshop URL for cloning
+    default: ""
+  - name: workshop-content
+    type: string
+    description: Workshop content to commit
+    default: ""
+  - name: enhanced-content
+    type: string
+    description: Enhanced workshop content to commit
+    default: ""
+  - name: base-template
+    type: string
+    description: Base template for new repositories
+    default: "showroom_template_default"
+  - name: commit-message
+    type: string
+    description: Git commit message
+    default: "Workshop content updated via Tekton pipeline"
+  - name: agent-endpoint
+    type: string
+    description: Source Manager Agent endpoint
+    default: "http://source-manager-agent:80"
+  - name: timeout-seconds
+    type: string
+    description: Timeout for agent call in seconds
+    default: "900"
+
+  workspaces:
+  - name: gitea-auth
+    description: Gitea authentication credentials
+    optional: true
+
+  results:
+  - name: gitea-repo-url
+    description: URL of the created/updated Gitea repository
+  - name: cloned-content
+    description: Content from cloned original workshop
+  - name: updated-repo-url
+    description: URL of the updated repository
+  - name: operation-status
+    description: Status of the Git operation
+
+  steps:
+  - name: call-source-manager-agent
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🔧 Source Manager Agent Task"
+      echo "============================"
+      echo "Action: $(params.action)"
+      echo "Repository Name: $(params.repository-name)"
+      echo "Repository URL: $(params.repository-url)"
+      echo "Agent Endpoint: $(params.agent-endpoint)"
+      echo ""
+      
+      # Install required tools
+      dnf install -y curl jq
+      
+      case "$(params.action)" in
+        "create-gitea-repository")
+          echo "📦 Creating Gitea Repository..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workshop_name": "$(params.repository-name)",
+        "workshop_content": "$(params.workshop-content)",
+        "base_template": "$(params.base-template)"
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/create_workshop_repository_tool"
+          ;;
+          
+        "clone-original-workshop")
+          echo "📥 Cloning Original Workshop..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "original_workshop_url": "$(params.original-workshop-url)",
+        "target_repository_name": "$(params.repository-name)"
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/clone_existing_workshop_tool"
+          ;;
+          
+        "update-gitea-repository")
+          echo "🔄 Updating Gitea Repository..."
+          
+          # Use enhanced-content if available, otherwise workshop-content
+          CONTENT_TO_COMMIT="$(params.enhanced-content)"
+          if [ -z "$CONTENT_TO_COMMIT" ]; then
+            CONTENT_TO_COMMIT="$(params.workshop-content)"
+          fi
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "repository_name": "$(params.repository-name)",
+        "workshop_content": "$CONTENT_TO_COMMIT",
+        "commit_message": "$(params.commit-message)"
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/commit_to_gitea_tool"
+          ;;
+          
+        *)
+          echo "❌ Unknown action: $(params.action)"
+          exit 1
+          ;;
+      esac
+      
+      echo "📝 Request Payload:"
+      echo "$REQUEST_PAYLOAD" | jq .
+      echo ""
+      
+      # Call Source Manager Agent
+      RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)$TOOL_ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d "$REQUEST_PAYLOAD" \
+        --connect-timeout 30 \
+        --max-time $(params.timeout-seconds))
+      
+      # Extract HTTP status and body
+      HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+      RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+      
+      echo "📊 Agent Response (HTTP $HTTP_STATUS):"
+      echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+      echo ""
+      
+      # Check HTTP status
+      if [ "$HTTP_STATUS" != "200" ]; then
+        echo "❌ Agent call failed with HTTP status: $HTTP_STATUS"
+        echo "Response: $RESPONSE_BODY"
+        exit 1
+      fi
+      
+      # Check for JSON error in response
+      if echo "$RESPONSE_BODY" | jq -e '.error' > /dev/null 2>&1; then
+        echo "❌ Agent returned error:"
+        echo "$RESPONSE_BODY" | jq -r '.error'
+        exit 1
+      fi
+      
+      # Extract results based on action
+      case "$(params.action)" in
+        "create-gitea-repository")
+          if echo "$RESPONSE_BODY" | jq -e '.gitea_url' > /dev/null 2>&1; then
+            GITEA_URL=$(echo "$RESPONSE_BODY" | jq -r '.gitea_url')
+            echo "$GITEA_URL" > $(results.gitea-repo-url.path)
+            echo "Repository created successfully" > $(results.operation-status.path)
+            echo "✅ Gitea repository created: $GITEA_URL"
+          else
+            echo "❌ Invalid response - missing 'gitea_url' field"
+            exit 1
+          fi
+          ;;
+          
+        "clone-original-workshop")
+          if echo "$RESPONSE_BODY" | jq -e '.cloned_content' > /dev/null 2>&1; then
+            CLONED_CONTENT=$(echo "$RESPONSE_BODY" | jq -r '.cloned_content')
+            echo "$CLONED_CONTENT" > $(results.cloned-content.path)
+            echo "Workshop cloned successfully" > $(results.operation-status.path)
+            echo "✅ Original workshop cloned successfully"
+          else
+            echo "❌ Invalid response - missing 'cloned_content' field"
+            exit 1
+          fi
+          ;;
+          
+        "update-gitea-repository")
+          if echo "$RESPONSE_BODY" | jq -e '.repository_url' > /dev/null 2>&1; then
+            REPO_URL=$(echo "$RESPONSE_BODY" | jq -r '.repository_url')
+            echo "$REPO_URL" > $(results.updated-repo-url.path)
+            echo "$REPO_URL" > $(results.gitea-repo-url.path)  # Also set main result
+            echo "Repository updated successfully" > $(results.operation-status.path)
+            echo "✅ Repository updated: $REPO_URL"
+          else
+            echo "❌ Invalid response - missing 'repository_url' field"
+            exit 1
+          fi
+          ;;
+      esac
+
+  - name: log-operation-summary
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      
+      echo "📋 Source Manager Agent Summary"
+      echo "==============================="
+      echo "Action Performed: $(params.action)"
+      echo "Repository Name: $(params.repository-name)"
+      echo ""
+      
+      if [ -f "$(results.operation-status.path)" ]; then
+        OPERATION_STATUS=$(cat $(results.operation-status.path))
+        echo "🎯 Operation Status: $OPERATION_STATUS"
+      fi
+      
+      case "$(params.action)" in
+        "create-gitea-repository")
+          if [ -f "$(results.gitea-repo-url.path)" ]; then
+            GITEA_URL=$(cat $(results.gitea-repo-url.path))
+            echo "📦 Created Repository: $GITEA_URL"
+            echo "🎨 Base Template: $(params.base-template)"
+          fi
+          ;;
+          
+        "clone-original-workshop")
+          if [ -f "$(results.cloned-content.path)" ]; then
+            CONTENT_LENGTH=$(cat $(results.cloned-content.path) | wc -c)
+            echo "📥 Cloned Content Length: $CONTENT_LENGTH characters"
+            echo "🔗 Original Workshop: $(params.original-workshop-url)"
+          fi
+          ;;
+          
+        "update-gitea-repository")
+          if [ -f "$(results.updated-repo-url.path)" ]; then
+            UPDATED_URL=$(cat $(results.updated-repo-url.path))
+            echo "🔄 Updated Repository: $UPDATED_URL"
+            echo "💬 Commit Message: $(params.commit-message)"
+          fi
+          ;;
+      esac
+      
+      echo ""
+      echo "🚀 Git operation completed successfully"

@@ -1,0 +1,225 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-content-creator
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: content-creator-agent
+    version: v1.0.0
+spec:
+  description: |
+    Content Creator Agent Task
+    Calls the Content Creator Agent via HTTP to create or enhance workshop content.
+    Supports both new workshop creation (Workflow 1) and existing workshop enhancement (Workflow 3).
+  
+  params:
+  - name: repository-url
+    type: string
+    description: Source repository URL for content creation
+  - name: workshop-name
+    type: string
+    description: Name for the workshop
+  - name: base-template
+    type: string
+    description: Base template to use (showroom_template_default or original_repository)
+    default: "showroom_template_default"
+  - name: analysis-result
+    type: string
+    description: Repository analysis result from Template Converter Agent
+    default: ""
+  - name: enhancement-plan
+    type: string
+    description: Enhancement plan for existing workshops (Workflow 3)
+    default: ""
+  - name: original-content
+    type: string
+    description: Original workshop content for enhancement (Workflow 3)
+    default: ""
+  - name: agent-endpoint
+    type: string
+    description: Content Creator Agent endpoint
+    default: "http://content-creator-agent:80"
+  - name: timeout-seconds
+    type: string
+    description: Timeout for agent call in seconds
+    default: "600"
+
+  results:
+  - name: workshop-content
+    description: Generated or enhanced workshop content
+  - name: content-summary
+    description: Summary of content creation or enhancement
+  - name: enhanced-content
+    description: Enhanced workshop content (for Workflow 3)
+  - name: enhancement-summary
+    description: Summary of enhancements applied (for Workflow 3)
+
+  steps:
+  - name: determine-content-operation
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🎨 Content Creator Agent Task"
+      echo "============================="
+      echo "Repository URL: $(params.repository-url)"
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Base Template: $(params.base-template)"
+      echo ""
+      
+      # Determine operation type based on parameters
+      if [ -n "$(params.enhancement-plan)" ] && [ -n "$(params.original-content)" ]; then
+        echo "📝 Operation: Workshop Enhancement (Workflow 3)"
+        echo "ENHANCEMENT" > /tmp/operation-type
+      else
+        echo "🆕 Operation: New Workshop Creation (Workflow 1)"
+        echo "CREATION" > /tmp/operation-type
+      fi
+
+  - name: call-content-creator-agent
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      # Install required tools
+      dnf install -y curl jq
+      
+      OPERATION_TYPE=$(cat /tmp/operation-type)
+      
+      if [ "$OPERATION_TYPE" = "ENHANCEMENT" ]; then
+        echo "🔄 Calling Content Creator Agent for Workshop Enhancement..."
+        
+        # Prepare enhancement request payload
+        REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "repository_url": "$(params.repository-url)",
+        "workshop_name": "$(params.workshop-name)",
+        "enhancement_plan": "$(params.enhancement-plan)",
+        "original_content": "$(params.original-content)",
+        "enhancement_type": "content-update"
+      }
+      EOF
+        )
+        
+        # Call enhance_content_tool
+        RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)/tools/enhance_content_tool" \
+          -H "Content-Type: application/json" \
+          -d "$REQUEST_PAYLOAD" \
+          --connect-timeout 30 \
+          --max-time $(params.timeout-seconds))
+        
+      else
+        echo "🆕 Calling Content Creator Agent for New Workshop Creation..."
+        
+        # Prepare creation request payload
+        REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "repository_url": "$(params.repository-url)",
+        "workshop_name": "$(params.workshop-name)",
+        "base_template": "$(params.base-template)",
+        "analysis_result": "$(params.analysis-result)"
+      }
+      EOF
+        )
+        
+        # Call create_workshop_content_tool
+        RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)/tools/create_workshop_content_tool" \
+          -H "Content-Type: application/json" \
+          -d "$REQUEST_PAYLOAD" \
+          --connect-timeout 30 \
+          --max-time $(params.timeout-seconds))
+      fi
+      
+      # Extract HTTP status and body
+      HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+      RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+      
+      echo "📊 Agent Response (HTTP $HTTP_STATUS):"
+      echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+      echo ""
+      
+      # Check HTTP status
+      if [ "$HTTP_STATUS" != "200" ]; then
+        echo "❌ Agent call failed with HTTP status: $HTTP_STATUS"
+        echo "Response: $RESPONSE_BODY"
+        exit 1
+      fi
+      
+      # Check for JSON error in response
+      if echo "$RESPONSE_BODY" | jq -e '.error' > /dev/null 2>&1; then
+        echo "❌ Agent returned error:"
+        echo "$RESPONSE_BODY" | jq -r '.error'
+        exit 1
+      fi
+      
+      # Extract and save results based on operation type
+      if [ "$OPERATION_TYPE" = "ENHANCEMENT" ]; then
+        # Enhancement operation results
+        if echo "$RESPONSE_BODY" | jq -e '.enhanced_content' > /dev/null 2>&1; then
+          ENHANCED_CONTENT=$(echo "$RESPONSE_BODY" | jq -r '.enhanced_content')
+          echo "$ENHANCED_CONTENT" > $(results.enhanced-content.path)
+          echo "$ENHANCED_CONTENT" > $(results.workshop-content.path)  # Also set main result
+          
+          ENHANCEMENT_SUMMARY=$(echo "$RESPONSE_BODY" | jq -r '.enhancement_summary // "Workshop content enhanced successfully"')
+          echo "$ENHANCEMENT_SUMMARY" > $(results.enhancement-summary.path)
+          echo "$ENHANCEMENT_SUMMARY" > $(results.content-summary.path)  # Also set main summary
+          
+          echo "✅ Workshop enhancement completed successfully"
+        else
+          echo "❌ Invalid enhancement response - missing 'enhanced_content' field"
+          exit 1
+        fi
+      else
+        # Creation operation results
+        if echo "$RESPONSE_BODY" | jq -e '.workshop_content' > /dev/null 2>&1; then
+          WORKSHOP_CONTENT=$(echo "$RESPONSE_BODY" | jq -r '.workshop_content')
+          echo "$WORKSHOP_CONTENT" > $(results.workshop-content.path)
+          
+          CONTENT_SUMMARY=$(echo "$RESPONSE_BODY" | jq -r '.content_summary // "Workshop content created successfully"')
+          echo "$CONTENT_SUMMARY" > $(results.content-summary.path)
+          
+          echo "✅ Workshop creation completed successfully"
+        else
+          echo "❌ Invalid creation response - missing 'workshop_content' field"
+          exit 1
+        fi
+      fi
+
+  - name: log-content-summary
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      
+      OPERATION_TYPE=$(cat /tmp/operation-type)
+      
+      echo "📋 Content Creator Agent Summary"
+      echo "==============================="
+      echo "Repository URL: $(params.repository-url)"
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Operation Type: $OPERATION_TYPE"
+      echo ""
+      
+      if [ "$OPERATION_TYPE" = "ENHANCEMENT" ]; then
+        echo "🔄 Workshop Enhancement Results:"
+        echo "  Enhancement Plan Applied: $(params.enhancement-plan)"
+        if [ -f "$(results.enhancement-summary.path)" ]; then
+          echo "  Enhancement Summary: $(cat $(results.enhancement-summary.path))"
+        fi
+      else
+        echo "🆕 New Workshop Creation Results:"
+        echo "  Base Template: $(params.base-template)"
+        if [ -f "$(results.content-summary.path)" ]; then
+          echo "  Content Summary: $(cat $(results.content-summary.path))"
+        fi
+      fi
+      
+      if [ -f "$(results.workshop-content.path)" ]; then
+        CONTENT_LENGTH=$(cat $(results.workshop-content.path) | wc -c)
+        echo "  Content Length: $CONTENT_LENGTH characters"
+      fi
+      
+      echo ""
+      echo "🚀 Workshop content ready for next pipeline stage"

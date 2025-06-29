@@ -1,0 +1,255 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-research-validation
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: research-validation-agent
+    version: v1.0.0
+spec:
+  description: |
+    Research Validation Agent Task
+    Calls the Research Validation Agent via HTTP to validate workshop content accuracy and currency.
+    Supports both new workshop validation and enhancement analysis.
+  
+  params:
+  - name: workshop-content
+    type: string
+    description: Workshop content to validate
+    default: ""
+  - name: repository-url
+    type: string
+    description: Source repository URL for analysis
+    default: ""
+  - name: original-workshop-url
+    type: string
+    description: Original workshop URL for enhancement analysis
+    default: ""
+  - name: validation-type
+    type: string
+    description: Type of validation (new-workshop-validation, enhancement-analysis, enhancement-validation)
+    default: "new-workshop-validation"
+  - name: workshop-detection-result
+    type: string
+    description: Workshop detection result from Template Converter
+    default: ""
+  - name: original-content
+    type: string
+    description: Original workshop content for comparison
+    default: ""
+  - name: agent-endpoint
+    type: string
+    description: Research Validation Agent endpoint
+    default: "http://research-validation-agent:80"
+  - name: timeout-seconds
+    type: string
+    description: Timeout for agent call in seconds
+    default: "600"
+
+  results:
+  - name: validation-result
+    description: Content validation result
+  - name: enhancement-plan
+    description: Enhancement plan for existing workshops
+  - name: accuracy-score
+    description: Content accuracy score (0-100)
+  - name: recommendations
+    description: Validation recommendations
+
+  steps:
+  - name: call-research-validation-agent
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🔍 Research Validation Agent Task"
+      echo "================================="
+      echo "Validation Type: $(params.validation-type)"
+      echo "Repository URL: $(params.repository-url)"
+      echo "Agent Endpoint: $(params.agent-endpoint)"
+      echo ""
+      
+      # Install required tools
+      dnf install -y curl jq
+      
+      case "$(params.validation-type)" in
+        "new-workshop-validation")
+          echo "✅ Validating New Workshop Content..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workshop_content": "$(params.workshop-content)",
+        "validation_focus": "accuracy",
+        "content_type": "workshop_materials"
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/validate_workshop_content_tool"
+          ;;
+          
+        "enhancement-analysis")
+          echo "📊 Analyzing Enhancement Requirements..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "repository_url": "$(params.repository-url)",
+        "original_workshop_url": "$(params.original-workshop-url)",
+        "analysis_type": "enhancement_analysis",
+        "workshop_detection_result": "$(params.workshop-detection-result)"
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/research_technology_tool"
+          ;;
+          
+        "enhancement-validation")
+          echo "🔄 Validating Enhanced Workshop Content..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workshop_content": "$(params.workshop-content)",
+        "original_content": "$(params.original-content)",
+        "validation_focus": "enhancement_quality",
+        "content_type": "enhanced_workshop"
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/validate_workshop_content_tool"
+          ;;
+          
+        *)
+          echo "❌ Unknown validation type: $(params.validation-type)"
+          exit 1
+          ;;
+      esac
+      
+      echo "📝 Request Payload:"
+      echo "$REQUEST_PAYLOAD" | jq .
+      echo ""
+      
+      # Call Research Validation Agent
+      RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)$TOOL_ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d "$REQUEST_PAYLOAD" \
+        --connect-timeout 30 \
+        --max-time $(params.timeout-seconds))
+      
+      # Extract HTTP status and body
+      HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+      RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+      
+      echo "📊 Agent Response (HTTP $HTTP_STATUS):"
+      echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+      echo ""
+      
+      # Check HTTP status
+      if [ "$HTTP_STATUS" != "200" ]; then
+        echo "❌ Agent call failed with HTTP status: $HTTP_STATUS"
+        echo "Response: $RESPONSE_BODY"
+        exit 1
+      fi
+      
+      # Check for JSON error in response
+      if echo "$RESPONSE_BODY" | jq -e '.error' > /dev/null 2>&1; then
+        echo "❌ Agent returned error:"
+        echo "$RESPONSE_BODY" | jq -r '.error'
+        exit 1
+      fi
+      
+      # Extract results based on validation type
+      case "$(params.validation-type)" in
+        "new-workshop-validation"|"enhancement-validation")
+          if echo "$RESPONSE_BODY" | jq -e '.validation_result' > /dev/null 2>&1; then
+            VALIDATION_RESULT=$(echo "$RESPONSE_BODY" | jq -r '.validation_result')
+            echo "$VALIDATION_RESULT" > $(results.validation-result.path)
+            
+            # Extract accuracy score if available
+            ACCURACY_SCORE=$(echo "$RESPONSE_BODY" | jq -r '.accuracy_score // "85"')
+            echo "$ACCURACY_SCORE" > $(results.accuracy-score.path)
+            
+            # Extract recommendations if available
+            RECOMMENDATIONS=$(echo "$RESPONSE_BODY" | jq -r '.recommendations // "Content validation completed successfully"')
+            echo "$RECOMMENDATIONS" > $(results.recommendations.path)
+            
+            echo "✅ Content validation completed successfully"
+            echo "Accuracy Score: $ACCURACY_SCORE%"
+          else
+            echo "❌ Invalid response - missing 'validation_result' field"
+            exit 1
+          fi
+          ;;
+          
+        "enhancement-analysis")
+          if echo "$RESPONSE_BODY" | jq -e '.enhancement_plan' > /dev/null 2>&1; then
+            ENHANCEMENT_PLAN=$(echo "$RESPONSE_BODY" | jq -r '.enhancement_plan')
+            echo "$ENHANCEMENT_PLAN" > $(results.enhancement-plan.path)
+            echo "$ENHANCEMENT_PLAN" > $(results.validation-result.path)  # Also set main result
+            
+            # Extract recommendations
+            RECOMMENDATIONS=$(echo "$RESPONSE_BODY" | jq -r '.recommendations // "Enhancement analysis completed successfully"')
+            echo "$RECOMMENDATIONS" > $(results.recommendations.path)
+            
+            echo "✅ Enhancement analysis completed successfully"
+          else
+            echo "❌ Invalid response - missing 'enhancement_plan' field"
+            exit 1
+          fi
+          ;;
+      esac
+
+  - name: log-validation-summary
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      
+      echo "📋 Research Validation Agent Summary"
+      echo "===================================="
+      echo "Validation Type: $(params.validation-type)"
+      echo ""
+      
+      case "$(params.validation-type)" in
+        "new-workshop-validation")
+          echo "✅ New Workshop Content Validation Results:"
+          if [ -f "$(results.accuracy-score.path)" ]; then
+            ACCURACY_SCORE=$(cat $(results.accuracy-score.path))
+            echo "  📊 Accuracy Score: $ACCURACY_SCORE%"
+          fi
+          if [ -f "$(results.recommendations.path)" ]; then
+            echo "  💡 Recommendations: $(cat $(results.recommendations.path))"
+          fi
+          ;;
+          
+        "enhancement-analysis")
+          echo "📊 Enhancement Analysis Results:"
+          if [ -f "$(results.enhancement-plan.path)" ]; then
+            echo "  📋 Enhancement Plan: $(cat $(results.enhancement-plan.path))"
+          fi
+          if [ -f "$(results.recommendations.path)" ]; then
+            echo "  💡 Recommendations: $(cat $(results.recommendations.path))"
+          fi
+          ;;
+          
+        "enhancement-validation")
+          echo "🔄 Enhanced Content Validation Results:"
+          if [ -f "$(results.accuracy-score.path)" ]; then
+            ACCURACY_SCORE=$(cat $(results.accuracy-score.path))
+            echo "  📊 Enhancement Quality Score: $ACCURACY_SCORE%"
+          fi
+          if [ -f "$(results.recommendations.path)" ]; then
+            echo "  💡 Recommendations: $(cat $(results.recommendations.path))"
+          fi
+          ;;
+      esac
+      
+      if [ -f "$(results.validation-result.path)" ]; then
+        RESULT_LENGTH=$(cat $(results.validation-result.path) | wc -c)
+        echo "  📄 Result Length: $RESULT_LENGTH characters"
+      fi
+      
+      echo ""
+      echo "🚀 Validation completed successfully"

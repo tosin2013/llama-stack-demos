@@ -1,0 +1,210 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-documentation-pipeline
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: documentation-pipeline-agent
+    version: v1.0.0
+spec:
+  description: |
+    Documentation Pipeline Agent Task
+    Calls the Documentation Pipeline Agent via HTTP to generate and update workshop documentation.
+    Supports both new workshop documentation and enhanced workshop documentation.
+  
+  params:
+  - name: workshop-name
+    type: string
+    description: Name of the workshop
+  - name: gitea-repository-url
+    type: string
+    description: URL of the Gitea repository
+  - name: documentation-type
+    type: string
+    description: Type of documentation (new-workshop-docs, enhanced-workshop-docs)
+    default: "new-workshop-docs"
+  - name: enhancement-summary
+    type: string
+    description: Summary of enhancements applied (for enhanced workshops)
+    default: ""
+  - name: agent-endpoint
+    type: string
+    description: Documentation Pipeline Agent endpoint
+    default: "http://documentation-pipeline-agent:80"
+  - name: timeout-seconds
+    type: string
+    description: Timeout for agent call in seconds
+    default: "300"
+
+  results:
+  - name: documentation-status
+    description: Documentation generation status
+  - name: documentation-url
+    description: URL of generated documentation
+  - name: update-summary
+    description: Summary of documentation updates
+
+  steps:
+  - name: call-documentation-pipeline-agent
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "📚 Documentation Pipeline Agent Task"
+      echo "===================================="
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Repository URL: $(params.gitea-repository-url)"
+      echo "Documentation Type: $(params.documentation-type)"
+      echo "Agent Endpoint: $(params.agent-endpoint)"
+      echo ""
+      
+      # Install required tools
+      dnf install -y curl jq
+      
+      case "$(params.documentation-type)" in
+        "new-workshop-docs")
+          echo "📝 Generating New Workshop Documentation..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workshop_name": "$(params.workshop-name)",
+        "repository_url": "$(params.gitea-repository-url)",
+        "documentation_type": "new_workshop",
+        "generate_readme": true,
+        "generate_nav": true
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/create_update_proposal_tool"
+          ;;
+          
+        "enhanced-workshop-docs")
+          echo "🔄 Updating Enhanced Workshop Documentation..."
+          
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workshop_name": "$(params.workshop-name)",
+        "repository_url": "$(params.gitea-repository-url)",
+        "documentation_type": "enhanced_workshop",
+        "enhancement_summary": "$(params.enhancement-summary)",
+        "update_changelog": true
+      }
+      EOF
+          )
+          
+          TOOL_ENDPOINT="/tools/create_update_proposal_tool"
+          ;;
+          
+        *)
+          echo "❌ Unknown documentation type: $(params.documentation-type)"
+          exit 1
+          ;;
+      esac
+      
+      echo "📝 Request Payload:"
+      echo "$REQUEST_PAYLOAD" | jq .
+      echo ""
+      
+      # Call Documentation Pipeline Agent
+      RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)$TOOL_ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d "$REQUEST_PAYLOAD" \
+        --connect-timeout 30 \
+        --max-time $(params.timeout-seconds))
+      
+      # Extract HTTP status and body
+      HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+      RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+      
+      echo "📊 Agent Response (HTTP $HTTP_STATUS):"
+      echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+      echo ""
+      
+      # Check HTTP status
+      if [ "$HTTP_STATUS" != "200" ]; then
+        echo "❌ Agent call failed with HTTP status: $HTTP_STATUS"
+        echo "Response: $RESPONSE_BODY"
+        exit 1
+      fi
+      
+      # Check for JSON error in response
+      if echo "$RESPONSE_BODY" | jq -e '.error' > /dev/null 2>&1; then
+        echo "❌ Agent returned error:"
+        echo "$RESPONSE_BODY" | jq -r '.error'
+        exit 1
+      fi
+      
+      # Extract results
+      if echo "$RESPONSE_BODY" | jq -e '.status' > /dev/null 2>&1; then
+        DOCUMENTATION_STATUS=$(echo "$RESPONSE_BODY" | jq -r '.status')
+        echo "$DOCUMENTATION_STATUS" > $(results.documentation-status.path)
+        
+        # Extract documentation URL if available
+        DOCUMENTATION_URL=$(echo "$RESPONSE_BODY" | jq -r '.documentation_url // "$(params.gitea-repository-url)"')
+        echo "$DOCUMENTATION_URL" > $(results.documentation-url.path)
+        
+        # Extract update summary
+        UPDATE_SUMMARY=$(echo "$RESPONSE_BODY" | jq -r '.update_summary // "Documentation generated successfully"')
+        echo "$UPDATE_SUMMARY" > $(results.update-summary.path)
+        
+        echo "✅ Documentation pipeline completed successfully"
+        echo "Status: $DOCUMENTATION_STATUS"
+        echo "Documentation URL: $DOCUMENTATION_URL"
+        
+      else
+        echo "❌ Invalid response - missing 'status' field"
+        exit 1
+      fi
+
+  - name: log-documentation-summary
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      
+      echo "📋 Documentation Pipeline Agent Summary"
+      echo "======================================="
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Documentation Type: $(params.documentation-type)"
+      echo ""
+      
+      if [ -f "$(results.documentation-status.path)" ]; then
+        DOCUMENTATION_STATUS=$(cat $(results.documentation-status.path))
+        echo "📊 Documentation Status: $DOCUMENTATION_STATUS"
+      fi
+      
+      if [ -f "$(results.documentation-url.path)" ]; then
+        DOCUMENTATION_URL=$(cat $(results.documentation-url.path))
+        echo "🔗 Documentation URL: $DOCUMENTATION_URL"
+      fi
+      
+      if [ -f "$(results.update-summary.path)" ]; then
+        UPDATE_SUMMARY=$(cat $(results.update-summary.path))
+        echo "📝 Update Summary: $UPDATE_SUMMARY"
+      fi
+      
+      case "$(params.documentation-type)" in
+        "new-workshop-docs")
+          echo ""
+          echo "📚 New Workshop Documentation Generated:"
+          echo "  ✅ README.md created"
+          echo "  ✅ Navigation structure generated"
+          echo "  ✅ Workshop metadata documented"
+          ;;
+          
+        "enhanced-workshop-docs")
+          echo ""
+          echo "🔄 Enhanced Workshop Documentation Updated:"
+          echo "  ✅ Enhancement summary documented"
+          echo "  ✅ Changelog updated"
+          echo "  ✅ Documentation synchronized"
+          if [ -n "$(params.enhancement-summary)" ]; then
+            echo "  📋 Enhancement Summary: $(params.enhancement-summary)"
+          fi
+          ;;
+      esac
+      
+      echo ""
+      echo "🚀 Documentation pipeline completed successfully"
