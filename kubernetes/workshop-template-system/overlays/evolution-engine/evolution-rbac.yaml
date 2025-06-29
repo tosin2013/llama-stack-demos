@@ -1,0 +1,308 @@
+# RBAC Configuration for Workshop Evolution Engine
+# Provides secure access control for evolution operations
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workshop-evolution-service-account
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: rbac
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.evolution-dashboard: >
+      {"kind":"OAuthRedirectReference","apiVersion":"v1","reference":{"kind":"Route","name":"workshop-evolution-dashboard"}}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: workshop-evolution-manager
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: rbac
+rules:
+# Evolution Tracking Permissions
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+  resourceNames: ["evolution-*", "workshop-*"]
+
+# Monitoring and Metrics Permissions
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+
+# Deployment Management for Evolution
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+
+# Route Management for Dashboard
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# BuildConfig Management for Workshop Updates
+- apiGroups: ["build.openshift.io"]
+  resources: ["buildconfigs", "builds"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Image Stream Management
+- apiGroups: ["image.openshift.io"]
+  resources: ["imagestreams", "imagestreamtags"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# PVC Management for RAG Data
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# Network Policy Management
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch"]
+
+# Events for Audit Logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: workshop-evolution-viewer
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: rbac
+rules:
+# Read-only access for evolution monitoring
+- apiGroups: [""]
+  resources: ["configmaps", "secrets", "pods", "services"]
+  verbs: ["get", "list", "watch"]
+
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes"]
+  verbs: ["get", "list", "watch"]
+
+- apiGroups: ["build.openshift.io"]
+  resources: ["buildconfigs", "builds"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: workshop-evolution-manager-binding
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: rbac
+subjects:
+- kind: ServiceAccount
+  name: workshop-evolution-service-account
+  namespace: workshop-system
+roleRef:
+  kind: ClusterRole
+  name: workshop-evolution-manager
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workshop-evolution-namespace-manager
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: rbac
+rules:
+# Full access within workshop-system namespace
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["*"]
+
+# OpenShift specific resources
+- apiGroups: ["route.openshift.io"]
+  resources: ["*"]
+  verbs: ["*"]
+
+- apiGroups: ["build.openshift.io"]
+  resources: ["*"]
+  verbs: ["*"]
+
+- apiGroups: ["image.openshift.io"]
+  resources: ["*"]
+  verbs: ["*"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: workshop-evolution-namespace-manager-binding
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: rbac
+subjects:
+- kind: ServiceAccount
+  name: workshop-evolution-service-account
+  namespace: workshop-system
+roleRef:
+  kind: Role
+  name: workshop-evolution-namespace-manager
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Security Context Constraints for Evolution Engine
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: workshop-evolution-scc
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: security
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+fsGroup:
+  type: MustRunAs
+  ranges:
+  - min: 1001
+    max: 1001
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+- ALL
+runAsUser:
+  type: MustRunAsNonRoot
+  uid: 1001
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: MustRunAs
+  ranges:
+  - min: 1001
+    max: 1001
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- persistentVolumeClaim
+- projected
+- secret
+users:
+- system:serviceaccount:workshop-system:workshop-evolution-service-account
+
+---
+# OAuth Client for Dashboard Authentication
+apiVersion: oauth.openshift.io/v1
+kind: OAuthClient
+metadata:
+  name: workshop-evolution-dashboard
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: auth
+secret: workshop-evolution-oauth-secret
+redirectURIs:
+- https://workshop-evolution-dashboard-workshop-system.apps.cluster.local/auth/callback
+grantMethod: auto
+scopeRestrictions:
+- literals:
+  - user:info
+  - user:check-access
+  - user:list-scoped-projects
+  - user:list-projects
+
+---
+# Network Policy for Evolution Engine
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workshop-evolution-network-policy
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: workshop-evolution-engine
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from OpenShift router
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: openshift-ingress
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8443
+  
+  # Allow traffic from same namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: workshop-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow traffic from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Allow HTTPS to external services
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow HTTP to internal services
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: workshop-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow access to Kubernetes API
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 6443

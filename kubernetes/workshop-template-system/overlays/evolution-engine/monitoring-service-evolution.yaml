@@ -1,0 +1,259 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-monitoring-service-evolution
+  labels:
+    app: workshop-monitoring-service
+    component: evolution-engine
+    tier: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: workshop-monitoring-service
+      component: evolution-engine
+  template:
+    metadata:
+      labels:
+        app: workshop-monitoring-service
+        component: evolution-engine
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/q/metrics"
+    spec:
+      serviceAccountName: workshop-evolution-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: monitoring-service
+        image: quay.io/workshop-system/monitoring-service:evolution-v1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        env:
+        # Evolution Engine Configuration
+        - name: EVOLUTION_TRACKING_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: EVOLUTION_TRACKING_ENABLED
+        - name: IMPACT_ASSESSMENT_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: IMPACT_ASSESSMENT_ENABLED
+        - name: RAG_UPDATES_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: RAG_UPDATES_ENABLED
+        - name: DASHBOARD_EVOLUTION_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: DASHBOARD_EVOLUTION_MODE
+        
+        # API Configuration
+        - name: EVOLUTION_API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: EVOLUTION_API_BASE_URL
+        - name: IMPACT_ASSESSMENT_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: IMPACT_ASSESSMENT_API_URL
+        
+        # Security Configuration
+        - name: EVOLUTION_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: EVOLUTION_API_KEY
+        - name: DASHBOARD_SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: DASHBOARD_SESSION_SECRET
+        
+        # Database Configuration
+        - name: QUARKUS_DATASOURCE_JDBC_URL
+          value: "jdbc:h2:mem:evolution;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+        - name: QUARKUS_DATASOURCE_USERNAME
+          value: "sa"
+        - name: QUARKUS_DATASOURCE_PASSWORD
+          value: ""
+        
+        # Quarkus Configuration
+        - name: QUARKUS_HTTP_PORT
+          value: "8080"
+        - name: QUARKUS_HTTP_HOST
+          value: "0.0.0.0"
+        - name: QUARKUS_LOG_LEVEL
+          value: "INFO"
+        - name: QUARKUS_LOG_CONSOLE_ENABLE
+          value: "true"
+        
+        # OpenShift Integration
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        
+        # Health Check Configuration
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        
+        # Startup Probe for Evolution Engine
+        startupProbe:
+          httpGet:
+            path: /q/health/started
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+          successThreshold: 1
+        
+        # Resource Management
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        # Volume Mounts
+        volumeMounts:
+        - name: evolution-config-volume
+          mountPath: /deployments/config
+          readOnly: true
+        - name: evolution-data-volume
+          mountPath: /deployments/data
+        - name: tmp-volume
+          mountPath: /tmp
+      
+      # Volumes
+      volumes:
+      - name: evolution-config-volume
+        configMap:
+          name: evolution-config
+      - name: evolution-data-volume
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 100Mi
+      
+      # Pod Scheduling
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - workshop-monitoring-service
+              topologyKey: kubernetes.io/hostname
+      
+      # Tolerations for evolution workloads
+      tolerations:
+      - key: "evolution-workload"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workshop-monitoring-service-evolution
+  labels:
+    app: workshop-monitoring-service
+    component: evolution-engine
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: monitoring-service-tls
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: https
+    port: 8443
+    targetPort: 8443
+    protocol: TCP
+  selector:
+    app: workshop-monitoring-service
+    component: evolution-engine
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: workshop-evolution-dashboard
+  labels:
+    app: workshop-monitoring-service
+    component: evolution-dashboard
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+    haproxy.router.openshift.io/balance: roundrobin
+spec:
+  to:
+    kind: Service
+    name: workshop-monitoring-service-evolution
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

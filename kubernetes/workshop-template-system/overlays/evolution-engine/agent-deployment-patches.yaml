@@ -1,0 +1,302 @@
+# Agent Deployment Patches for Evolution Engine
+# Enhances existing agent deployments with evolution capabilities
+
+# Source Manager Agent Evolution Enhancement
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: source-manager-agent
+spec:
+  template:
+    metadata:
+      annotations:
+        evolution.workshop.io/enhanced: "true"
+        evolution.workshop.io/capabilities: "evolution-implementation,version-control,rollback"
+    spec:
+      containers:
+      - name: source-manager
+        image: quay.io/workshop-system/source-manager-agent:evolution-enabled-v1.0.0
+        env:
+        # Evolution Engine Integration
+        - name: EVOLUTION_TOOLS_ENABLED
+          value: "true"
+        - name: EVOLUTION_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: EVOLUTION_API_BASE_URL
+        - name: MONITORING_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: MONITORING_API_URL
+        - name: EVOLUTION_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: EVOLUTION_API_KEY
+        
+        # Version Control Configuration
+        - name: VERSION_CONTROL_ENABLED
+          value: "true"
+        - name: BACKUP_CREATION_ENABLED
+          value: "true"
+        - name: ROLLBACK_CAPABILITIES_ENABLED
+          value: "true"
+        - name: SAFETY_CHECKS_ENABLED
+          value: "true"
+        
+        # Git Operations Configuration
+        - name: GIT_BACKUP_RETENTION_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: BACKUP_RETENTION_DAYS
+        - name: GIT_AUTO_CLEANUP_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: AUTO_CLEANUP_ENABLED
+        
+        # Resource Updates for Evolution Workloads
+        resources:
+          requests:
+            memory: "768Mi"
+            cpu: "300m"
+          limits:
+            memory: "1.5Gi"
+            cpu: "750m"
+
+---
+# Human Oversight Coordinator Evolution Enhancement
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: human-oversight-coordinator
+spec:
+  template:
+    metadata:
+      annotations:
+        evolution.workshop.io/enhanced: "true"
+        evolution.workshop.io/capabilities: "evolution-coordination,progress-monitoring,approval-integration"
+    spec:
+      containers:
+      - name: human-oversight
+        image: quay.io/workshop-system/human-oversight-agent:coordination-enhanced-v1.0.0
+        env:
+        # Evolution Coordination Configuration
+        - name: EVOLUTION_COORDINATION_ENABLED
+          value: "true"
+        - name: EVOLUTION_MONITORING_ENABLED
+          value: "true"
+        - name: EVOLUTION_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: EVOLUTION_API_BASE_URL
+        - name: IMPACT_ASSESSMENT_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: IMPACT_ASSESSMENT_API_URL
+        - name: APPROVAL_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: APPROVAL_API_URL
+        
+        # Coordination Configuration
+        - name: SOURCE_MANAGER_COORDINATION_ENABLED
+          value: "true"
+        - name: MONITORING_SERVICE_INTEGRATION_ENABLED
+          value: "true"
+        - name: REAL_TIME_TRACKING_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: REAL_TIME_UPDATES_ENABLED
+        
+        # Security Configuration
+        - name: EVOLUTION_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: EVOLUTION_API_KEY
+        - name: COORDINATION_AUTH_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-security-config
+              key: EVOLUTION_AUTH_ENABLED
+        
+        # Resource Updates for Coordination Workloads
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+
+---
+# Workshop Chat Agent RAG Enhancement
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-chat-agent
+spec:
+  template:
+    metadata:
+      annotations:
+        evolution.workshop.io/enhanced: "true"
+        evolution.workshop.io/capabilities: "rag-updates,content-versioning,dynamic-knowledge"
+    spec:
+      containers:
+      - name: workshop-chat
+        image: quay.io/workshop-system/workshop-chat-agent:rag-enhanced-v1.0.0
+        env:
+        # RAG Enhancement Configuration
+        - name: RAG_UPDATES_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: RAG_UPDATES_ENABLED
+        - name: DYNAMIC_CONTENT_UPDATES_ENABLED
+          value: "true"
+        - name: CONTENT_VERSIONING_ENABLED
+          value: "true"
+        - name: RAG_VERSION_MANAGEMENT_ENABLED
+          value: "true"
+        
+        # RAG API Configuration
+        - name: RAG_UPDATE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: RAG_UPDATE_TOKEN
+        - name: MONITORING_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: MONITORING_API_URL
+        
+        # Content Management Configuration
+        - name: CONTENT_VALIDATION_ENABLED
+          value: "true"
+        - name: EMBEDDING_MODEL
+          value: "multilingual-e5-large"
+        - name: VECTOR_DIMENSIONS
+          value: "1024"
+        - name: CHUNK_SIZE
+          value: "500"
+        
+        # Version Control Configuration
+        - name: VERSION_RETENTION_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: VERSION_RETENTION_DAYS
+        - name: AUTO_CLEANUP_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: AUTO_CLEANUP_ENABLED
+        
+        # Resource Updates for RAG Workloads
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "400m"
+          limits:
+            memory: "2Gi"
+            cpu: "800m"
+        
+        # Volume Mounts for RAG Data
+        volumeMounts:
+        - name: rag-data-volume
+          mountPath: /app/rag-data
+        - name: rag-embeddings-volume
+          mountPath: /app/embeddings
+      
+      # Additional Volumes for RAG Data
+      volumes:
+      - name: rag-data-volume
+        persistentVolumeClaim:
+          claimName: rag-data-pvc
+      - name: rag-embeddings-volume
+        emptyDir:
+          sizeLimit: 2Gi
+
+---
+# Template Converter Agent Impact Assessment Integration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: template-converter-agent
+spec:
+  template:
+    metadata:
+      annotations:
+        evolution.workshop.io/enhanced: "true"
+        evolution.workshop.io/capabilities: "impact-assessment-integration,structure-analysis"
+    spec:
+      containers:
+      - name: template-converter
+        env:
+        # Impact Assessment Integration
+        - name: IMPACT_ASSESSMENT_INTEGRATION_ENABLED
+          value: "true"
+        - name: IMPACT_ASSESSMENT_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: IMPACT_ASSESSMENT_API_URL
+        - name: STRUCTURE_ANALYSIS_ENABLED
+          value: "true"
+        
+        # Evolution Integration
+        - name: EVOLUTION_TRACKING_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-config
+              key: EVOLUTION_TRACKING_ENABLED
+        - name: IMPACT_ASSESSMENT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: IMPACT_ASSESSMENT_KEY
+
+---
+# Research Validation Agent Content Integration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-validation-agent
+spec:
+  template:
+    metadata:
+      annotations:
+        evolution.workshop.io/enhanced: "true"
+        evolution.workshop.io/capabilities: "content-validation,research-integration"
+    spec:
+      containers:
+      - name: research-validation
+        env:
+        # Content Validation Integration
+        - name: CONTENT_VALIDATION_FOR_EVOLUTION_ENABLED
+          value: "true"
+        - name: RESEARCH_INTEGRATION_ENABLED
+          value: "true"
+        - name: IMPACT_ASSESSMENT_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: evolution-api-config
+              key: IMPACT_ASSESSMENT_API_URL
+        
+        # Evolution Integration
+        - name: EVOLUTION_CONTENT_VALIDATION_ENABLED
+          value: "true"
+        - name: RESEARCH_VALIDATION_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: evolution-secrets
+              key: IMPACT_ASSESSMENT_KEY

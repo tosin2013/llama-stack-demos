@@ -1,0 +1,127 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Workshop Evolution Engine Deployment Overlay
+# Extends base workshop-template-system with evolution capabilities
+
+metadata:
+  name: workshop-evolution-engine
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Base configuration
+resources:
+  - ../../base
+  - monitoring-service-evolution.yaml
+  - evolution-rbac.yaml
+  - evolution-storage.yaml
+  - agent-deployment-patches.yaml
+
+# Configuration patches
+patchesStrategicMerge:
+  - monitoring-service-patch.yaml
+  - agent-deployment-patches.yaml
+
+# ConfigMap generators for evolution configuration
+configMapGenerator:
+  - name: evolution-config
+    literals:
+      - EVOLUTION_TRACKING_ENABLED=true
+      - IMPACT_ASSESSMENT_ENABLED=true
+      - RAG_UPDATES_ENABLED=true
+      - DASHBOARD_EVOLUTION_MODE=true
+      - EVOLUTION_POLLING_INTERVAL=30
+      - VERSION_RETENTION_DAYS=90
+      - BACKUP_RETENTION_DAYS=30
+      - AUTO_CLEANUP_ENABLED=true
+      - METRICS_COLLECTION_ENABLED=true
+      - REAL_TIME_UPDATES_ENABLED=true
+
+  - name: evolution-api-config
+    literals:
+      - EVOLUTION_API_BASE_URL=http://workshop-monitoring-service:8080/api/evolution
+      - IMPACT_ASSESSMENT_API_URL=http://workshop-monitoring-service:8080/api/impact-assessment
+      - APPROVAL_API_URL=http://workshop-monitoring-service:8080/api/approvals
+      - MONITORING_API_URL=http://workshop-monitoring-service:8080/api/monitoring
+      - DASHBOARD_API_URL=http://workshop-monitoring-service:8080/api/dashboard
+
+  - name: evolution-security-config
+    literals:
+      - EVOLUTION_AUTH_ENABLED=true
+      - RBAC_ENABLED=true
+      - AUDIT_LOGGING_ENABLED=true
+      - SECURE_HEADERS_ENABLED=true
+      - CORS_ENABLED=true
+      - CORS_ORIGINS=https://*.apps.cluster.local,https://workshop-dashboard-workshop-system.apps.cluster.local
+
+# Secret generators for evolution credentials
+secretGenerator:
+  - name: evolution-secrets
+    literals:
+      - EVOLUTION_API_KEY=evolution-api-key-placeholder
+      - IMPACT_ASSESSMENT_KEY=impact-assessment-key-placeholder
+      - RAG_UPDATE_TOKEN=rag-update-token-placeholder
+      - DASHBOARD_SESSION_SECRET=dashboard-session-secret-placeholder
+
+# Images to use for evolution components
+images:
+  - name: workshop-monitoring-service
+    newTag: evolution-v1.0.0
+  - name: workshop-chat-agent
+    newTag: rag-enhanced-v1.0.0
+  - name: source-manager-agent
+    newTag: evolution-enabled-v1.0.0
+  - name: human-oversight-agent
+    newTag: coordination-enhanced-v1.0.0
+
+# Labels to apply to all resources
+commonLabels:
+  app.kubernetes.io/name: workshop-evolution-engine
+  app.kubernetes.io/version: v1.0.0
+  app.kubernetes.io/component: evolution-system
+  app.kubernetes.io/part-of: workshop-template-system
+  app.kubernetes.io/managed-by: kustomize
+
+# Annotations to apply to all resources
+commonAnnotations:
+  deployment.kubernetes.io/revision: "1"
+  evolution.workshop.io/enabled: "true"
+  evolution.workshop.io/version: "v1.0.0"
+  evolution.workshop.io/features: "tracking,assessment,rag-updates,dashboard"
+
+# Namespace for evolution engine
+namespace: workshop-system
+
+# Name prefix for evolution resources
+namePrefix: evolution-
+
+# Resource transformers
+transformers:
+  - evolution-transformer.yaml
+
+# Replacements for dynamic configuration
+replacements:
+  - source:
+      kind: ConfigMap
+      name: evolution-config
+      fieldPath: data.EVOLUTION_API_BASE_URL
+    targets:
+      - select:
+          kind: Deployment
+          name: workshop-monitoring-service
+        fieldPaths:
+          - spec.template.spec.containers.[name=monitoring-service].env.[name=EVOLUTION_API_BASE_URL].value
+
+  - source:
+      kind: Secret
+      name: evolution-secrets
+      fieldPath: data.EVOLUTION_API_KEY
+    targets:
+      - select:
+          kind: Deployment
+        fieldPaths:
+          - spec.template.spec.containers.*.env.[name=EVOLUTION_API_KEY].valueFrom.secretKeyRef.key
+
+# Validation rules
+validators:
+  - evolution-validator.yaml

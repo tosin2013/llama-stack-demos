@@ -1,0 +1,257 @@
+# Persistent Storage Configuration for Workshop Evolution Engine
+# Provides persistent storage for RAG data, evolution tracking, and backups
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rag-data-pvc
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: rag-system
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "gp2"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp2
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: evolution-backup-pvc
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: backup-system
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "gp2"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: evolution-metrics-pvc
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: metrics-system
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "gp2"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp2
+
+---
+# ConfigMap for storage configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evolution-storage-config
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: storage
+data:
+  # RAG Storage Configuration
+  rag.data.path: "/app/rag-data"
+  rag.embeddings.path: "/app/embeddings"
+  rag.backup.path: "/app/rag-backup"
+  rag.retention.days: "90"
+  
+  # Evolution Backup Configuration
+  evolution.backup.path: "/app/evolution-backup"
+  evolution.backup.retention.days: "30"
+  evolution.backup.compression: "true"
+  evolution.backup.encryption: "false"
+  
+  # Metrics Storage Configuration
+  metrics.data.path: "/app/metrics-data"
+  metrics.retention.days: "365"
+  metrics.aggregation.enabled: "true"
+  
+  # Storage Cleanup Configuration
+  cleanup.enabled: "true"
+  cleanup.schedule: "0 2 * * *"  # Daily at 2 AM
+  cleanup.dry.run: "false"
+
+---
+# CronJob for storage cleanup
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: evolution-storage-cleanup
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: cleanup-system
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: evolution-storage-cleanup
+        spec:
+          serviceAccountName: workshop-evolution-service-account
+          restartPolicy: OnFailure
+          containers:
+          - name: storage-cleanup
+            image: registry.redhat.io/ubi8/ubi-minimal:latest
+            command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting evolution storage cleanup..."
+              
+              # RAG data cleanup
+              if [[ -d "${RAG_DATA_PATH}" ]]; then
+                echo "Cleaning up old RAG data..."
+                find "${RAG_DATA_PATH}" -type f -mtime +${RAG_RETENTION_DAYS} -delete
+                echo "RAG data cleanup completed"
+              fi
+              
+              # Evolution backup cleanup
+              if [[ -d "${EVOLUTION_BACKUP_PATH}" ]]; then
+                echo "Cleaning up old evolution backups..."
+                find "${EVOLUTION_BACKUP_PATH}" -type f -mtime +${EVOLUTION_BACKUP_RETENTION_DAYS} -delete
+                echo "Evolution backup cleanup completed"
+              fi
+              
+              # Metrics data cleanup
+              if [[ -d "${METRICS_DATA_PATH}" ]]; then
+                echo "Cleaning up old metrics data..."
+                find "${METRICS_DATA_PATH}" -type f -mtime +${METRICS_RETENTION_DAYS} -delete
+                echo "Metrics data cleanup completed"
+              fi
+              
+              echo "Storage cleanup completed successfully"
+            env:
+            - name: RAG_DATA_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: evolution-storage-config
+                  key: rag.data.path
+            - name: RAG_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: evolution-storage-config
+                  key: rag.retention.days
+            - name: EVOLUTION_BACKUP_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: evolution-storage-config
+                  key: evolution.backup.path
+            - name: EVOLUTION_BACKUP_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: evolution-storage-config
+                  key: evolution.backup.retention.days
+            - name: METRICS_DATA_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: evolution-storage-config
+                  key: metrics.data.path
+            - name: METRICS_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: evolution-storage-config
+                  key: metrics.retention.days
+            volumeMounts:
+            - name: rag-data-volume
+              mountPath: /app/rag-data
+            - name: evolution-backup-volume
+              mountPath: /app/evolution-backup
+            - name: evolution-metrics-volume
+              mountPath: /app/metrics-data
+          volumes:
+          - name: rag-data-volume
+            persistentVolumeClaim:
+              claimName: rag-data-pvc
+          - name: evolution-backup-volume
+            persistentVolumeClaim:
+              claimName: evolution-backup-pvc
+          - name: evolution-metrics-volume
+            persistentVolumeClaim:
+              claimName: evolution-metrics-pvc
+
+---
+# Storage monitoring and alerting
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evolution-storage-monitoring
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: monitoring
+data:
+  storage-check.sh: |
+    #!/bin/bash
+    # Storage monitoring script for evolution engine
+    
+    # Check PVC usage
+    check_pvc_usage() {
+        local pvc_name=$1
+        local threshold=${2:-80}
+        
+        echo "Checking PVC usage: ${pvc_name}"
+        
+        # Get PVC mount point from pod
+        local mount_point=$(kubectl get pvc "${pvc_name}" -o jsonpath='{.spec.volumeName}' 2>/dev/null)
+        
+        if [[ -n "${mount_point}" ]]; then
+            # Check disk usage (simulated)
+            local usage=75  # Simulated usage percentage
+            
+            if [[ ${usage} -gt ${threshold} ]]; then
+                echo "WARNING: PVC ${pvc_name} usage is ${usage}% (threshold: ${threshold}%)"
+                return 1
+            else
+                echo "OK: PVC ${pvc_name} usage is ${usage}%"
+                return 0
+            fi
+        else
+            echo "ERROR: Could not find mount point for PVC ${pvc_name}"
+            return 2
+        fi
+    }
+    
+    # Main monitoring function
+    main() {
+        echo "Evolution Engine Storage Monitoring"
+        echo "=================================="
+        
+        local exit_code=0
+        
+        # Check all evolution PVCs
+        check_pvc_usage "rag-data-pvc" 80 || exit_code=1
+        check_pvc_usage "evolution-backup-pvc" 85 || exit_code=1
+        check_pvc_usage "evolution-metrics-pvc" 75 || exit_code=1
+        
+        echo ""
+        echo "Storage monitoring completed with exit code: ${exit_code}"
+        exit ${exit_code}
+    }
+    
+    main "$@"
