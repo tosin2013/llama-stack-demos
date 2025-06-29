@@ -163,23 +163,27 @@ def get_gitea_config() -> dict:
         return {'success': False, 'error': str(e)}
 
 def clone_existing_workshop_strategy(source_url: str, workshop_name: str, workshop_content: str, gitea_config: dict) -> dict:
-    """Implement Workflow 3: Clone original workshop repository and enhance it"""
+    """Implement Workflow 3: Clone original workshop repository and enhance it (ADR-0001 compliant)"""
     try:
-        # Create repository in Gitea
-        repo_result = create_gitea_repository(workshop_name, gitea_config)
-        if not repo_result['success']:
-            return repo_result
+        # ADR-0001 Workflow 3: Clone the original workshop repository
+        clone_result = clone_repository_to_gitea(
+            source_url=source_url,
+            target_name=workshop_name,
+            gitea_config=gitea_config
+        )
 
-        # For existing workshops, we enhance the content rather than replace it
-        # Create enhanced README with workshop content
-        files_created = create_workshop_files(workshop_name, workshop_content, gitea_config, strategy="enhancement")
+        if not clone_result['success']:
+            return clone_result
+
+        # Enhance the cloned workshop with additional content
+        enhancement_result = enhance_existing_workshop(workshop_name, workshop_content, gitea_config)
 
         return {
             'success': True,
             'strategy': 'Clone Existing Workshop (ADR-0001 Workflow 3)',
             'template_source': source_url,
-            'gitea_url': repo_result['clone_url'],
-            'files_created': files_created
+            'gitea_url': clone_result['clone_url'],
+            'files_created': enhancement_result  # Keep consistent naming
         }
 
     except Exception as e:
@@ -187,22 +191,30 @@ def clone_existing_workshop_strategy(source_url: str, workshop_name: str, worksh
         return {'success': False, 'error': str(e)}
 
 def clone_template_strategy(workshop_name: str, workshop_content: str, gitea_config: dict) -> dict:
-    """Implement Workflow 1: Use showroom_template_default.git as base with complete Antora structure"""
+    """Implement Workflow 1: Clone showroom_template_default.git as base (ADR-0001 compliant)"""
     try:
-        # Create repository in Gitea
-        repo_result = create_gitea_repository(workshop_name, gitea_config)
-        if not repo_result['success']:
-            return repo_result
+        # ADR-0001 Workflow 1: Clone showroom_template_default.git repository
+        template_repo_url = 'https://github.com/rhpds/showroom_template_default.git'
 
-        # Create complete showroom template structure (ADR-0001 compliant)
-        files_created = create_complete_showroom_structure(workshop_name, workshop_content, gitea_config)
+        # Clone the template repository to Gitea
+        clone_result = clone_repository_to_gitea(
+            source_url=template_repo_url,
+            target_name=workshop_name,
+            gitea_config=gitea_config
+        )
+
+        if not clone_result['success']:
+            return clone_result
+
+        # Customize the cloned template with workshop content
+        customization_result = customize_showroom_template(workshop_name, workshop_content, gitea_config)
 
         return {
             'success': True,
             'strategy': 'Clone Showroom Template (ADR-0001 Workflow 1)',
-            'template_source': 'https://github.com/rhpds/showroom_template_default.git',
-            'gitea_url': repo_result['clone_url'],
-            'files_created': files_created
+            'template_source': template_repo_url,
+            'gitea_url': clone_result['clone_url'],
+            'files_created': customization_result  # Keep consistent naming
         }
 
     except Exception as e:
@@ -369,31 +381,214 @@ def create_complete_showroom_structure(repo_name: str, workshop_content: str, gi
 
         # Create all template files
         for file_path, content in template_files.items():
-            file_content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
-
-            file_data = {
-                'message': f'Add {file_path} from showroom template (ADR-0001 Workflow 1)',
-                'content': file_content_b64,
-                'branch': 'main'
-            }
-
-            response = requests.post(
+            # Check if file already exists
+            check_response = requests.get(
                 f"{api_url}/repos/{gitea_config['user']}/{repo_name}/contents/{file_path}",
                 headers=headers,
-                json=file_data,
                 timeout=30
             )
 
-            if response.status_code == 201:
-                files_created += 1
-                logger.info(f"Created {file_path} in {repo_name}")
+            if check_response.status_code == 200:
+                # File exists, update it instead
+                existing_file = check_response.json()
+                file_content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+
+                file_data = {
+                    'message': f'Update {file_path} with showroom template (ADR-0001 Workflow 1)',
+                    'content': file_content_b64,
+                    'branch': 'main',
+                    'sha': existing_file['sha']  # Required for updates
+                }
+
+                response = requests.put(
+                    f"{api_url}/repos/{gitea_config['user']}/{repo_name}/contents/{file_path}",
+                    headers=headers,
+                    json=file_data,
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    files_created += 1
+                    logger.info(f"Updated {file_path} in {repo_name}")
+                else:
+                    logger.warning(f"Failed to update {file_path}: {response.status_code}")
+
+            elif check_response.status_code == 404:
+                # File doesn't exist, create it
+                file_content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+
+                file_data = {
+                    'message': f'Add {file_path} from showroom template (ADR-0001 Workflow 1)',
+                    'content': file_content_b64,
+                    'branch': 'main'
+                }
+
+                response = requests.post(
+                    f"{api_url}/repos/{gitea_config['user']}/{repo_name}/contents/{file_path}",
+                    headers=headers,
+                    json=file_data,
+                    timeout=30
+                )
+
+                if response.status_code == 201:
+                    files_created += 1
+                    logger.info(f"Created {file_path} in {repo_name}")
+                else:
+                    logger.warning(f"Failed to create {file_path}: {response.status_code}")
             else:
-                logger.warning(f"Failed to create {file_path}: {response.status_code}")
+                logger.warning(f"Unexpected response checking {file_path}: {check_response.status_code}")
 
         return files_created
 
     except Exception as e:
         logger.error(f"Error creating complete showroom structure: {e}")
+        return 0
+
+def clone_repository_to_gitea(source_url: str, target_name: str, gitea_config: dict) -> dict:
+    """Clone a repository from GitHub to Gitea using Gitea's migration API"""
+    try:
+        api_url = gitea_config['api_url']
+        headers = {
+            'Authorization': f"token {gitea_config['token']}",
+            'Content-Type': 'application/json'
+        }
+
+        # Use Gitea's repository migration API to clone from GitHub
+        migration_data = {
+            'clone_addr': source_url,
+            'repo_name': target_name,
+            'repo_owner': gitea_config['user'],
+            'service': 'github',
+            'private': False,
+            'description': f'Workshop repository cloned from {source_url} (ADR-0001 compliant)'
+        }
+
+        response = requests.post(
+            f"{api_url}/repos/migrate",
+            headers=headers,
+            json=migration_data,
+            timeout=60  # Repository cloning can take time
+        )
+
+        if response.status_code == 201:
+            repo_data = response.json()
+            logger.info(f"Successfully cloned {source_url} to {target_name}")
+            return {
+                'success': True,
+                'clone_url': repo_data['clone_url'],
+                'html_url': repo_data['html_url'],
+                'ssh_url': repo_data['ssh_url']
+            }
+        else:
+            logger.error(f"Failed to clone repository: {response.status_code} - {response.text}")
+            return {'success': False, 'error': f"Gitea migration failed: {response.status_code}"}
+
+    except Exception as e:
+        logger.error(f"Error cloning repository: {e}")
+        return {'success': False, 'error': str(e)}
+
+def customize_showroom_template(repo_name: str, workshop_content: str, gitea_config: dict) -> int:
+    """Customize the cloned showroom template with workshop-specific content"""
+    try:
+        # For Workflow 1, we customize the template by updating key files
+        # This is much simpler than creating the entire structure from scratch
+
+        api_url = gitea_config['api_url']
+        headers = {
+            'Authorization': f"token {gitea_config['token']}",
+            'Content-Type': 'application/json'
+        }
+
+        files_customized = 0
+
+        # Update the main content file with workshop content
+        content_file_path = 'content/modules/ROOT/pages/index.adoc'
+        asciidoc_content = convert_markdown_to_asciidoc(workshop_content)
+
+        # Get existing file to update it
+        check_response = requests.get(
+            f"{api_url}/repos/{gitea_config['user']}/{repo_name}/contents/{content_file_path}",
+            headers=headers,
+            timeout=30
+        )
+
+        if check_response.status_code == 200:
+            existing_file = check_response.json()
+            file_content_b64 = base64.b64encode(asciidoc_content.encode('utf-8')).decode('utf-8')
+
+            update_data = {
+                'message': f'Customize workshop content (ADR-0001 Workflow 1)',
+                'content': file_content_b64,
+                'branch': 'main',
+                'sha': existing_file['sha']
+            }
+
+            response = requests.put(
+                f"{api_url}/repos/{gitea_config['user']}/{repo_name}/contents/{content_file_path}",
+                headers=headers,
+                json=update_data,
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                files_customized += 1
+                logger.info(f"Customized {content_file_path} in {repo_name}")
+
+        return files_customized
+
+    except Exception as e:
+        logger.error(f"Error customizing showroom template: {e}")
+        return 0
+
+def enhance_existing_workshop(repo_name: str, workshop_content: str, gitea_config: dict) -> int:
+    """Enhance the cloned existing workshop with additional content"""
+    try:
+        # For Workflow 3, we enhance existing workshops by adding supplementary content
+        # This preserves the original structure while adding value
+
+        api_url = gitea_config['api_url']
+        headers = {
+            'Authorization': f"token {gitea_config['token']}",
+            'Content-Type': 'application/json'
+        }
+
+        files_enhanced = 0
+
+        # Add an enhancement file with the generated content
+        enhancement_file_path = 'workshop-enhancements.md'
+        enhancement_content = f"""# Workshop Enhancements
+
+This file contains additional content generated by the Workshop Template System (ADR-0001 Workflow 3).
+
+{workshop_content}
+
+---
+*Generated by Workshop Template System - ADR-0001 Workflow 3: Enhancement and Modernization*
+"""
+
+        file_content_b64 = base64.b64encode(enhancement_content.encode('utf-8')).decode('utf-8')
+
+        file_data = {
+            'message': f'Add workshop enhancements (ADR-0001 Workflow 3)',
+            'content': file_content_b64,
+            'branch': 'main'
+        }
+
+        response = requests.post(
+            f"{api_url}/repos/{gitea_config['user']}/{repo_name}/contents/{enhancement_file_path}",
+            headers=headers,
+            json=file_data,
+            timeout=30
+        )
+
+        if response.status_code == 201:
+            files_enhanced += 1
+            logger.info(f"Enhanced {repo_name} with additional content")
+
+        return files_enhanced
+
+    except Exception as e:
+        logger.error(f"Error enhancing existing workshop: {e}")
         return 0
 
 def convert_markdown_to_asciidoc(markdown_content: str) -> str:
