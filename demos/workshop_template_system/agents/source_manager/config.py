@@ -4,22 +4,46 @@ Repository management and workshop deployment coordination
 """
 
 from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
-from .tools import manage_workshop_repository_tool, coordinate_deployment_tool, sync_content_tool, export_github_pages_tool, commit_to_gitea_tool, trigger_buildconfig_tool
+from .tools import (
+    manage_workshop_repository_tool,
+    coordinate_deployment_tool,
+    sync_content_tool,
+    export_github_pages_tool,
+    commit_to_gitea_tool,
+    trigger_buildconfig_tool,
+    evolve_workshop_content_tool,
+    workshop_version_control_tool,
+    rollback_workshop_version_tool
+)
 
 AGENT_CONFIG = {
     "agent_params": {
         "model_env_var": "INFERENCE_MODEL_ID",
         "default_model": "meta-llama/Llama-3.2-3B-Instruct",
         "instructions": (
-            "You are a source manager agent that coordinates workshop repository management and deployment processes.\n"
+            "You are a source manager agent that coordinates workshop repository management, deployment processes, and workshop evolution.\n"
             "Use manage_workshop_repository_tool to handle workshop repository operations like creation, updates, and maintenance.\n"
             "Use coordinate_deployment_tool to orchestrate workshop deployments to RHPDS/Showroom platforms.\n"
             "Use sync_content_tool to synchronize content between source repositories and workshop repositories.\n"
+            "Use evolve_workshop_content_tool to implement approved workshop evolution changes with version control.\n"
+            "Use workshop_version_control_tool to manage workshop versions, branches, and tags.\n"
+            "Use rollback_workshop_version_tool to safely revert workshops to previous versions when needed.\n"
             "Always ensure proper version control, backup procedures, and deployment validation.\n"
+            "Coordinate with Human Oversight Coordinator for evolution approvals and implementation.\n"
             "Provide clear status updates and coordinate with other agents in the workshop template system.\n"
-            "Focus on maintaining workshop repository integrity and successful deployment coordination."
+            "Focus on maintaining workshop repository integrity, successful deployment coordination, and safe evolution processes."
         ),
-        "tools": [manage_workshop_repository_tool, coordinate_deployment_tool, sync_content_tool, export_github_pages_tool, commit_to_gitea_tool, trigger_buildconfig_tool],
+        "tools": [
+            manage_workshop_repository_tool,
+            coordinate_deployment_tool,
+            sync_content_tool,
+            export_github_pages_tool,
+            commit_to_gitea_tool,
+            trigger_buildconfig_tool,
+            evolve_workshop_content_tool,
+            workshop_version_control_tool,
+            rollback_workshop_version_tool
+        ],
         "max_infer_iters": 5,
         "sampling_params": {
             "strategy": {"type": "greedy"},
