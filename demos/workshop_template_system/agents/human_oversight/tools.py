@@ -9,11 +9,14 @@ import uuid
 import requests
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
-from llama_stack_client.lib.agents.agent import Agent
-from llama_stack_client.types import Attachment
-from llama_stack_client.lib.agents.tools.builtin import BuiltinTool
-from llama_stack_client.lib.agents.tools.builtin.base import client_tool
+# from llama_stack_client.types import Attachment  # Not available in current version
 import logging
+
+# Simple tool decorator workaround
+def client_tool(func):
+    """Simple tool decorator placeholder"""
+    func.tool_name = func.__name__
+    return func
 
 logger = logging.getLogger(__name__)
 

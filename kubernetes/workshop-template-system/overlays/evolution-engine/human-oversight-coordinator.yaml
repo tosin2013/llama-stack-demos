@@ -1,0 +1,328 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: human-oversight-coordinator
+  namespace: workshop-system
+  labels:
+    app: human-oversight-coordinator
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: human-oversight
+    app.kubernetes.io/part-of: workshop-template-system
+    component: workshop-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: human-oversight-coordinator
+  template:
+    metadata:
+      labels:
+        app: human-oversight-coordinator
+        app.kubernetes.io/name: workshop-evolution-engine
+        app.kubernetes.io/component: human-oversight
+        component: workshop-agent
+    spec:
+      serviceAccountName: workshop-system-sa
+      containers:
+      - name: human-oversight-coordinator
+        image: image-registry.openshift-image-registry.svc:5000/workshop-system/workshop-agent-system:latest
+        command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "human_oversight", "--port", "8080"]
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        # Agent Configuration
+        - name: AGENT_NAME
+          value: "human_oversight"
+        - name: AGENT_PORT
+          value: "8080"
+        
+        # LLM Configuration
+        - name: LLAMA_STACK_ENDPOINT
+          value: "http://llamastack-server.llama-serve.svc.cluster.local:8321"
+        - name: INFERENCE_MODEL_ID
+          value: "meta-llama/Llama-3.2-3B-Instruct"
+        
+        # Monitoring Service Integration
+        - name: MONITORING_SERVICE_URL
+          value: "http://workshop-monitoring-service:8080"
+        - name: EVOLUTION_API_URL
+          value: "http://workshop-monitoring-service:8080/api/evolution"
+        - name: APPROVAL_API_URL
+          value: "http://workshop-monitoring-service:8080/api/approvals"
+        
+        # Agent Endpoints for Coordination
+        - name: WORKSHOP_CHAT_AGENT_URL
+          value: "http://workshop-chat-agent:80"
+        - name: TEMPLATE_CONVERTER_AGENT_URL
+          value: "http://template-converter-agent:80"
+        - name: CONTENT_CREATOR_AGENT_URL
+          value: "http://content-creator-agent:80"
+        - name: SOURCE_MANAGER_AGENT_URL
+          value: "http://source-manager-agent:80"
+        - name: RESEARCH_VALIDATION_AGENT_URL
+          value: "http://research-validation-agent:80"
+        - name: DOCUMENTATION_PIPELINE_AGENT_URL
+          value: "http://documentation-pipeline-agent:80"
+        
+        # Approval Workflow Configuration
+        - name: APPROVAL_TIMEOUT_HOURS
+          value: "24"
+        - name: ESCALATION_TIMEOUT_HOURS
+          value: "48"
+        - name: AUTO_APPROVAL_ENABLED
+          value: "false"
+        - name: APPROVAL_DELEGATION_ENABLED
+          value: "true"
+        
+        # Quality Assurance Configuration
+        - name: QA_VALIDATION_ENABLED
+          value: "true"
+        - name: COMPLIANCE_CHECKING_ENABLED
+          value: "true"
+        - name: AUDIT_LOGGING_ENABLED
+          value: "true"
+        - name: RISK_ASSESSMENT_ENABLED
+          value: "true"
+        
+        # Evolution Coordination Configuration
+        - name: EVOLUTION_TRACKING_ENABLED
+          value: "true"
+        - name: IMPACT_ASSESSMENT_ENABLED
+          value: "true"
+        - name: WORKFLOW_COORDINATION_ENABLED
+          value: "true"
+        - name: REAL_TIME_MONITORING_ENABLED
+          value: "true"
+        
+        # Notification Configuration
+        - name: EMAIL_NOTIFICATIONS_ENABLED
+          value: "true"
+        - name: SLACK_NOTIFICATIONS_ENABLED
+          value: "false"
+        - name: WEBHOOK_NOTIFICATIONS_ENABLED
+          value: "true"
+        
+        # Security Configuration
+        - name: RBAC_ENABLED
+          value: "true"
+        - name: SECURE_HEADERS_ENABLED
+          value: "true"
+        - name: API_RATE_LIMITING_ENABLED
+          value: "true"
+        
+        # Logging Configuration
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: AUDIT_LOG_LEVEL
+          value: "DEBUG"
+        - name: STRUCTURED_LOGGING_ENABLED
+          value: "true"
+        
+        # Health Check Configuration
+        livenessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        
+        startupProbe:
+          httpGet:
+            path: /agent-card
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+          successThreshold: 1
+        
+        # Resource Management
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: human-oversight-coordinator
+  namespace: workshop-system
+  labels:
+    app: human-oversight-coordinator
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: human-oversight
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: human-oversight-coordinator
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: human-oversight-coordinator
+  namespace: workshop-system
+  labels:
+    app: human-oversight-coordinator
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: human-oversight
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+    haproxy.router.openshift.io/balance: roundrobin
+spec:
+  to:
+    kind: Service
+    name: human-oversight-coordinator
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: human-oversight-config
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-evolution-engine
+    app.kubernetes.io/component: human-oversight
+data:
+  approval-workflows.yaml: |
+    # Human Oversight Coordinator - Approval Workflow Configuration
+    workflows:
+      repository_classification:
+        name: "Repository Classification Validation"
+        description: "Validate ADR-0001 workflow routing decisions"
+        trigger: "template_converter_analysis_complete"
+        approvers: ["technical_lead", "workshop_architect"]
+        timeout_hours: 24
+        escalation_hours: 48
+        auto_approval_criteria:
+          - confidence_score: ">= 0.95"
+          - repository_type: "existing_workshop"
+        
+      content_quality_review:
+        name: "Content Quality Review"
+        description: "Ensure educational quality and appropriateness"
+        trigger: "content_creator_generation_complete"
+        approvers: ["subject_matter_expert", "instructional_designer"]
+        timeout_hours: 48
+        escalation_hours: 72
+        quality_criteria:
+          - learning_objectives_clear: true
+          - content_accuracy_validated: true
+          - pedagogical_structure_sound: true
+        
+      deployment_authorization:
+        name: "Deployment Authorization"
+        description: "Final approval for workshop publication"
+        trigger: "pre_deployment_validation_complete"
+        approvers: ["workshop_owner", "designated_approver"]
+        timeout_hours: 12
+        escalation_hours: 24
+        deployment_criteria:
+          - content_completeness: ">= 90%"
+          - target_audience_alignment: true
+          - deployment_readiness: true
+        
+      conflict_resolution:
+        name: "Agent Conflict Resolution"
+        description: "Human intervention for edge cases"
+        trigger: "agent_disagreement_detected"
+        approvers: ["system_administrator", "technical_expert"]
+        timeout_hours: 4
+        escalation_hours: 8
+        resolution_criteria:
+          - error_analysis_complete: true
+          - resolution_strategy_defined: true
+          - system_health_verified: true
+  
+  notification-templates.yaml: |
+    # Notification Templates for Human Oversight
+    templates:
+      approval_request:
+        subject: "Workshop Approval Required: {{workflow_name}}"
+        body: |
+          A new approval request requires your attention:
+          
+          Workflow: {{workflow_name}}
+          Description: {{workflow_description}}
+          Submitted by: {{submitter}}
+          Submission time: {{submission_time}}
+          
+          Please review and approve/reject at:
+          {{approval_url}}
+          
+          Timeout: {{timeout_hours}} hours
+          
+      approval_reminder:
+        subject: "Reminder: Workshop Approval Pending - {{workflow_name}}"
+        body: |
+          This is a reminder that an approval request is still pending:
+          
+          Workflow: {{workflow_name}}
+          Submitted: {{submission_time}}
+          Time remaining: {{time_remaining}}
+          
+          Please review at: {{approval_url}}
+          
+      approval_escalation:
+        subject: "ESCALATION: Workshop Approval Overdue - {{workflow_name}}"
+        body: |
+          An approval request has exceeded its timeout and requires immediate attention:
+          
+          Workflow: {{workflow_name}}
+          Original approver: {{original_approver}}
+          Overdue by: {{overdue_duration}}
+          
+          Please review immediately at: {{approval_url}}
+          
+      approval_completed:
+        subject: "Workshop Approval {{status}}: {{workflow_name}}"
+        body: |
+          Approval workflow has been completed:
+          
+          Workflow: {{workflow_name}}
+          Status: {{status}}
+          Approved by: {{approver}}
+          Decision time: {{decision_time}}
+          Comments: {{comments}}
+          
+          {{#if approved}}
+          The workflow will now proceed to the next stage.
+          {{else}}
+          The workflow has been rejected and will not proceed.
+          {{/if}}

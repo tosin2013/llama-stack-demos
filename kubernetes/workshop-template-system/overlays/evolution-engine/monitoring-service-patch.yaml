@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-monitoring-service
+  namespace: workshop-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: workshop-monitoring-service
+        env:
+        # Evolution Engine Configuration
+        - name: EVOLUTION_TRACKING_ENABLED
+          value: "true"
+        - name: IMPACT_ASSESSMENT_ENABLED
+          value: "true"
+        - name: RAG_UPDATES_ENABLED
+          value: "true"
+        - name: DASHBOARD_EVOLUTION_MODE
+          value: "true"
+        - name: EVOLUTION_POLLING_INTERVAL
+          value: "30"
+        - name: VERSION_RETENTION_DAYS
+          value: "90"
+        - name: BACKUP_RETENTION_DAYS
+          value: "30"
+        - name: AUTO_CLEANUP_ENABLED
+          value: "true"
+        - name: METRICS_COLLECTION_ENABLED
+          value: "true"
+        - name: REAL_TIME_UPDATES_ENABLED
+          value: "true"
+        
+        # Evolution API Configuration
+        - name: EVOLUTION_API_BASE_URL
+          value: "http://workshop-monitoring-service:8080/api/evolution"
+        - name: IMPACT_ASSESSMENT_API_URL
+          value: "http://workshop-monitoring-service:8080/api/impact-assessment"
+        - name: APPROVAL_API_URL
+          value: "http://workshop-monitoring-service:8080/api/approvals"
+        - name: MONITORING_API_URL
+          value: "http://workshop-monitoring-service:8080/api/monitoring"
+        - name: DASHBOARD_API_URL
+          value: "http://workshop-monitoring-service:8080/api/dashboard"
+        
+        # Human Oversight Coordinator Integration
+        - name: WORKSHOP_AGENTS_ENDPOINTS_HUMAN_OVERSIGHT
+          value: "http://human-oversight-coordinator:80"
+        
+        # Evolution Security Configuration
+        - name: EVOLUTION_AUTH_ENABLED
+          value: "true"
+        - name: RBAC_ENABLED
+          value: "true"
+        - name: AUDIT_LOGGING_ENABLED
+          value: "true"
+        - name: SECURE_HEADERS_ENABLED
+          value: "true"
+        - name: CORS_ENABLED
+          value: "true"
+        - name: CORS_ORIGINS
+          value: "https://*.apps.cluster.local,https://workshop-dashboard-workshop-system.apps.cluster.local"
+        
+        # Database Configuration for Evolution Tracking
+        - name: QUARKUS_DATASOURCE_JDBC_URL
+          value: "jdbc:h2:file:/deployments/data/evolution;DB_CLOSE_DELAY=-1"
+        - name: QUARKUS_DATASOURCE_USERNAME
+          value: "sa"
+        - name: QUARKUS_DATASOURCE_PASSWORD
+          value: ""
+        - name: QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION
+          value: "update"
+        
+        # Volume mounts for persistent storage
+        volumeMounts:
+        - name: evolution-data
+          mountPath: /deployments/data
+        - name: evolution-config
+          mountPath: /deployments/config/evolution
+          readOnly: true
+      
+      volumes:
+      - name: evolution-data
+        persistentVolumeClaim:
+          claimName: evolution-tracking-pvc
+      - name: evolution-config
+        configMap:
+          name: evolution-config

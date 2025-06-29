@@ -18,6 +18,7 @@ resources:
   - agent-deployment-patches.yaml
   - agent-interaction-ui.yaml
   - agent-interaction-service.yaml
+  - human-oversight-coordinator.yaml
 
 # Configuration patches
 patchesStrategicMerge:
@@ -97,10 +98,6 @@ namespace: workshop-system
 # Name prefix for evolution resources
 namePrefix: evolution-
 
-# Resource transformers
-transformers:
-  - evolution-transformer.yaml
-
 # Replacements for dynamic configuration
 replacements:
   - source:
@@ -113,17 +110,3 @@ replacements:
           name: workshop-monitoring-service
         fieldPaths:
           - spec.template.spec.containers.[name=monitoring-service].env.[name=EVOLUTION_API_BASE_URL].value
-
-  - source:
-      kind: Secret
-      name: evolution-secrets
-      fieldPath: data.EVOLUTION_API_KEY
-    targets:
-      - select:
-          kind: Deployment
-        fieldPaths:
-          - spec.template.spec.containers.*.env.[name=EVOLUTION_API_KEY].valueFrom.secretKeyRef.key
-
-# Validation rules
-validators:
-  - evolution-validator.yaml
