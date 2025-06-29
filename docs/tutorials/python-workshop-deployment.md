@@ -297,12 +297,193 @@ def smart_workshop_deployment(repo_url: str):
    oc rollout restart deployment/source-manager-agent -n workshop-system
    ```
 
+## 🎯 Step 7: Human Oversight Integration
+
+### Overview of Human Oversight Features
+
+The Workshop Template System now includes comprehensive human oversight capabilities through the Human Oversight Coordinator. This provides 4 interaction modes for managing workshop deployments:
+
+1. **💬 Chat Interface** - Natural language interaction
+2. **🖥️ Command Interface** - Terminal-style command execution
+3. **✅ Approval Interface** - Workflow approval and rejection
+4. **📊 Overview Interface** - Real-time system monitoring
+
+### Using DDD Hexagonal Workshop as Example
+
+Let's demonstrate the complete human oversight workflow using the DDD Hexagonal Workshop repository:
+
+```bash
+# Run the comprehensive human oversight test
+./test_human_oversight_workflow.sh
+```
+
+This script demonstrates:
+- Repository submission and analysis
+- Human oversight decision points
+- Chat interface for coordination
+- Command execution for system management
+- Approval workflows for quality control
+
+### Step-by-Step Human Oversight Example
+
+#### 1. Repository Submission
+```bash
+# Submit DDD Hexagonal Workshop for processing
+REPO_URL="https://github.com/jeremyrdavis/dddhexagonalworkshop"
+echo "Processing repository: $REPO_URL"
+
+# The system will analyze the repository and create approval workflows
+```
+
+#### 2. Chat Interface Interaction
+```bash
+# Test natural language queries
+curl -k -X POST "${MONITORING_URL}/api/oversight/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What workflows need my attention?"}'
+
+# Expected response: Information about pending approvals and system status
+```
+
+#### 3. Command Execution
+```bash
+# Execute system management commands
+curl -k -X POST "${MONITORING_URL}/api/oversight/coordinate" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "execute_command", "command": "system health", "executor": "human-operator"}'
+
+# Available commands:
+# - "system health" - Overall system status
+# - "agent status" - Individual agent performance
+# - "quality check" - Quality assurance metrics
+# - "list workflows" - Current workflow queue
+```
+
+#### 4. Approval Workflow Management
+```bash
+# Approve a workflow
+curl -k -X POST "${MONITORING_URL}/api/oversight/workflows/wf-001/approve" \
+  -H "Content-Type: application/json" \
+  -d '{"comment": "Repository structure looks good", "approver": "human-operator"}'
+
+# Reject a workflow
+curl -k -X POST "${MONITORING_URL}/api/oversight/workflows/wf-002/reject" \
+  -H "Content-Type: application/json" \
+  -d '{"comment": "Needs documentation improvements", "approver": "human-operator"}'
+```
+
+### Integration with Existing Python Scripts
+
+Enhance your existing deployment scripts with human oversight:
+
+```python
+#!/usr/bin/env python3
+"""
+Enhanced Workshop Deployment with Human Oversight
+"""
+
+import requests
+import json
+import time
+
+def request_human_approval(workflow_id, description):
+    """Request human approval for workflow"""
+
+    # Submit for human review via chat
+    chat_response = requests.post(
+        f"{MONITORING_URL}/api/oversight/chat",
+        json={
+            "message": f"Please review workflow {workflow_id}: {description}",
+            "sessionId": "deployment-session"
+        }
+    )
+
+    print(f"Human oversight guidance: {chat_response.json()['data']['message']['content']}")
+
+    # Wait for human decision (in practice, this would be event-driven)
+    print(f"Workflow {workflow_id} submitted for human approval...")
+    return workflow_id
+
+def deploy_with_oversight(repo_url):
+    """Deploy workshop with human oversight integration"""
+
+    # Step 1: Submit repository for analysis
+    workflow_id = f"wf-{int(time.time())}"
+
+    # Step 2: Request human oversight
+    approval_id = request_human_approval(workflow_id, f"Repository: {repo_url}")
+
+    # Step 3: Check system health before deployment
+    health_response = requests.post(
+        f"{MONITORING_URL}/api/oversight/coordinate",
+        json={
+            "action": "execute_command",
+            "command": "system health",
+            "executor": "deployment-script"
+        }
+    )
+
+    if health_response.json()['data']['result']['overall_status'] == 'HEALTHY':
+        print("✅ System healthy - proceeding with deployment")
+        # Continue with deployment...
+    else:
+        print("⚠️ System issues detected - deployment paused")
+        return False
+
+# Example usage
+deploy_with_oversight("https://github.com/jeremyrdavis/dddhexagonalworkshop")
+```
+
+### Human Oversight Dashboard
+
+Access the interactive dashboard for visual management:
+
+```bash
+# Get dashboard URL
+DASHBOARD_URL="https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/"
+echo "Human Oversight Dashboard: $DASHBOARD_URL"
+
+# The dashboard provides:
+# - Real-time system status
+# - Interactive chat interface
+# - Command execution terminal
+# - Workflow approval queue
+```
+
+### Troubleshooting Human Oversight
+
+1. **Chat Interface Not Responding**
+   ```bash
+   # Check chat service health
+   curl -k "${MONITORING_URL}/api/oversight/chat" \
+     -X POST -H "Content-Type: application/json" \
+     -d '{"message": "test"}'
+   ```
+
+2. **Command Execution Failures**
+   ```bash
+   # Verify command service
+   curl -k "${MONITORING_URL}/api/oversight/coordinate" \
+     -X POST -H "Content-Type: application/json" \
+     -d '{"action": "execute_command", "command": "system health"}'
+   ```
+
+3. **Approval Workflow Issues**
+   ```bash
+   # Check workflow endpoints
+   curl -k "${MONITORING_URL}/api/oversight/workflows/test/approve" \
+     -X POST -H "Content-Type: application/json" \
+     -d '{"comment": "test", "approver": "test"}'
+   ```
+
 ## 🎉 Next Steps
 
 1. **Create Custom Deployment Scripts** - Build your own Python scripts for specific workshop types
-2. **Integrate with CI/CD** - Add workshop deployment to your existing pipelines  
+2. **Integrate with CI/CD** - Add workshop deployment to your existing pipelines
 3. **Monitor and Scale** - Use the monitoring service to track workshop performance
 4. **Extend Agent Capabilities** - Add custom tools to the source manager agent
+5. **🆕 Use Human Oversight** - Integrate approval workflows and interactive coordination
+6. **🆕 Test with DDD Repository** - Use the provided test script for validation
 
 ## 📚 Related Documentation
 
@@ -310,7 +491,8 @@ def smart_workshop_deployment(repo_url: str):
 - [Original Content Workshops](./original-content-workshops.md)
 - [Workshop Monitoring Service](../reference/monitoring-service.md)
 - [Agent System Architecture](../explanation/agent-architecture.md)
+- [ADR-0003: Agent Pipeline Integration](../adr/0003-agent-pipeline-integration.md)
 
 ---
 
-**🚀 Ready to deploy workshops dynamically!** Your Python script-based deployment system provides much more flexibility and efficiency than static Kubernetes configurations.
+**🚀 Ready to deploy workshops dynamically with human oversight!** Your enhanced system now provides intelligent coordination, approval workflows, and interactive management capabilities.
