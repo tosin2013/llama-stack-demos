@@ -6,18 +6,20 @@ FROM registry.access.redhat.com/ubi8/openjdk-17:1.20 AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml first for better caching
-COPY mvnw pom.xml ./
-COPY .mvn .mvn
+# Install Maven and copy pom.xml first for better caching
+RUN microdnf install -y maven && microdnf clean all
+
+# Copy pom.xml first for better caching
+COPY pom.xml ./
 
 # Download dependencies (this layer will be cached if pom.xml doesn't change)
-RUN ./mvnw dependency:go-offline -B
+RUN mvn dependency:go-offline -B
 
 # Copy source code
 COPY src ./src
 
 # Build the application
-RUN ./mvnw clean package -DskipTests -Dquarkus.package.type=uber-jar
+RUN mvn clean package -DskipTests -Dquarkus.package.type=uber-jar
 
 # Runtime stage
 FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.20
