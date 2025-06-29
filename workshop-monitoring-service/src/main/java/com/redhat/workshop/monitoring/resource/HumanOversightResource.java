@@ -1,10 +1,13 @@
 package com.redhat.workshop.monitoring.resource;
 
+import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import com.redhat.workshop.monitoring.service.ChatService;
+import com.redhat.workshop.monitoring.service.CommandExecutionService;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -24,6 +27,12 @@ public class HumanOversightResource {
 
     @ConfigProperty(name = "workshop.agents.endpoints.human_oversight", defaultValue = "http://human-oversight-coordinator:80")
     String humanOversightEndpoint;
+
+    @Inject
+    ChatService chatService;
+
+    @Inject
+    CommandExecutionService commandExecutionService;
 
     /**
      * Get Human Oversight Coordinator status
@@ -240,7 +249,7 @@ public class HumanOversightResource {
     }
 
     /**
-     * Coordinate agent workflow
+     * Coordinate agent workflow and execute commands
      */
     @POST
     @Path("/coordinate")
@@ -248,9 +257,49 @@ public class HumanOversightResource {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String action = (String) coordinationRequest.get("action");
+
+                LOG.infof("Coordinating action: %s", action);
+
+                // Handle command execution
+                if ("execute_command".equals(action)) {
+                    String command = (String) coordinationRequest.get("command");
+                    String executor = (String) coordinationRequest.getOrDefault("executor", "system");
+
+                    if (command == null || command.trim().isEmpty()) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                            .entity(Map.of(
+                                "success", false,
+                                "error", Map.of(
+                                    "code", "INVALID_COMMAND",
+                                    "message", "Command is required for execute_command action"
+                                )
+                            )).build();
+                    }
+
+                    // Execute command through command service
+                    return commandExecutionService.executeCommand(command, executor)
+                        .thenApply(commandExecution -> Response.ok(Map.of(
+                            "success", true,
+                            "data", commandExecution,
+                            "metadata", Map.of(
+                                "timestamp", new Date().toInstant().toString(),
+                                "action", "execute_command"
+                            )
+                        )).build())
+                        .exceptionally(ex -> Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                            .entity(Map.of(
+                                "success", false,
+                                "error", Map.of(
+                                    "code", "COMMAND_EXECUTION_ERROR",
+                                    "message", "Failed to execute command",
+                                    "details", ex.getMessage()
+                                )
+                            )).build())
+                        .join();
+                }
+
+                // Handle regular workflow coordination
                 List<String> agents = (List<String>) coordinationRequest.get("agents");
-                
-                LOG.infof("Coordinating workflow action: %s with agents: %s", action, agents);
 
                 Map<String, Object> result = Map.of(
                     "coordinationId", UUID.randomUUID().toString(),
@@ -274,6 +323,114 @@ public class HumanOversightResource {
                         "error", Map.of(
                             "code", "COORDINATION_ERROR",
                             "message", "Failed to coordinate workflow",
+                            "details", e.getMessage()
+                        )
+                    )).build();
+            }
+        });
+    }
+
+    /**
+     * Handle chat messages with oversight coordinator
+     */
+    @POST
+    @Path("/chat")
+    public CompletionStage<Response> handleChatMessage(Map<String, Object> chatRequest) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String message = (String) chatRequest.get("message");
+                String sessionId = (String) chatRequest.getOrDefault("sessionId", UUID.randomUUID().toString());
+
+                LOG.infof("Processing chat message for session %s: %s", sessionId, message);
+
+                if (message == null || message.trim().isEmpty()) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(Map.of(
+                            "success", false,
+                            "error", Map.of(
+                                "code", "INVALID_MESSAGE",
+                                "message", "Message content is required"
+                            )
+                        )).build();
+                }
+
+                // Process message through chat service
+                return chatService.processMessage(sessionId, message)
+                    .thenApply(chatMessage -> Response.ok(Map.of(
+                        "success", true,
+                        "data", Map.of(
+                            "message", chatMessage,
+                            "sessionId", sessionId
+                        ),
+                        "metadata", Map.of(
+                            "timestamp", new Date().toInstant().toString(),
+                            "responseTime", chatMessage.getResponseTimeMs()
+                        )
+                    )).build())
+                    .exceptionally(ex -> Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity(Map.of(
+                            "success", false,
+                            "error", Map.of(
+                                "code", "CHAT_PROCESSING_ERROR",
+                                "message", "Failed to process chat message",
+                                "details", ex.getMessage()
+                            )
+                        )).build())
+                    .join();
+
+            } catch (Exception e) {
+                LOG.errorf("Error handling chat message: %s", e.getMessage());
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(Map.of(
+                        "success", false,
+                        "error", Map.of(
+                            "code", "CHAT_ERROR",
+                            "message", "Failed to handle chat message",
+                            "details", e.getMessage()
+                        )
+                    )).build();
+            }
+        });
+    }
+
+    /**
+     * Reject workflow
+     */
+    @POST
+    @Path("/workflows/{workflowId}/reject")
+    public CompletionStage<Response> rejectWorkflow(
+            @PathParam("workflowId") String workflowId,
+            Map<String, Object> rejectionRequest) {
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String comment = (String) rejectionRequest.get("comment");
+                String rejector = (String) rejectionRequest.get("approver");
+
+                LOG.infof("Processing rejection for workflow %s by %s", workflowId, rejector);
+
+                Map<String, Object> result = Map.of(
+                    "workflowId", workflowId,
+                    "status", "rejected",
+                    "rejector", rejector != null ? rejector : "system",
+                    "comment", comment != null ? comment : "Rejected via dashboard",
+                    "rejectedAt", new Date().toInstant().toString(),
+                    "nextSteps", "Workflow has been rejected and will not proceed"
+                );
+
+                return Response.ok(Map.of(
+                    "success", true,
+                    "data", result
+                )).build();
+
+            } catch (Exception e) {
+                LOG.errorf("Error rejecting workflow %s: %s", workflowId, e.getMessage());
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(Map.of(
+                        "success", false,
+                        "error", Map.of(
+                            "code", "REJECTION_ERROR",
+                            "message", "Failed to process workflow rejection",
                             "details", e.getMessage()
                         )
                     )).build();
