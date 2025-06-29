@@ -289,39 +289,54 @@ def test_workshop_creation_pipeline(workflow_id):
 ### Phase 5: Comprehensive Validation Framework
 
 #### Test Orchestration Script
+
+**Script Location**: `test_e2e_human_oversight_workflow.py`
+
+This script implements the complete end-to-end testing framework as defined in this ADR, validating all architectural decisions from ADRs 0001-0004 working together.
+
 ```python
 #!/usr/bin/env python3
 """
 End-to-End Human Oversight Workflow Testing
+Script: test_e2e_human_oversight_workflow.py
+ADR: 0005-end-to-end-python-testing-workflow.md
 """
 
 def run_complete_e2e_test():
-    """Execute complete end-to-end testing workflow"""
-    
-    print("🚀 Starting End-to-End Human Oversight Workflow Test")
-    
-    # Phase 1: Repository Processing
+    """Execute complete end-to-end testing workflow per ADR-0005"""
+
+    print("🚀 Starting End-to-End Human Oversight Workflow Test (ADR-0005)")
+
+    # Phase 1: Repository Processing (ADR-0001 validation)
     for repo_name, repo_config in TEST_REPOSITORIES.items():
         print(f"📁 Testing repository: {repo_name}")
-        workflow_id = test_repository_submission(repo_config)
-        
-        # Phase 2: Human Oversight Testing
-        print(f"🤖 Testing human oversight for workflow: {workflow_id}")
-        test_chat_interface_integration(workflow_id)
-        test_command_execution_with_workflow(workflow_id)
-        
-        # Phase 3: Approval Testing
-        print(f"✅ Testing approval workflow: {workflow_id}")
-        test_approval_workflow_decisions(workflow_id)
-        
-        # Phase 4: Workshop Creation
-        print(f"🏗️ Testing workshop creation: {workflow_id}")
-        test_workshop_creation_pipeline(workflow_id)
-    
-    # Phase 5: Generate comprehensive report
-    generate_e2e_test_report()
-    
-    print("🎉 End-to-End Testing Completed Successfully!")
+        workflow_result = test_repository_submission_with_gitea(repo_config)
+
+        # Phase 2: Gitea Integration Testing (Source Manager Agent)
+        print(f"🔧 Testing Gitea integration for: {workflow_result['workflow_id']}")
+        gitea_result = test_gitea_repository_creation(workflow_result)
+
+        # Phase 3: Human Oversight Testing (ADR-0002 validation)
+        print(f"🤖 Testing human oversight for workflow: {workflow_result['workflow_id']}")
+        test_chat_interface_integration(workflow_result['workflow_id'])
+        test_command_execution_with_workflow(workflow_result['workflow_id'])
+
+        # Phase 4: Approval Testing (ADR-0002 validation)
+        print(f"✅ Testing approval workflow: {workflow_result['workflow_id']}")
+        test_approval_workflow_decisions(workflow_result['workflow_id'])
+
+        # Phase 5: BuildConfig and Pipeline Testing (ADR-0003 validation)
+        print(f"🏗️ Testing BuildConfig and deployment: {workflow_result['workflow_id']}")
+        test_buildconfig_pipeline_integration(workflow_result, gitea_result)
+
+        # Phase 6: Monitoring Dashboard Testing (ADR-0004 validation)
+        print(f"📊 Testing monitoring dashboard: {workflow_result['workflow_id']}")
+        test_monitoring_dashboard_integration(workflow_result['workflow_id'])
+
+    # Phase 7: Generate comprehensive ADR compliance report
+    generate_adr_compliance_report()
+
+    print("🎉 End-to-End ADR Compliance Testing Completed Successfully!")
 
 if __name__ == "__main__":
     run_complete_e2e_test()
