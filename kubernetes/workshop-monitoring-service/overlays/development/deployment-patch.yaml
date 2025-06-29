@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-monitoring-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: workshop-monitoring-service
+        env:
+        - name: QUARKUS_LOG_LEVEL
+          value: "DEBUG"
+        - name: WORKSHOP_HEALTH_CHECK_INTERVAL
+          value: "15s"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"

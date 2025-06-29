@@ -1,0 +1,32 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: workshop-monitoring-service-build
+  labels:
+    app: workshop-monitoring-service
+    component: monitoring
+    part-of: workshop-template-system
+    build: monitoring-service
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/workshop-system/llama-stack-demos.git
+      ref: main
+    contextDir: workshop-monitoring-service
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: src/main/docker/Dockerfile.multistage
+  output:
+    to:
+      kind: ImageStreamTag
+      name: workshop-monitoring-service:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: github-webhook-secret
+  - type: Generic
+    generic:
+      secret: generic-webhook-secret

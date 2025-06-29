@@ -226,6 +226,32 @@ deploy_workshop_system() {
     print_success "Workshop Template System deployed successfully"
 }
 
+# Deploy Workshop Monitoring Service
+deploy_monitoring_service() {
+    print_status "Deploying Workshop Monitoring Service..."
+
+    # Check if monitoring service configuration exists
+    if [ ! -d "kubernetes/workshop-monitoring-service/base" ]; then
+        print_error "Workshop Monitoring Service configuration not found. Please ensure kubernetes/workshop-monitoring-service/base exists."
+        exit 1
+    fi
+
+    # Deploy monitoring service using Kustomize
+    print_status "Applying Workshop Monitoring Service configuration..."
+    oc apply -k kubernetes/workshop-monitoring-service/overlays/development/
+
+    # Wait for monitoring service to be ready
+    print_status "Waiting for Workshop Monitoring Service to be ready..."
+    oc rollout status deployment workshop-monitoring-service -n ${NAMESPACE} --timeout=300s
+
+    # Get monitoring service route
+    MONITORING_ROUTE=$(oc get route workshop-monitoring-service -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "monitoring.apps.cluster.local")
+
+    print_success "Workshop Monitoring Service deployed successfully"
+    print_info "Monitoring Dashboard: https://${MONITORING_ROUTE}"
+    print_info "API Documentation: https://${MONITORING_ROUTE}/q/swagger-ui"
+}
+
 # Update Kustomize BuildConfigs with correct Gitea URL
 update_buildconfig_urls() {
     print_status "Updating BuildConfig URLs to use deployed Gitea instance..."
@@ -241,6 +267,12 @@ update_buildconfig_urls() {
 
     # Update the buildconfigs.yaml file with the correct Gitea URL
     sed -i "s|https://gitea.apps.cluster.local|https://${GITEA_URL}|g" kubernetes/workshop-template-system/base/buildconfigs.yaml
+
+    # Update the monitoring service BuildConfig if it exists
+    if [ -f "kubernetes/workshop-monitoring-service/base/buildconfig.yaml" ]; then
+        sed -i "s|https://github.com/tosin2013/llama-stack-demos.git|https://${GITEA_URL}/workshop-system/llama-stack-demos.git|g" kubernetes/workshop-monitoring-service/base/buildconfig.yaml
+        print_status "Updated Workshop Monitoring Service BuildConfig URL"
+    fi
 
     print_success "BuildConfig URLs updated for Gitea integration"
     print_status "BuildConfigs will be deployed by Kustomize with correct repository URLs"
@@ -259,6 +291,12 @@ trigger_workshop_builds() {
     if oc get buildconfig healthcare-ml-workshop-build -n ${NAMESPACE} &>/dev/null; then
         print_status "Triggering Healthcare ML workshop build..."
         oc start-build healthcare-ml-workshop-build -n ${NAMESPACE} || print_warning "Healthcare ML workshop build failed to start (repository may not be ready)"
+    fi
+
+    # Trigger monitoring service build if it exists
+    if oc get buildconfig workshop-monitoring-service-build -n ${NAMESPACE} &>/dev/null; then
+        print_status "Triggering Workshop Monitoring Service build..."
+        oc start-build workshop-monitoring-service-build -n ${NAMESPACE} || print_warning "Workshop Monitoring Service build failed to start (repository may not be ready)"
     fi
 
     print_status "Workshop builds triggered (they will complete when repositories are available)"
@@ -370,6 +408,9 @@ deploy_complete_system() {
     # Trigger workshop builds
     trigger_workshop_builds
 
+    # Deploy Workshop Monitoring Service
+    deploy_monitoring_service
+
     # Configure agent workflows
     configure_agent_workflows
 
@@ -390,12 +431,17 @@ show_complete_deployment_info() {
     TEMPLATE_CONVERTER_URL=$(oc get route template-converter-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "template-converter.local")
     CONTENT_CREATOR_URL=$(oc get route content-creator-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "content-creator.local")
     WORKSHOP_CHAT_URL=$(oc get route workshop-chat-agent -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "workshop-chat.local")
+    MONITORING_URL=$(oc get route workshop-monitoring-service -n ${NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null || echo "monitoring.local")
 
     echo ""
     echo "🌐 System URLs:"
     echo "Gitea Git Server: https://${GITEA_URL}"
     echo "  - Admin: ${GITEA_ADMIN_USER}/${GITEA_ADMIN_PASSWORD}"
     echo "  - OpenShift Bare Metal Workshop: https://${GITEA_URL}/workshop-system/openshift-baremetal-workshop"
+    echo ""
+    echo "📊 Workshop Monitoring Dashboard: https://${MONITORING_URL}"
+    echo "  - API Documentation: https://${MONITORING_URL}/q/swagger-ui"
+    echo "  - OpenAPI Spec: https://${MONITORING_URL}/q/openapi"
     echo ""
     echo "🤖 Workshop Template System Agents:"
     echo "Template Converter Agent: https://${TEMPLATE_CONVERTER_URL}"

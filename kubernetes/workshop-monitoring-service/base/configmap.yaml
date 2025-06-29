@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workshop-monitoring-config
+  labels:
+    app: workshop-monitoring-service
+    component: monitoring
+    part-of: workshop-template-system
+data:
+  application.properties: |
+    # Server Configuration
+    quarkus.http.port=8086
+    quarkus.http.host=0.0.0.0
+    
+    # Agent Endpoints (will be overridden by environment variables)
+    workshop.agents.endpoints.workshop-chat=http://workshop-chat:8080
+    workshop.agents.endpoints.template-converter=http://template-converter:8081
+    workshop.agents.endpoints.content-creator=http://content-creator:8082
+    workshop.agents.endpoints.source-manager=http://source-manager:8083
+    workshop.agents.endpoints.research-validation=http://research-validation:8084
+    workshop.agents.endpoints.documentation-pipeline=http://documentation-pipeline:8085
+    
+    # Health Check Configuration
+    workshop.health.check-interval=30s
+    workshop.health.timeout=5s
+    workshop.health.retry-attempts=3
+    
+    # Logging Configuration
+    quarkus.log.level=INFO
+    quarkus.log.category."com.redhat.workshop.monitoring".level=DEBUG
+    
+    # Health Check Configuration
+    quarkus.smallrye-health.root-path=/q/health
+    
+    # OpenAPI Configuration
+    quarkus.smallrye-openapi.path=/q/openapi
+    quarkus.swagger-ui.path=/q/swagger-ui
+    quarkus.swagger-ui.always-include=true
+    
+    # Jackson Configuration for Java 8 Time Support
+    quarkus.jackson.write-dates-as-timestamps=false
+    quarkus.jackson.serialization-inclusion=non_null
+    
+    # CORS Configuration for OpenShift
+    quarkus.http.cors=true
+    quarkus.http.cors.origins=*
+    quarkus.http.cors.methods=GET,POST,PUT,DELETE,OPTIONS
+    quarkus.http.cors.headers=accept,authorization,content-type,x-requested-with

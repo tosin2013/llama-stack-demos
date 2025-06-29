@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: workshop-monitoring-service-development
+
+namespace: workshop-system
+
+resources:
+- ../../base
+
+labels:
+- pairs:
+    environment: development
+
+patches:
+- path: deployment-patch.yaml
+
+configMapGenerator:
+- name: workshop-monitoring-config
+  behavior: merge
+  literals:
+  - QUARKUS_LOG_LEVEL=DEBUG
+  - WORKSHOP_HEALTH_CHECK_INTERVAL=15s
+
+images:
+- name: workshop-monitoring-service
+  newTag: dev

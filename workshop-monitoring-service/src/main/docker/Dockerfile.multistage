@@ -1,0 +1,83 @@
+####
+# Multi-stage Dockerfile for Workshop Monitoring Service
+# Builds both Node.js frontend and Quarkus backend in OpenShift
+#
+# This Dockerfile:
+# 1. Builds the React frontend using Node.js
+# 2. Builds the Quarkus backend using Maven
+# 3. Combines both in a final runtime image
+#
+# Usage in OpenShift BuildConfig:
+# dockerStrategy:
+#   dockerfilePath: src/main/docker/Dockerfile.multistage
+#
+###
+
+# Stage 1: Build React Frontend
+FROM registry.access.redhat.com/ubi9/nodejs-18:1-117 AS frontend-builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY src/main/webui/package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
+COPY src/main/webui/ ./
+
+# Build the React application
+RUN npm run build
+
+# Stage 2: Build Quarkus Backend
+FROM registry.access.redhat.com/ubi9/openjdk-17:1.21 AS backend-builder
+
+# Install Maven
+USER root
+RUN microdnf install -y maven && microdnf clean all
+
+# Set working directory
+WORKDIR /app
+
+# Copy Maven files
+COPY pom.xml ./
+COPY .mvn .mvn
+COPY mvnw ./
+
+# Download dependencies (for better caching)
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Copy built frontend from previous stage
+COPY --from=frontend-builder /app/build ./src/main/resources/META-INF/resources/
+
+# Build the application
+RUN ./mvnw package -DskipTests -B
+
+# Stage 3: Runtime Image
+FROM registry.access.redhat.com/ubi9/openjdk-17:1.21
+
+ENV LANGUAGE='en_US:en'
+
+# Copy the built application from backend builder
+COPY --from=backend-builder --chown=185 /app/target/quarkus-app/lib/ /deployments/lib/
+COPY --from=backend-builder --chown=185 /app/target/quarkus-app/*.jar /deployments/
+COPY --from=backend-builder --chown=185 /app/target/quarkus-app/app/ /deployments/app/
+COPY --from=backend-builder --chown=185 /app/target/quarkus-app/quarkus/ /deployments/quarkus/
+
+EXPOSE 8086
+USER 185
+
+# JVM configuration optimized for containers
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8086/q/health/ready || exit 1
+
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]

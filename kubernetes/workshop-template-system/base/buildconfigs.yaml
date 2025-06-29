@@ -82,3 +82,38 @@ metadata:
 type: Opaque
 data:
   WebHookSecretKey: d29ya3Nob3Atd2ViaG9vay1zZWNyZXQ=  # workshop-webhook-secret
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: workshop-monitoring-service-build
+  namespace: workshop-system
+  labels:
+    app: workshop-monitoring-service
+    component: monitoring
+    part-of: workshop-template-system
+    build: monitoring-service
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/tosin2013/llama-stack-demos.git
+      ref: main
+    contextDir: workshop-monitoring-service
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: src/main/docker/Dockerfile.multistage
+  output:
+    to:
+      kind: ImageStreamTag
+      name: workshop-monitoring-service:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: github-webhook-secret
+  - type: Generic
+    generic:
+      secret: generic-webhook-secret

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: workshop-monitoring-service
+  labels:
+    app: workshop-monitoring-service
+    component: monitoring
+    part-of: workshop-template-system
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8086
+    targetPort: 8086
+    protocol: TCP
+    name: http
+  selector:
+    app: workshop-monitoring-service

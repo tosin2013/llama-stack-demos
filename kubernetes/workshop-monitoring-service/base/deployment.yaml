@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-monitoring-service
+  labels:
+    app: workshop-monitoring-service
+    component: monitoring
+    part-of: workshop-template-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workshop-monitoring-service
+  template:
+    metadata:
+      labels:
+        app: workshop-monitoring-service
+        component: monitoring
+        part-of: workshop-template-system
+    spec:
+      containers:
+      - name: workshop-monitoring-service
+        image: workshop-monitoring-service-image:latest
+        ports:
+        - containerPort: 8086
+          name: http
+          protocol: TCP
+        env:
+        - name: QUARKUS_HTTP_PORT
+          value: "8086"
+        - name: WORKSHOP_AGENTS_ENDPOINTS_WORKSHOP_CHAT
+          value: "http://workshop-chat:8080"
+        - name: WORKSHOP_AGENTS_ENDPOINTS_TEMPLATE_CONVERTER
+          value: "http://template-converter:8081"
+        - name: WORKSHOP_AGENTS_ENDPOINTS_CONTENT_CREATOR
+          value: "http://content-creator:8082"
+        - name: WORKSHOP_AGENTS_ENDPOINTS_SOURCE_MANAGER
+          value: "http://source-manager:8083"
+        - name: WORKSHOP_AGENTS_ENDPOINTS_RESEARCH_VALIDATION
+          value: "http://research-validation:8084"
+        - name: WORKSHOP_AGENTS_ENDPOINTS_DOCUMENTATION_PIPELINE
+          value: "http://documentation-pipeline:8085"
+        - name: WORKSHOP_HEALTH_CHECK_INTERVAL
+          value: "30s"
+        - name: WORKSHOP_HEALTH_TIMEOUT
+          value: "5s"
+        - name: WORKSHOP_HEALTH_RETRY_ATTEMPTS
+          value: "3"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 8086
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 8086
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /q/health/started
+            port: 8086
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+      restartPolicy: Always
