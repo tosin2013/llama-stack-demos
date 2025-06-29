@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { 
-  RefreshCw, 
-  Activity, 
-  Server, 
-  Clock, 
+import {
+  RefreshCw,
+  Activity,
+  Server,
+  Clock,
   AlertTriangle,
   CheckCircle,
   XCircle,
   HelpCircle,
   Settings,
-  Info
+  Info,
+  MessageSquare,
+  TrendingUp,
+  Users
 } from 'lucide-react';
 import { useMonitoring } from '../hooks/useMonitoring';
 import { getHealthStatusColor, getHealthStatusIcon } from '../services/monitoringApi';
@@ -17,10 +20,17 @@ import SystemHealthCard from './SystemHealthCard';
 import AgentStatusGrid from './AgentStatusGrid';
 import ResponseTimeChart from './ResponseTimeChart';
 import ServiceInfoPanel from './ServiceInfoPanel';
+import TabNavigation from './ui/TabNavigation';
+import DomainErrorBoundary from './ui/ErrorBoundary';
+import AgentInteractionMenu from './AgentInteractionMenu';
+import ApprovalQueue from './ApprovalQueue';
+import EvolutionDashboard from './EvolutionDashboard';
+import HumanOversightPanel from './HumanOversightPanel';
 
 /**
  * Main Dashboard Component
- * Displays comprehensive monitoring information for the Workshop Template System
+ * Implements ADR-0004 DDD Frontend-Backend Integration with tabbed interface
+ * Provides unified access to all Workshop Template System domains
  */
 const Dashboard = () => {
   const {
@@ -38,8 +48,45 @@ const Dashboard = () => {
     responseTimeStats
   } = useMonitoring(30000); // Refresh every 30 seconds
 
+  // Tab navigation state
+  const [activeTab, setActiveTab] = useState('monitoring');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showServiceInfo, setShowServiceInfo] = useState(false);
+
+  // Tab configuration following ADR-0004 domain boundaries
+  const tabs = [
+    {
+      id: 'monitoring',
+      name: 'System Health',
+      icon: Activity,
+      description: 'Monitor system health and agent status',
+      badge: dashboardMetrics?.healthyAgents ? `${dashboardMetrics.healthyAgents}/${dashboardMetrics.totalAgents}` : null
+    },
+    {
+      id: 'agents',
+      name: 'Agent Interaction',
+      icon: MessageSquare,
+      description: 'Interact with workshop agents and execute workflows'
+    },
+    {
+      id: 'approvals',
+      name: 'Approval Queue',
+      icon: CheckCircle,
+      description: 'Manage human-in-the-loop approval workflows'
+    },
+    {
+      id: 'evolution',
+      name: 'Evolution Tracking',
+      icon: TrendingUp,
+      description: 'Track workshop evolution and version history'
+    },
+    {
+      id: 'oversight',
+      name: 'Human Oversight',
+      icon: Users,
+      description: 'Human oversight coordinator controls and quality assurance'
+    }
+  ];
 
   /**
    * Handle manual refresh
@@ -173,7 +220,7 @@ const Dashboard = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Service Info Panel */}
         {showServiceInfo && (
-          <ServiceInfoPanel 
+          <ServiceInfoPanel
             serviceInfo={serviceInfo}
             onClose={() => setShowServiceInfo(false)}
           />
@@ -189,81 +236,124 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* System Health Overview */}
+        {/* Tab Navigation */}
         <div className="mb-8">
-          <SystemHealthCard 
-            systemHealth={systemHealth}
-            dashboardMetrics={dashboardMetrics}
-            lastUpdated={lastUpdated}
+          <TabNavigation
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
           />
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <Server className="h-8 w-8 text-blue-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Agents</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {dashboardMetrics.totalAgents}
-                </p>
-              </div>
-            </div>
-          </div>
+        {/* Tab Content with Domain Error Boundaries */}
+        <div className="space-y-8">
+          {/* Monitoring Domain - System Health */}
+          {activeTab === 'monitoring' && (
+            <DomainErrorBoundary domain="Monitoring" componentName="MonitoringView">
+              <div className="space-y-8">
+                {/* System Health Overview */}
+                <SystemHealthCard
+                  systemHealth={systemHealth}
+                  dashboardMetrics={dashboardMetrics}
+                  lastUpdated={lastUpdated}
+                />
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Healthy</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {dashboardMetrics.healthyAgents}
-                </p>
-              </div>
-            </div>
-          </div>
+                {/* Quick Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <Server className="h-8 w-8 text-blue-500" />
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500">Total Agents</p>
+                        <p className="text-2xl font-semibold text-gray-900">
+                          {dashboardMetrics?.totalAgents || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <Clock className="h-8 w-8 text-purple-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Avg Response</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {responseTimeStats.average}ms
-                </p>
-              </div>
-            </div>
-          </div>
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-8 w-8 text-green-500" />
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500">Healthy</p>
+                        <p className="text-2xl font-semibold text-gray-900">
+                          {dashboardMetrics?.healthyAgents || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <Activity className="h-8 w-8 text-indigo-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Health Score</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {dashboardMetrics.healthPercentage}%
-                </p>
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <Clock className="h-8 w-8 text-purple-500" />
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500">Avg Response</p>
+                        <p className="text-2xl font-semibold text-gray-900">
+                          {responseTimeStats?.average || 0}ms
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <Activity className="h-8 w-8 text-indigo-500" />
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500">Health Score</p>
+                        <p className="text-2xl font-semibold text-gray-900">
+                          {dashboardMetrics?.healthPercentage || 0}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Agent Status Grid */}
+                <AgentStatusGrid
+                  agentStatuses={agentStatuses}
+                  agentsByStatus={agentsByStatus}
+                />
+
+                {/* Response Time Chart */}
+                <ResponseTimeChart
+                  agentStatuses={agentStatuses}
+                  responseTimeStats={responseTimeStats}
+                />
               </div>
-            </div>
-          </div>
+            </DomainErrorBoundary>
+          )}
+
+          {/* Agent Management Domain - Agent Interaction */}
+          {activeTab === 'agents' && (
+            <DomainErrorBoundary domain="AgentManagement" componentName="AgentInteractionView">
+              <AgentInteractionMenu />
+            </DomainErrorBoundary>
+          )}
+
+          {/* Workflow Management Domain - Approval Queue */}
+          {activeTab === 'approvals' && (
+            <DomainErrorBoundary domain="WorkflowManagement" componentName="ApprovalQueueView">
+              <ApprovalQueue />
+            </DomainErrorBoundary>
+          )}
+
+          {/* Evolution Management Domain - Evolution Tracking */}
+          {activeTab === 'evolution' && (
+            <DomainErrorBoundary domain="EvolutionManagement" componentName="EvolutionView">
+              <EvolutionDashboard />
+            </DomainErrorBoundary>
+          )}
+
+          {/* Human Oversight Domain - Human Oversight Panel */}
+          {activeTab === 'oversight' && (
+            <DomainErrorBoundary domain="HumanOversight" componentName="HumanOversightView">
+              <HumanOversightPanel />
+            </DomainErrorBoundary>
+          )}
         </div>
 
-        {/* Agent Status Grid */}
-        <div className="mb-8">
-          <AgentStatusGrid 
-            agentStatuses={agentStatuses}
-            agentsByStatus={agentsByStatus}
-          />
-        </div>
 
-        {/* Response Time Chart */}
-        <div className="mb-8">
-          <ResponseTimeChart 
-            agentStatuses={agentStatuses}
-            responseTimeStats={responseTimeStats}
-          />
-        </div>
 
         {/* Footer */}
         <footer className="text-center text-sm text-gray-500 mt-12">
@@ -271,6 +361,11 @@ const Dashboard = () => {
             Last updated: {lastUpdated ? lastUpdated.toLocaleString() : 'Never'}
             {' • '}
             Auto-refresh: 30 seconds
+            {' • '}
+            Active tab: {tabs.find(tab => tab.id === activeTab)?.name || 'Unknown'}
+          </p>
+          <p className="mt-1 text-xs">
+            Workshop Template System - DDD Frontend Architecture (ADR-0004)
           </p>
         </footer>
       </main>
