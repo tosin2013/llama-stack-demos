@@ -31,6 +31,10 @@ spec:
     type: string
     description: Human approver for oversight gates
     default: "system-operator"
+  - name: auto-approve
+    type: string
+    description: Auto-approve all human oversight gates for testing
+    default: "false"
 
   workspaces:
   - name: shared-data
@@ -39,8 +43,25 @@ spec:
     description: Gitea authentication credentials
 
   tasks:
-  
-  # Task 1: Repository Analysis (Template Converter Agent)
+
+  # Task 1: Workspace Initialization (ADR-0007)
+  - name: workspace-initialization
+    taskRef:
+      name: workspace-initialization
+    params:
+    - name: workflow-type
+      value: "1"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: base-template
+      value: $(params.base-template)
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+
+  # Task 2: Repository Analysis (Template Converter Agent)
   - name: repository-analysis
     taskRef:
       name: agent-task-template-converter
@@ -49,8 +70,9 @@ spec:
       value: $(params.repository-url)
     - name: analysis-type
       value: "new-workshop-classification"
+    runAfter: [workspace-initialization]
 
-  # Task 2: Human Oversight - Repository Analysis Approval
+  # Task 3: Human Oversight - Repository Analysis Approval
   - name: human-approval-repository-analysis
     taskRef:
       name: human-oversight-approval
@@ -67,9 +89,11 @@ spec:
       value: "Repository: $(params.repository-url), Classification: $(tasks.repository-analysis.results.repository-classification), Workflow: $(tasks.repository-analysis.results.workflow-type)"
     - name: workshop-name
       value: $(params.workshop-name)
+    - name: auto-approve
+      value: $(params.auto-approve)
     runAfter: [repository-analysis]
 
-  # Task 3: Content Creation (Content Creator Agent)
+  # Task 4: Content Creation (Content Creator Agent) - ADR-0007 Workspace Enabled
   - name: content-creation
     taskRef:
       name: agent-task-content-creator
@@ -82,6 +106,11 @@ spec:
       value: $(tasks.repository-analysis.results.template-source)
     - name: analysis-result
       value: "$(tasks.repository-analysis.results.analysis-result)"
+    - name: workspace-mode
+      value: "hybrid"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
     runAfter: [human-approval-repository-analysis]
 
   # Task 4: Content Validation (Research Validation Agent)
@@ -112,6 +141,8 @@ spec:
       value: "Workshop: $(params.workshop-name), Accuracy: $(tasks.content-validation.results.accuracy-score)%, Validation: $(tasks.content-validation.results.validation-result)"
     - name: repository-url
       value: $(params.repository-url)
+    - name: auto-approve
+      value: $(params.auto-approve)
     runAfter: [content-validation]
 
   # Task 6: Gitea Repository Creation (Source Manager Agent)
@@ -188,15 +219,12 @@ spec:
       value: "Workshop: $(params.workshop-name), Repository: $(tasks.gitea-repository-creation.results.gitea-repo-url), Build: $(tasks.buildconfig-deployment.results.build-status), Chat: $(tasks.workshop-chat-setup.results.chat-setup-status)"
     - name: repository-url
       value: $(params.repository-url)
+    - name: auto-approve
+      value: $(params.auto-approve)
     runAfter: [workshop-chat-setup]
 
-  results:
-  - name: workshop-url
-    description: URL of the deployed workshop
-    value: "$(tasks.buildconfig-deployment.results.workshop-url)"
-  - name: gitea-repository-url
-    description: URL of the created Gitea repository
-    value: "$(tasks.gitea-repository-creation.results.gitea-repo-url)"
-  - name: workflow-status
-    description: Overall workflow completion status
-    value: "completed"
+  # Results will be added once task results are properly defined
+  # results:
+  # - name: workflow-status
+  #   description: Overall workflow completion status
+  #   value: "completed"

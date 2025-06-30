@@ -44,6 +44,15 @@ spec:
     type: string
     description: Timeout for agent call in seconds
     default: "600"
+  - name: workspace-mode
+    type: string
+    description: Operation mode (hybrid, file-based, api-only)
+    default: "hybrid"
+
+  workspaces:
+  - name: shared-data
+    description: Shared workspace for workshop content
+    optional: true
 
   results:
   - name: workshop-content
@@ -56,38 +65,54 @@ spec:
     description: Summary of enhancements applied (for Workflow 3)
 
   steps:
-  - name: determine-content-operation
+  - name: call-content-creator-agent
     image: registry.access.redhat.com/ubi8/ubi:latest
     script: |
       #!/bin/bash
       set -e
-      
+
       echo "🎨 Content Creator Agent Task"
       echo "============================="
       echo "Repository URL: $(params.repository-url)"
       echo "Workshop Name: $(params.workshop-name)"
       echo "Base Template: $(params.base-template)"
       echo ""
-      
+
+      # Install required tools
+      dnf install -y curl jq
+
+      # Check if workspace is available (ADR-0007)
+      if [ -d "/workspace/shared-data" ]; then
+        echo "📁 Workspace available, using file-based operations"
+        WORKSPACE_PATH="/workspace/shared-data"
+        OPERATION_MODE="file-based"
+        echo "Workspace Mode: $(params.workspace-mode)"
+        echo "Workspace Path: $WORKSPACE_PATH"
+
+        # Display workspace content
+        echo ""
+        echo "📂 Workspace Content:"
+        ls -la /workspace/shared-data/ || echo "Workspace empty"
+        if [ -d "/workspace/shared-data/workshop-content" ]; then
+          echo ""
+          echo "📁 Workshop Content:"
+          ls -la /workspace/shared-data/workshop-content/ | head -10
+        fi
+        echo ""
+      else
+        echo "🌐 No workspace available, using API-only operations"
+        WORKSPACE_PATH=""
+        OPERATION_MODE="api-only"
+      fi
+
       # Determine operation type based on parameters
       if [ -n "$(params.enhancement-plan)" ] && [ -n "$(params.original-content)" ]; then
         echo "📝 Operation: Workshop Enhancement (Workflow 3)"
-        echo "ENHANCEMENT" > /tmp/operation-type
+        OPERATION_TYPE="ENHANCEMENT"
       else
         echo "🆕 Operation: New Workshop Creation (Workflow 1)"
-        echo "CREATION" > /tmp/operation-type
+        OPERATION_TYPE="CREATION"
       fi
-
-  - name: call-content-creator-agent
-    image: registry.access.redhat.com/ubi8/ubi:latest
-    script: |
-      #!/bin/bash
-      set -e
-      
-      # Install required tools
-      dnf install -y curl jq
-      
-      OPERATION_TYPE=$(cat /tmp/operation-type)
       
       if [ "$OPERATION_TYPE" = "ENHANCEMENT" ]; then
         echo "🔄 Calling Content Creator Agent for Workshop Enhancement..."
@@ -113,9 +138,27 @@ spec:
         
       else
         echo "🆕 Calling Content Creator Agent for New Workshop Creation..."
-        
-        # Prepare creation request payload
-        REQUEST_PAYLOAD=$(cat <<EOF
+
+        # Choose appropriate tool based on workspace availability
+        if [ "$OPERATION_MODE" = "file-based" ]; then
+          echo "📁 Using workspace-based content creation tool"
+          TOOL_ENDPOINT="/tools/create_workshop_content_from_workspace_tool"
+
+          # Prepare workspace-based request payload
+          REQUEST_PAYLOAD=$(cat <<EOF
+      {
+        "workspace_path": "$WORKSPACE_PATH",
+        "workshop_name": "$(params.workshop-name)",
+        "operation_mode": "$(params.workspace-mode)"
+      }
+      EOF
+          )
+        else
+          echo "🌐 Using API-based content creation tool"
+          TOOL_ENDPOINT="/tools/create_workshop_content_tool"
+
+          # Prepare API-based request payload
+          REQUEST_PAYLOAD=$(cat <<EOF
       {
         "repository_url": "$(params.repository-url)",
         "workshop_name": "$(params.workshop-name)",
@@ -123,10 +166,15 @@ spec:
         "analysis_result": "$(params.analysis-result)"
       }
       EOF
-        )
-        
-        # Call create_workshop_content_tool
-        RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)/tools/create_workshop_content_tool" \
+          )
+        fi
+
+        echo "📝 Request Payload:"
+        echo "$REQUEST_PAYLOAD" | jq .
+        echo ""
+
+        # Call appropriate agent tool
+        RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)$TOOL_ENDPOINT" \
           -H "Content-Type: application/json" \
           -d "$REQUEST_PAYLOAD" \
           --connect-timeout 30 \

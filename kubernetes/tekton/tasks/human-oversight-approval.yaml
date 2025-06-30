@@ -38,6 +38,14 @@ spec:
     type: string
     description: Timeout for approval in minutes
     default: "60"
+  - name: auto-approve
+    type: string
+    description: Auto-approve for testing (true/false)
+    default: "false"
+  - name: approval-command
+    type: string
+    description: Command to execute for approval (approve/reject/interactive)
+    default: "interactive"
 
   results:
   - name: approval-status
@@ -53,7 +61,7 @@ spec:
     script: |
       #!/bin/bash
       set -e
-      
+
       echo "🤖 Human Oversight Approval Gate"
       echo "================================"
       echo "Approval Type: $(params.approval-type)"
@@ -61,9 +69,27 @@ spec:
       echo "Approver: $(params.approver)"
       echo "Repository: $(params.repository-url)"
       echo "Workshop: $(params.workshop-name)"
+      echo "Auto-approve: $(params.auto-approve)"
+      echo "Approval Command: $(params.approval-command)"
       echo ""
-      
-      # Install required tools
+
+      # Check for auto-approve mode first
+      if [ "$(params.auto-approve)" = "true" ]; then
+        echo "✅ AUTO-APPROVE MODE ENABLED"
+        echo "================================"
+        echo "Automatically approving for testing purposes"
+        echo "approved" > $(results.approval-status.path)
+        echo "Auto-approved for pipeline testing - $(params.approval-type)" > $(results.approval-comment.path)
+        date -Iseconds > $(results.approval-timestamp.path)
+        echo ""
+        echo "🚀 Approval completed automatically"
+        echo "Status: approved"
+        echo "Comment: Auto-approved for pipeline testing"
+        echo "Timestamp: $(cat $(results.approval-timestamp.path))"
+        exit 0
+      fi
+
+      # Install required tools for interactive mode
       dnf install -y curl jq
       
       # Get monitoring service URL from environment or use default

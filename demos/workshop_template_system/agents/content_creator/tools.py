@@ -20,6 +20,225 @@ def client_tool(func):
 logger = logging.getLogger(__name__)
 
 @client_tool
+def create_workshop_content_from_workspace_tool(
+    workspace_path: str = "/workspace/shared-data",
+    workshop_name: str = "",
+    operation_mode: str = "hybrid"
+) -> str:
+    """
+    :description: Create workshop content using workspace files (ADR-0007 implementation).
+    :use_case: Use when workspace is available to create content from actual cloned repository files.
+    :param workspace_path: Path to shared workspace containing workshop content
+    :param workshop_name: Name of the workshop being created
+    :param operation_mode: Operation mode (file-based, hybrid, api-only)
+    :returns: Structured workshop content based on workspace files
+    """
+    try:
+        content_dir = os.path.join(workspace_path, "workshop-content")
+        metadata_dir = os.path.join(workspace_path, "metadata")
+
+        logger.info(f"Creating workshop content from workspace: {content_dir}")
+
+        if operation_mode == "file-based" and os.path.exists(content_dir):
+            # Read workspace files and metadata
+            workspace_files = read_workspace_files(content_dir)
+            workflow_metadata = read_workflow_metadata(metadata_dir)
+
+            # Generate content based on file structure
+            workshop_content = generate_content_from_files(
+                workspace_files, workflow_metadata, workshop_name
+            )
+
+            # Write enhanced content back to workspace
+            write_enhanced_content_to_workspace(workshop_content, content_dir)
+
+            return workshop_content
+
+        else:
+            # Fallback to API-based approach
+            logger.info("Workspace not available or hybrid mode, using API-based approach")
+            return "API-based content creation - workspace not available"
+
+    except Exception as e:
+        logger.error(f"Error in workspace-based content creation: {e}")
+        return f"Error in file-based content creation: {e}"
+
+def read_workspace_files(content_dir: str) -> dict:
+    """Read workshop files from workspace directory"""
+    files = {}
+    try:
+        for root, dirs, filenames in os.walk(content_dir):
+            for filename in filenames:
+                file_path = os.path.join(root, filename)
+                rel_path = os.path.relpath(file_path, content_dir)
+
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        files[rel_path] = f.read()
+                except UnicodeDecodeError:
+                    # Handle binary files
+                    with open(file_path, 'rb') as f:
+                        files[rel_path] = f"<binary file: {filename}>"
+
+        logger.info(f"Read {len(files)} files from workspace")
+        return files
+
+    except Exception as e:
+        logger.error(f"Error reading workspace files: {e}")
+        return {}
+
+def read_workflow_metadata(metadata_dir: str) -> dict:
+    """Read workflow metadata from workspace"""
+    try:
+        metadata_file = os.path.join(metadata_dir, "workflow-info.json")
+        if os.path.exists(metadata_file):
+            with open(metadata_file, 'r') as f:
+                return json.loads(f.read())
+        return {}
+    except Exception as e:
+        logger.error(f"Error reading workflow metadata: {e}")
+        return {}
+
+def generate_content_from_files(workspace_files: dict, metadata: dict, workshop_name: str) -> str:
+    """Generate workshop content based on workspace files"""
+    try:
+        workflow_type = metadata.get('workflow_type', '1')
+        strategy = metadata.get('strategy', 'creation')
+
+        # Analyze file structure
+        file_analysis = analyze_workspace_structure(workspace_files)
+
+        # Generate workshop content
+        workshop_parts = [
+            f"# Workshop: {workshop_name}",
+            f"**Generated from Workspace Files (ADR-0007)**",
+            f"**Strategy**: {strategy.title()}",
+            f"**Workflow Type**: {workflow_type}",
+            f"**Generation Time**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "## 🎯 Workshop Overview",
+            "",
+            f"This workshop is based on {len(workspace_files)} files from the workspace.",
+            "",
+        ]
+
+        # Add content based on file analysis
+        if file_analysis.get('has_readme'):
+            workshop_parts.extend([
+                "## 📖 Repository Overview",
+                "",
+                file_analysis.get('readme_content', 'README content not available'),
+                "",
+            ])
+
+        if file_analysis.get('technologies'):
+            workshop_parts.extend([
+                "## 🛠️ Technologies Covered",
+                "",
+                f"- {', '.join(file_analysis['technologies'])}",
+                "",
+            ])
+
+        # Add file structure overview
+        workshop_parts.extend([
+            "## 📁 Workshop Structure",
+            "",
+            "### Files in this workshop:",
+        ])
+
+        for file_path in sorted(workspace_files.keys())[:10]:  # Limit to first 10 files
+            workshop_parts.append(f"- `{file_path}`")
+
+        if len(workspace_files) > 10:
+            workshop_parts.append(f"- ... and {len(workspace_files) - 10} more files")
+
+        workshop_parts.extend([
+            "",
+            "## 🚀 Getting Started",
+            "",
+            "1. Review the workshop structure above",
+            "2. Follow the hands-on exercises",
+            "3. Complete the practical activities",
+            "",
+            "## 📝 Workshop Content",
+            "",
+            "This workshop provides hands-on experience with the technologies and concepts",
+            "found in the source repository. Each section builds upon the previous one",
+            "to provide a comprehensive learning experience.",
+            "",
+        ])
+
+        return "\n".join(workshop_parts)
+
+    except Exception as e:
+        logger.error(f"Error generating content from files: {e}")
+        return f"Error generating workshop content: {e}"
+
+def analyze_workspace_structure(workspace_files: dict) -> dict:
+    """Analyze workspace file structure to extract information"""
+    analysis = {
+        'has_readme': False,
+        'readme_content': '',
+        'technologies': [],
+        'file_types': set(),
+        'directories': set()
+    }
+
+    try:
+        for file_path, content in workspace_files.items():
+            # Check for README
+            if file_path.lower().startswith('readme'):
+                analysis['has_readme'] = True
+                analysis['readme_content'] = content[:500] + "..." if len(content) > 500 else content
+
+            # Extract file extensions
+            if '.' in file_path:
+                ext = file_path.split('.')[-1].lower()
+                analysis['file_types'].add(ext)
+
+            # Extract directory structure
+            if '/' in file_path:
+                dir_path = '/'.join(file_path.split('/')[:-1])
+                analysis['directories'].add(dir_path)
+
+        # Detect technologies based on file extensions
+        tech_mapping = {
+            'py': 'Python',
+            'js': 'JavaScript',
+            'java': 'Java',
+            'go': 'Go',
+            'rs': 'Rust',
+            'yml': 'YAML',
+            'yaml': 'YAML',
+            'json': 'JSON',
+            'md': 'Markdown',
+            'adoc': 'AsciiDoc'
+        }
+
+        for ext in analysis['file_types']:
+            if ext in tech_mapping:
+                analysis['technologies'].append(tech_mapping[ext])
+
+        return analysis
+
+    except Exception as e:
+        logger.error(f"Error analyzing workspace structure: {e}")
+        return analysis
+
+def write_enhanced_content_to_workspace(content: str, content_dir: str):
+    """Write enhanced workshop content back to workspace"""
+    try:
+        # Create enhanced content file
+        enhanced_file = os.path.join(content_dir, "workshop-enhanced.md")
+        with open(enhanced_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        logger.info(f"Enhanced content written to: {enhanced_file}")
+
+    except Exception as e:
+        logger.error(f"Error writing enhanced content: {e}")
+
+@client_tool
 def transform_repository_to_workshop_tool(repository_analysis: str, workshop_focus: str = "comprehensive", target_audience: str = "intermediate") -> str:
     """
     :description: Transform repository analysis into structured workshop content based on actual repository structure and content.

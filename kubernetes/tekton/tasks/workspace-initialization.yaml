@@ -1,0 +1,185 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: workspace-initialization
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: workspace-management
+    version: v1.0.0
+spec:
+  description: |
+    Workspace Initialization Task (ADR-0007)
+    Initializes shared workspace with base content based on workflow type.
+    - Workflow 1: Clone showroom_template_default.git as base
+    - Workflow 3: Clone original workshop repository for enhancement
+    
+  params:
+  - name: workflow-type
+    type: string
+    description: Type of workflow (1 for new workshop, 3 for enhancement)
+    default: "1"
+  - name: repository-url
+    type: string
+    description: Source repository URL to clone
+  - name: workshop-name
+    type: string
+    description: Workshop name for directory structure
+  - name: base-template
+    type: string
+    description: Base template source (showroom_template_default or original_repository)
+    default: "showroom_template_default"
+
+  workspaces:
+  - name: shared-data
+    description: Shared workspace for workshop content
+
+  results:
+  - name: workspace-status
+    description: Status of workspace initialization
+  - name: content-path
+    description: Path to workshop content in workspace
+  - name: files-count
+    description: Number of files initialized in workspace
+
+  steps:
+  - name: initialize-workspace
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🚀 Workspace Initialization (ADR-0007)"
+      echo "======================================"
+      echo "Workflow Type: $(params.workflow-type)"
+      echo "Repository: $(params.repository-url)"
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Base Template: $(params.base-template)"
+      echo ""
+      
+      # Install required tools
+      dnf install -y git tree
+      
+      # Create workspace structure
+      echo "📁 Creating workspace structure..."
+      mkdir -p /workspace/shared-data/workshop-content
+      mkdir -p /workspace/shared-data/metadata
+      cd /workspace/shared-data/workshop-content
+      
+      # Initialize workspace based on workflow type
+      if [ "$(params.workflow-type)" = "3" ]; then
+        echo "📥 Workflow 3: Cloning original workshop repository"
+        echo "Source: $(params.repository-url)"
+        
+        # Clone original workshop for enhancement
+        git clone $(params.repository-url) .
+        
+        # Create metadata for enhancement workflow
+        cat > /workspace/shared-data/metadata/workflow-info.json <<EOF
+      {
+        "workflow_type": "3",
+        "strategy": "enhancement",
+        "source_repository": "$(params.repository-url)",
+        "workshop_name": "$(params.workshop-name)",
+        "base_template": "original_repository",
+        "initialization_time": "$(date -Iseconds)"
+      }
+      EOF
+        
+      else
+        echo "📥 Workflow 1: Cloning showroom template"
+        echo "Source: https://github.com/rhpds/showroom_template_default.git"
+        
+        # Clone showroom template for new workshop creation
+        git clone https://github.com/rhpds/showroom_template_default.git .
+        
+        # Create metadata for creation workflow
+        cat > /workspace/shared-data/metadata/workflow-info.json <<EOF
+      {
+        "workflow_type": "1",
+        "strategy": "creation",
+        "source_repository": "$(params.repository-url)",
+        "workshop_name": "$(params.workshop-name)",
+        "base_template": "showroom_template_default",
+        "initialization_time": "$(date -Iseconds)"
+      }
+      EOF
+        
+      fi
+      
+      # Remove .git directory to avoid conflicts
+      rm -rf .git
+      
+      # Count files and create summary
+      FILES_COUNT=$(find . -type f | wc -l)
+      echo ""
+      echo "📊 Workspace Initialization Summary"
+      echo "=================================="
+      echo "Files initialized: $FILES_COUNT"
+      echo "Content path: /workspace/shared-data/workshop-content"
+      echo ""
+      
+      # Display directory structure
+      echo "📂 Directory Structure:"
+      tree -L 3 . || ls -la
+      
+      # Write results
+      echo "success" > $(results.workspace-status.path)
+      echo "/workspace/shared-data/workshop-content" > $(results.content-path.path)
+      echo "$FILES_COUNT" > $(results.files-count.path)
+      
+      echo ""
+      echo "✅ Workspace initialization completed successfully"
+      echo "🎯 Ready for agent file-based operations"
+
+  - name: validate-workspace
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+      
+      echo "🔍 Validating Workspace Content"
+      echo "==============================="
+      
+      CONTENT_PATH="/workspace/shared-data/workshop-content"
+      METADATA_PATH="/workspace/shared-data/metadata"
+      
+      # Validate workspace structure
+      if [ ! -d "$CONTENT_PATH" ]; then
+        echo "❌ Content directory not found: $CONTENT_PATH"
+        exit 1
+      fi
+      
+      if [ ! -f "$METADATA_PATH/workflow-info.json" ]; then
+        echo "❌ Metadata file not found: $METADATA_PATH/workflow-info.json"
+        exit 1
+      fi
+      
+      # Validate content based on workflow type
+      WORKFLOW_TYPE=$(params.workflow-type)
+      
+      if [ "$WORKFLOW_TYPE" = "1" ]; then
+        # Validate showroom template structure
+        if [ ! -f "$CONTENT_PATH/showroom.yml" ]; then
+          echo "⚠️  Warning: showroom.yml not found (may be created by agents)"
+        fi
+        
+        if [ -d "$CONTENT_PATH/content" ]; then
+          echo "✅ Antora content directory found"
+        else
+          echo "⚠️  Warning: Antora content directory not found (may be created by agents)"
+        fi
+        
+      else
+        # Validate original workshop structure
+        echo "✅ Original workshop content validated"
+      fi
+      
+      # Display metadata
+      echo ""
+      echo "📋 Workspace Metadata:"
+      cat "$METADATA_PATH/workflow-info.json" | head -10
+      
+      echo ""
+      echo "✅ Workspace validation completed"
+      echo "🚀 Workspace ready for agent operations"
