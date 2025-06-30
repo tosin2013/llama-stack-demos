@@ -43,8 +43,8 @@ public class PipelineIntegrationResource {
     @POST
     @Path("/content-creator/create-workshop")
     public Response createWorkshopContent(CreateWorkshopRequest request) {
-        LOG.infof("Pipeline request: Create workshop content for '%s'", request.getWorkshopName());
-        
+        LOG.infof("🔧 PIPELINE REQUEST: Create workshop content for '%s'", request.getWorkshopName());
+
         try {
             // Validate request
             if (request.getWorkshopName() == null || request.getWorkshopName().trim().isEmpty()) {
@@ -59,20 +59,25 @@ public class PipelineIntegrationResource {
             parameters.put("workshop_name", request.getWorkshopName());
             parameters.put("technology_focus", request.getRepositoryUrl());
             parameters.put("customization_level", "comprehensive");
-            
+
             if (request.getTargetDirectory() != null) {
                 parameters.put("target_directory", request.getTargetDirectory());
             }
 
             // Call Content Creator Agent via orchestration service
-            Map<String, Object> result = agentOrchestrationService.invokeAgent(
-                "content-creator", 
-                "clone_showroom_template_tool", 
+            Map<String, Object> agentResult = agentOrchestrationService.invokeAgent(
+                "content-creator",
+                "clone_showroom_template_tool",
                 parameters
             );
 
-            LOG.infof("Content Creator Agent response: %s", result.get("status"));
-            return Response.ok(result).build();
+            // Transform agent response to pipeline-expected format
+            LOG.infof("🔧 AGENT RESULT BEFORE TRANSFORM: %s", agentResult);
+            Map<String, Object> pipelineResponse = transformContentCreatorResponse(agentResult, request);
+            LOG.infof("🔧 PIPELINE RESPONSE AFTER TRANSFORM: %s", pipelineResponse);
+
+            LOG.infof("Content Creator Agent response transformed for pipeline: %s", pipelineResponse.get("status"));
+            return Response.ok(pipelineResponse).build();
 
         } catch (Exception e) {
             LOG.errorf("Failed to create workshop content: %s", e.getMessage());
@@ -134,13 +139,16 @@ public class PipelineIntegrationResource {
             parameters.put("target_format", "rhpds_showroom");
 
             // Call Template Converter Agent
-            Map<String, Object> result = agentOrchestrationService.invokeAgent(
-                "template-converter", 
-                "analyze_repository_tool", 
+            Map<String, Object> agentResult = agentOrchestrationService.invokeAgent(
+                "template-converter",
+                "analyze_repository_tool",
                 parameters
             );
 
-            return Response.ok(result).build();
+            // Transform agent response to pipeline-expected format
+            Map<String, Object> pipelineResponse = transformTemplateConverterResponse(agentResult, request);
+
+            return Response.ok(pipelineResponse).build();
 
         } catch (Exception e) {
             LOG.errorf("Failed to analyze repository: %s", e.getMessage());
@@ -728,5 +736,79 @@ public class PipelineIntegrationResource {
         mockResponse.put("mock", true);
 
         return Response.ok(mockResponse).build();
+    }
+
+    // ========================================
+    // PRIVATE HELPER METHODS
+    // ========================================
+
+    /**
+     * Transform Content Creator Agent response to pipeline-expected format
+     * Converts generic agent response to specific fields expected by Tekton tasks
+     */
+    private Map<String, Object> transformContentCreatorResponse(Map<String, Object> agentResult, CreateWorkshopRequest request) {
+        Map<String, Object> pipelineResponse = new HashMap<>();
+
+        // Extract status from agent response
+        String status = (String) agentResult.get("status");
+        String result = (String) agentResult.get("result");
+        String taskId = (String) agentResult.get("task_id");
+
+        if ("completed".equals(status) || "success".equals(status)) {
+            // Success case - provide expected fields for pipeline
+            pipelineResponse.put("workshop_content", result != null ? result : "Workshop content created successfully");
+            pipelineResponse.put("content_summary", String.format("Workshop '%s' content created via Content Creator Agent", request.getWorkshopName()));
+            pipelineResponse.put("status", "success");
+            pipelineResponse.put("template_used", request.getBaseTemplate() != null ? request.getBaseTemplate() : "showroom_template_default");
+            pipelineResponse.put("workshop_name", request.getWorkshopName());
+
+            if (request.getTargetDirectory() != null) {
+                pipelineResponse.put("target_directory", request.getTargetDirectory());
+            }
+
+        } else {
+            // Error case - provide error information
+            pipelineResponse.put("workshop_content", "");
+            pipelineResponse.put("content_summary", "Failed to create workshop content: " + (result != null ? result : "Unknown error"));
+            pipelineResponse.put("status", "error");
+            pipelineResponse.put("error", result != null ? result : "Content creation failed");
+        }
+
+        // Always include task tracking
+        if (taskId != null) {
+            pipelineResponse.put("task_id", taskId);
+        }
+
+        return pipelineResponse;
+    }
+
+    /**
+     * Transform Template Converter Agent response to pipeline-expected format
+     */
+    private Map<String, Object> transformTemplateConverterResponse(Map<String, Object> agentResult, AnalyzeRepositoryRequest request) {
+        Map<String, Object> pipelineResponse = new HashMap<>();
+
+        String status = (String) agentResult.get("status");
+        String result = (String) agentResult.get("result");
+        String taskId = (String) agentResult.get("task_id");
+
+        if ("completed".equals(status) || "success".equals(status)) {
+            // Success case
+            pipelineResponse.put("analysis_result", result != null ? result : "Repository analysis completed successfully");
+            pipelineResponse.put("repository_url", request.getRepositoryUrl());
+            pipelineResponse.put("analysis_depth", request.getAnalysisDepth() != null ? request.getAnalysisDepth() : "comprehensive");
+            pipelineResponse.put("status", "success");
+        } else {
+            // Error case
+            pipelineResponse.put("analysis_result", "");
+            pipelineResponse.put("status", "error");
+            pipelineResponse.put("error", result != null ? result : "Repository analysis failed");
+        }
+
+        if (taskId != null) {
+            pipelineResponse.put("task_id", taskId);
+        }
+
+        return pipelineResponse;
     }
 }
