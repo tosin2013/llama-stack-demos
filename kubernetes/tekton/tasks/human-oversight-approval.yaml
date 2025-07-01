@@ -111,26 +111,38 @@ spec:
       
       echo "📝 Submitting approval request..."
       
-      # Submit approval request via chat interface
-      CHAT_RESPONSE=$(curl -k -s -X POST "${MONITORING_URL}/api/oversight/chat" \
+      # Submit approval request via NEW pipeline approval endpoints
+      echo "📝 Using new pipeline approval endpoints for enhanced human-in-the-loop integration..."
+
+      APPROVAL_REQUEST_RESPONSE=$(curl -k -s -X POST "${MONITORING_URL}/api/pipeline/approval/submit" \
         -H "Content-Type: application/json" \
         -d "{
-          \"message\": \"Approval required for $(params.approval-type): $(params.workflow-id). Repository: $(params.repository-url). Data: $(params.approval-data)\",
-          \"sessionId\": \"pipeline-$(params.workflow-id)\"
-        }")
-      
-      echo "💬 Chat notification sent: $CHAT_RESPONSE"
-      
-      # Create workflow for approval tracking
-      WORKFLOW_RESPONSE=$(curl -k -s -X POST "${MONITORING_URL}/api/oversight/workflows/$(params.workflow-id)/approve" \
-        -H "Content-Type: application/json" \
-        -d "{
-          \"comment\": \"Pipeline approval gate for $(params.approval-type)\",
+          \"workflow_id\": \"$(params.workflow-id)\",
+          \"approval_type\": \"$(params.approval-type)\",
           \"approver\": \"$(params.approver)\",
-          \"workflow_data\": $(echo "$APPROVAL_PAYLOAD" | jq -c .)
+          \"repository_url\": \"$(params.repository-url)\",
+          \"workshop_name\": \"$(params.workshop-name)\",
+          \"approval_data\": \"$(params.approval-data)\",
+          \"timeout_minutes\": $(params.timeout-minutes),
+          \"pipeline_context\": {
+            \"pipeline_name\": \"workflow-1-new-workshop\",
+            \"task_name\": \"human-oversight-approval\",
+            \"run_name\": \"$(params.workflow-id)\"
+          }
         }")
-      
-      echo "📋 Workflow approval request created: $WORKFLOW_RESPONSE"
+
+      echo "📋 Pipeline approval request submitted: $APPROVAL_REQUEST_RESPONSE"
+
+      # Extract approval ID from response
+      APPROVAL_ID=$(echo "$APPROVAL_REQUEST_RESPONSE" | jq -r '.approval_id // empty')
+
+      if [ -z "$APPROVAL_ID" ]; then
+        echo "❌ Failed to create approval request"
+        echo "Response: $APPROVAL_REQUEST_RESPONSE"
+        exit 1
+      fi
+
+      echo "🆔 Approval ID: $APPROVAL_ID"
       
       # Wait for human approval with timeout
       TIMEOUT_SECONDS=$(($(params.timeout-minutes) * 60))
@@ -140,32 +152,41 @@ spec:
       echo "⏳ Waiting for human approval (timeout: $(params.timeout-minutes) minutes)..."
       
       while [ $ELAPSED -lt $TIMEOUT_SECONDS ]; do
-        # Check for approval via command execution
-        COMMAND_RESPONSE=$(curl -k -s -X POST "${MONITORING_URL}/api/oversight/coordinate" \
-          -H "Content-Type: application/json" \
-          -d "{
-            \"action\": \"execute_command\",
-            \"command\": \"list workflows\",
-            \"executor\": \"pipeline-$(params.workflow-id)\"
-          }")
-        
-        # Check if workflow has been approved
-        if echo "$COMMAND_RESPONSE" | jq -e '.success' > /dev/null; then
-          WORKFLOW_STATUS=$(echo "$COMMAND_RESPONSE" | jq -r '.data.result.workflows[] | select(.id == "$(params.workflow-id)") | .status // "pending"')
-          
-          if [ "$WORKFLOW_STATUS" = "approved" ]; then
-            echo "✅ Workflow approved by human oversight"
+        # Check approval status via NEW pipeline approval status endpoint
+        STATUS_RESPONSE=$(curl -k -s -X GET "${MONITORING_URL}/api/pipeline/approval/${APPROVAL_ID}/status" \
+          -H "Content-Type: application/json")
+
+        echo "📊 Status check response: $STATUS_RESPONSE"
+
+        # Parse approval status from response
+        if echo "$STATUS_RESPONSE" | jq -e '.approval_id' > /dev/null; then
+          APPROVAL_STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.status // "pending"')
+          APPROVAL_COMMENT=$(echo "$STATUS_RESPONSE" | jq -r '.comment // "No comment provided"')
+          DECISION_TIMESTAMP=$(echo "$STATUS_RESPONSE" | jq -r '.updated_at // ""')
+
+          echo "📋 Current status: $APPROVAL_STATUS"
+
+          if [ "$APPROVAL_STATUS" = "APPROVED" ]; then
+            echo "✅ Approval granted via new pipeline approval system"
             echo "approved" > $(results.approval-status.path)
-            echo "Approved via human oversight coordinator" > $(results.approval-comment.path)
-            date -Iseconds > $(results.approval-timestamp.path)
+            echo "$APPROVAL_COMMENT" > $(results.approval-comment.path)
+            echo "$DECISION_TIMESTAMP" > $(results.approval-timestamp.path)
             exit 0
-          elif [ "$WORKFLOW_STATUS" = "rejected" ]; then
-            echo "❌ Workflow rejected by human oversight"
+          elif [ "$APPROVAL_STATUS" = "REJECTED" ]; then
+            echo "❌ Approval rejected via new pipeline approval system"
             echo "rejected" > $(results.approval-status.path)
-            echo "Rejected via human oversight coordinator" > $(results.approval-comment.path)
-            date -Iseconds > $(results.approval-timestamp.path)
+            echo "$APPROVAL_COMMENT" > $(results.approval-comment.path)
+            echo "$DECISION_TIMESTAMP" > $(results.approval-timestamp.path)
+            exit 1
+          elif [ "$APPROVAL_STATUS" = "NEEDS_CHANGES" ]; then
+            echo "🔄 Changes requested via new pipeline approval system"
+            echo "needs_changes" > $(results.approval-status.path)
+            echo "$APPROVAL_COMMENT" > $(results.approval-comment.path)
+            echo "$DECISION_TIMESTAMP" > $(results.approval-timestamp.path)
             exit 1
           fi
+        else
+          echo "⚠️  Failed to get approval status: $STATUS_RESPONSE"
         fi
         
         echo "⏱️  Still waiting for approval... (${ELAPSED}s elapsed)"

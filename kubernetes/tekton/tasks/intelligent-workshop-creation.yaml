@@ -1,0 +1,198 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: intelligent-workshop-creation
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: intelligent-workflow
+    adr: "ADR-0001"
+spec:
+  description: |
+    Intelligent Workshop Creation Task
+    Integrates with the new intelligent workshop creation endpoint that implements
+    ADR-0001 Dual-Template Strategy. Automatically classifies repositories and
+    routes to appropriate workflow (Workflow 1 vs Workflow 3).
+  
+  params:
+  - name: repository-url
+    type: string
+    description: Source repository URL to analyze and convert
+  - name: workshop-name
+    type: string
+    description: Name for the new workshop
+  - name: auto-detect-workflow
+    type: string
+    description: Enable automatic workflow detection (true/false)
+    default: "true"
+  - name: base-template
+    type: string
+    description: Base template preference (will be overridden by intelligent classification)
+    default: "showroom_template_default"
+  - name: monitoring-service-url
+    type: string
+    description: Workshop Monitoring Service URL
+    default: "https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+
+  results:
+  - name: classification-result
+    description: Repository classification result (existing_workshop/application/tutorial_content)
+  - name: workflow-type
+    description: Selected workflow type (workflow1/workflow3)
+  - name: detected-framework
+    description: Detected framework from repository analysis
+  - name: confidence-score
+    description: Classification confidence score
+  - name: workshop-creation-status
+    description: Workshop creation status (success/failed)
+  - name: gitea-repository-url
+    description: Created Gitea repository URL (if successful)
+
+  steps:
+  - name: intelligent-workshop-creation
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+      set -e
+
+      echo "🧠 INTELLIGENT WORKSHOP CREATION (ADR-0001)"
+      echo "============================================"
+      echo "Repository: $(params.repository-url)"
+      echo "Workshop Name: $(params.workshop-name)"
+      echo "Auto-detect Workflow: $(params.auto-detect-workflow)"
+      echo "Monitoring Service: $(params.monitoring-service-url)"
+      echo ""
+
+      # Install required tools
+      dnf install -y curl jq
+
+      # Prepare intelligent workshop creation request
+      CREATION_REQUEST=$(cat <<EOF
+      {
+        "workshop_name": "$(params.workshop-name)",
+        "repository_url": "$(params.repository-url)",
+        "auto_detect_workflow": $(params.auto-detect-workflow),
+        "base_template": "$(params.base-template)",
+        "pipeline_context": {
+          "pipeline_name": "workflow-1-new-workshop",
+          "task_name": "intelligent-workshop-creation",
+          "run_name": "$PIPELINE_RUN_NAME"
+        }
+      }
+      EOF
+      )
+
+      echo "📝 Submitting intelligent workshop creation request..."
+      echo "Request payload: $CREATION_REQUEST"
+      echo ""
+
+      # Call the intelligent workshop creation endpoint
+      CREATION_RESPONSE=$(curl -k -s -X POST "$(params.monitoring-service-url)/api/pipeline/content-creator/create-workshop-intelligent" \
+        -H "Content-Type: application/json" \
+        -d "$CREATION_REQUEST")
+
+      echo "📋 Intelligent workshop creation response:"
+      echo "$CREATION_RESPONSE" | jq .
+      echo ""
+
+      # Parse response and extract results
+      if echo "$CREATION_RESPONSE" | jq -e '.classification' > /dev/null; then
+        # Extract classification results
+        CLASSIFICATION_TYPE=$(echo "$CREATION_RESPONSE" | jq -r '.classification.repository_classification // "unknown"')
+        WORKFLOW_TYPE=$(echo "$CREATION_RESPONSE" | jq -r '.classification.recommended_workflow // "workflow1"')
+        DETECTED_FRAMEWORK=$(echo "$CREATION_RESPONSE" | jq -r '.classification.detected_framework // "unknown"')
+        CONFIDENCE_SCORE=$(echo "$CREATION_RESPONSE" | jq -r '.classification.confidence // 0.0')
+        
+        # Extract workshop creation results
+        CREATION_STATUS=$(echo "$CREATION_RESPONSE" | jq -r '.status // "unknown"')
+        GITEA_REPO_URL=$(echo "$CREATION_RESPONSE" | jq -r '.gitea_repository_url // ""')
+        
+        # Store results
+        echo "$CLASSIFICATION_TYPE" > $(results.classification-result.path)
+        echo "$WORKFLOW_TYPE" > $(results.workflow-type.path)
+        echo "$DETECTED_FRAMEWORK" > $(results.detected-framework.path)
+        echo "$CONFIDENCE_SCORE" > $(results.confidence-score.path)
+        echo "$CREATION_STATUS" > $(results.workshop-creation-status.path)
+        echo "$GITEA_REPO_URL" > $(results.gitea-repository-url.path)
+        
+        echo "✅ INTELLIGENT CLASSIFICATION COMPLETE"
+        echo "======================================"
+        echo "Repository Classification: $CLASSIFICATION_TYPE"
+        echo "Recommended Workflow: $WORKFLOW_TYPE"
+        echo "Detected Framework: $DETECTED_FRAMEWORK"
+        echo "Confidence Score: $CONFIDENCE_SCORE"
+        echo "Creation Status: $CREATION_STATUS"
+        echo "Gitea Repository: $GITEA_REPO_URL"
+        echo ""
+        
+        # Check if workshop creation was successful
+        if [ "$CREATION_STATUS" = "success" ] || [ "$CREATION_STATUS" = "completed" ]; then
+          echo "🎉 Workshop creation completed successfully!"
+          echo "📁 Repository available at: $GITEA_REPO_URL"
+          exit 0
+        else
+          echo "⚠️  Workshop creation status: $CREATION_STATUS"
+          echo "📋 This may require human approval or additional processing"
+          exit 0
+        fi
+        
+      else
+        echo "❌ Failed to parse intelligent workshop creation response"
+        echo "Response: $CREATION_RESPONSE"
+        
+        # Set default values for failed classification
+        echo "unknown" > $(results.classification-result.path)
+        echo "workflow1" > $(results.workflow-type.path)
+        echo "unknown" > $(results.detected-framework.path)
+        echo "0.0" > $(results.confidence-score.path)
+        echo "failed" > $(results.workshop-creation-status.path)
+        echo "" > $(results.gitea-repository-url.path)
+        
+        exit 1
+      fi
+
+  - name: log-intelligent-results
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    script: |
+      #!/bin/bash
+
+      CLASSIFICATION_RESULT=$(cat $(results.classification-result.path))
+      WORKFLOW_TYPE=$(cat $(results.workflow-type.path))
+      DETECTED_FRAMEWORK=$(cat $(results.detected-framework.path))
+      CONFIDENCE_SCORE=$(cat $(results.confidence-score.path))
+      CREATION_STATUS=$(cat $(results.workshop-creation-status.path))
+      GITEA_REPO_URL=$(cat $(results.gitea-repository-url.path))
+
+      echo "📊 INTELLIGENT WORKSHOP CREATION SUMMARY"
+      echo "========================================"
+      echo "Repository: $(params.repository-url)"
+      echo "Workshop Name: $(params.workshop-name)"
+      echo ""
+      echo "🔍 CLASSIFICATION RESULTS (ADR-0001):"
+      echo "   Repository Type: $CLASSIFICATION_RESULT"
+      echo "   Workflow Selected: $WORKFLOW_TYPE"
+      echo "   Framework Detected: $DETECTED_FRAMEWORK"
+      echo "   Confidence Score: $CONFIDENCE_SCORE"
+      echo ""
+      echo "🎯 CREATION RESULTS:"
+      echo "   Status: $CREATION_STATUS"
+      echo "   Gitea Repository: $GITEA_REPO_URL"
+      echo ""
+
+      if [ "$CREATION_STATUS" = "success" ] || [ "$CREATION_STATUS" = "completed" ]; then
+        echo "✅ EXPECTED GITEA DELIVERABLE ACHIEVED"
+        echo "======================================"
+        if [ "$WORKFLOW_TYPE" = "workflow1" ]; then
+          echo "📁 NEW repository created with showroom_template_default"
+          echo "🎯 Workflow 1: New Workshop Creation completed"
+        elif [ "$WORKFLOW_TYPE" = "workflow3" ]; then
+          echo "📁 ENHANCED copy created from existing workshop"
+          echo "🎯 Workflow 3: Workshop Enhancement completed"
+        fi
+        echo "🌐 Repository accessible at: $GITEA_REPO_URL"
+        echo "✅ ADR-0001 Dual-Template Strategy successfully implemented"
+      else
+        echo "⏳ Workshop creation in progress or requires approval"
+        echo "📋 Status: $CREATION_STATUS"
+        echo "🔄 Pipeline may continue with approval gates"
+      fi

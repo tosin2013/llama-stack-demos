@@ -1,0 +1,218 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: workflow-1-intelligent-workshop
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    workflow: "1"
+    type: intelligent-workshop-creation
+    adr: "ADR-0001"
+spec:
+  description: |
+    ADR-0001 Intelligent Workshop Creation Pipeline
+    Uses the new intelligent workshop creation endpoint that automatically classifies
+    repositories and routes to appropriate workflow (Workflow 1 vs Workflow 3).
+    Integrates dual-template strategy with human-in-the-loop approval workflows.
+  
+  params:
+  - name: repository-url
+    type: string
+    description: Source repository URL to convert into workshop
+  - name: workshop-name
+    type: string
+    description: Name for the new workshop
+  - name: auto-detect-workflow
+    type: string
+    description: Enable automatic workflow detection
+    default: "true"
+  - name: human-approver
+    type: string
+    description: Human approver for oversight gates
+    default: "system-operator"
+  - name: auto-approve
+    type: string
+    description: Auto-approve all human oversight gates for testing
+    default: "false"
+
+  workspaces:
+  - name: shared-data
+    description: Shared workspace for workshop content and agent coordination (ADR-0007)
+  - name: gitea-auth
+    description: Gitea authentication credentials
+
+  tasks:
+
+  # Task 1: Workspace Initialization (ADR-0007)
+  - name: workspace-initialization
+    taskRef:
+      name: workspace-initialization
+    params:
+    - name: workflow-type
+      value: "intelligent"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: base-template
+      value: "intelligent-detection"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+
+  # Task 2: Intelligent Workshop Creation (NEW - ADR-0001)
+  - name: intelligent-workshop-creation
+    taskRef:
+      name: intelligent-workshop-creation
+    params:
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: auto-detect-workflow
+      value: $(params.auto-detect-workflow)
+    runAfter: [workspace-initialization]
+
+  # Task 3: Human Oversight - Repository Classification Approval
+  - name: human-approval-classification
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "repository-classification"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Repository: $(params.repository-url), Classification: $(tasks.intelligent-workshop-creation.results.classification-result), Workflow: $(tasks.intelligent-workshop-creation.results.workflow-type), Framework: $(tasks.intelligent-workshop-creation.results.detected-framework), Confidence: $(tasks.intelligent-workshop-creation.results.confidence-score)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: auto-approve
+      value: $(params.auto-approve)
+    runAfter: [intelligent-workshop-creation]
+
+  # Task 4: Content Validation (Research Validation Agent)
+  - name: content-validation
+    taskRef:
+      name: agent-task-research-validation
+    params:
+    - name: workshop-content
+      value: "Workshop created via intelligent routing: $(tasks.intelligent-workshop-creation.results.workflow-type)"
+    - name: validation-type
+      value: "intelligent-workshop-validation"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: workshop-name
+      value: $(params.workshop-name)
+    runAfter: [human-approval-classification]
+
+  # Task 5: Human Oversight - Content Quality Approval
+  - name: human-approval-content-quality
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "content-quality"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Workshop: $(params.workshop-name), Classification: $(tasks.intelligent-workshop-creation.results.classification-result), Validation: $(tasks.content-validation.results.validation-result), Framework: $(tasks.intelligent-workshop-creation.results.detected-framework)"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: auto-approve
+      value: $(params.auto-approve)
+    runAfter: [content-validation]
+
+  # Task 6: BuildConfig Creation and Trigger (if Gitea repo was created)
+  - name: buildconfig-deployment
+    taskRef:
+      name: openshift-buildconfig-trigger
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: gitea-repository-url
+      value: "$(tasks.intelligent-workshop-creation.results.gitea-repository-url)"
+    - name: build-type
+      value: "intelligent-workshop"
+    - name: workflow-type
+      value: "$(tasks.intelligent-workshop-creation.results.workflow-type)"
+    runAfter: [human-approval-content-quality]
+    when:
+    - input: "$(tasks.intelligent-workshop-creation.results.gitea-repository-url)"
+      operator: notin
+      values: ["", "null"]
+
+  # Task 7: Documentation Pipeline (Documentation Pipeline Agent)
+  - name: documentation-generation
+    taskRef:
+      name: agent-task-documentation-pipeline
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: gitea-repository-url
+      value: "$(tasks.intelligent-workshop-creation.results.gitea-repository-url)"
+    - name: documentation-type
+      value: "intelligent-workshop-docs"
+    - name: workflow-type
+      value: "$(tasks.intelligent-workshop-creation.results.workflow-type)"
+    runAfter: [buildconfig-deployment]
+
+  # Task 8: Workshop Chat Setup (Workshop Chat Agent)
+  - name: workshop-chat-setup
+    taskRef:
+      name: agent-task-workshop-chat
+    params:
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: workshop-content
+      value: "Intelligent workshop: $(tasks.intelligent-workshop-creation.results.classification-result)"
+    - name: setup-type
+      value: "intelligent-workshop-chat"
+    - name: framework
+      value: "$(tasks.intelligent-workshop-creation.results.detected-framework)"
+    runAfter: [documentation-generation]
+
+  # Task 9: Human Oversight - Final Deployment Approval
+  - name: human-approval-final-deployment
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "final-deployment"
+    - name: workflow-id
+      value: "$(context.pipelineRun.name)"
+    - name: workshop-name
+      value: $(params.workshop-name)
+    - name: approver
+      value: $(params.human-approver)
+    - name: approval-data
+      value: "Workshop: $(params.workshop-name), Repository: $(tasks.intelligent-workshop-creation.results.gitea-repository-url), Classification: $(tasks.intelligent-workshop-creation.results.classification-result), Workflow: $(tasks.intelligent-workshop-creation.results.workflow-type), Framework: $(tasks.intelligent-workshop-creation.results.detected-framework), Chat: $(tasks.workshop-chat-setup.results.chat-setup-status)"
+    - name: repository-url
+      value: $(params.repository-url)
+    - name: auto-approve
+      value: $(params.auto-approve)
+    runAfter: [workshop-chat-setup]
+
+  results:
+  - name: workflow-status
+    description: Overall workflow completion status
+    value: "completed"
+  - name: classification-result
+    description: Repository classification result
+    value: "$(tasks.intelligent-workshop-creation.results.classification-result)"
+  - name: workflow-type
+    description: Selected workflow type
+    value: "$(tasks.intelligent-workshop-creation.results.workflow-type)"
+  - name: gitea-repository-url
+    description: Created Gitea repository URL
+    value: "$(tasks.intelligent-workshop-creation.results.gitea-repository-url)"
+  - name: detected-framework
+    description: Detected framework
+    value: "$(tasks.intelligent-workshop-creation.results.detected-framework)"
