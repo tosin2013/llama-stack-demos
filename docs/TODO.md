@@ -47,6 +47,47 @@
     - [x] Testing documentation complete and usable (mock endpoints documented)
   - **ADR Reference**: ADR-0018
 
+## 🧪 CRITICAL PRIORITY - LOCAL TESTING PROTOCOL
+
+- [ ] **Implement Local Testing Protocol Before OpenShift Deployment** 🧪 **CRITICAL**
+  - **Issue**: Recent build failures due to compilation errors that could have been caught locally
+  - **Impact**: Wasted deployment cycles, delayed feature delivery, potential production issues
+  - **Requirement**: All code must pass local tests before git push and OpenShift deployment
+  - **Components**:
+    - [ ] Local Maven compilation testing (`./mvnw clean compile`)
+    - [ ] Local unit test execution (`./mvnw test`)
+    - [ ] Local integration test execution (`./mvnw verify`)
+    - [ ] Local Quarkus dev mode testing (`./mvnw quarkus:dev`)
+    - [ ] Local endpoint testing with curl/Postman
+    - [ ] Code quality checks (formatting, imports, unused variables)
+  - **Verification Criteria**:
+    - [ ] All Maven phases complete successfully locally
+    - [ ] All unit tests pass locally
+    - [ ] All integration tests pass locally
+    - [ ] Quarkus dev mode starts without errors
+    - [ ] New endpoints respond correctly in dev mode
+    - [ ] No compilation warnings or errors
+    - [ ] Code follows existing patterns and style
+  - **Testing Workflow**:
+    ```bash
+    # 1. Clean and compile
+    ./mvnw clean compile
+
+    # 2. Run all tests
+    ./mvnw test
+
+    # 3. Start dev mode and test endpoints
+    ./mvnw quarkus:dev
+
+    # 4. Test new endpoints manually
+    curl -X POST http://localhost:8080/api/pipeline/approval/submit
+
+    # 5. Only after all tests pass: commit and push
+    git add . && git commit -m "..." && git push
+    ```
+  - **Benefits**: Faster development cycles, fewer build failures, higher code quality
+  - **ADR Reference**: Development best practices, ADR-0018
+
 ## 🔥 HIGH PRIORITY (ADR Requirements)
 
 ### Human-in-the-Loop Workflows
@@ -201,7 +242,7 @@
 
 ## 🔄 PROGRESS TRACKING
 
-**Completion Status**: 3/9 tasks completed (33%) - **🎉 CRITICAL PRIORITY: 100% COMPLETE!**
+**Completion Status**: 3/10 tasks completed (30%) - **⚠️ NEW CRITICAL PRIORITY ADDED: Local Testing Protocol**
 
 **✅ COMPLETED**:
 1. ✅ Fix pipeline response transformation issues (RESOLVED - commit a10d2164) **✅ VALIDATED BY TEKTON PIPELINE TEST**
@@ -214,10 +255,13 @@
 - **Repository**: https://github.com/tosin2013/ansible-controller-cac.git ✅ PROCESSED
 - **Workshop Created**: simple-test-1751318766 ✅ SUCCESS
 
+**⚠️ CURRENT ISSUE**: Build failure due to compilation errors - demonstrates need for local testing protocol
+
 **Next Immediate Actions**:
-1. Implement Human-in-the-Loop approval workflows
-2. Implement Dual-Template Strategy for Workshop Creation
-3. Enhance Content Quality Assurance Workflows
+1. **🧪 CRITICAL: Implement Local Testing Protocol** - Ensure all tests pass before OpenShift deployment
+2. **🔧 Fix current compilation errors** (NEEDS_CHANGES enum, validation imports)
+3. Implement Human-in-the-Loop approval workflows
+4. Implement Dual-Template Strategy for Workshop Creation
 
 **📋 DOCUMENTATION IMPROVEMENT**: Added comprehensive Gitea deliverable specifications to clarify expected outcomes for each pipeline workflow.
 
