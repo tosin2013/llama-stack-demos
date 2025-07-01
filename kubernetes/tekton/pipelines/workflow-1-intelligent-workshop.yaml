@@ -200,19 +200,9 @@ spec:
       value: $(params.auto-approve)
     runAfter: [workshop-chat-setup]
 
-  results:
-  - name: workflow-status
-    description: Overall workflow completion status
-    value: "completed"
-  - name: classification-result
-    description: Repository classification result
-    value: "$(tasks.intelligent-workshop-creation.results.classification-result)"
-  - name: workflow-type
-    description: Selected workflow type
-    value: "$(tasks.intelligent-workshop-creation.results.workflow-type)"
-  - name: gitea-repository-url
-    description: Created Gitea repository URL
-    value: "$(tasks.intelligent-workshop-creation.results.gitea-repository-url)"
-  - name: detected-framework
-    description: Detected framework
-    value: "$(tasks.intelligent-workshop-creation.results.detected-framework)"
+  # Results will be available from task outputs
+  # Pipeline results can be accessed via: tkn pipelinerun describe <run-name>
+  # - classification-result: $(tasks.intelligent-workshop-creation.results.classification-result)
+  # - workflow-type: $(tasks.intelligent-workshop-creation.results.workflow-type)
+  # - gitea-repository-url: $(tasks.intelligent-workshop-creation.results.gitea-repository-url)
+  # - detected-framework: $(tasks.intelligent-workshop-creation.results.detected-framework)
