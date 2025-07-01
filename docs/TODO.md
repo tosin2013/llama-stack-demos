@@ -132,6 +132,28 @@
     - [x] **Gitea Ready**: Workflow 3 creates ENHANCED copies of existing workshops
   - **ADR Reference**: ADR-0001 ✅ **FULLY COMPLIANT**
 
+### Tekton Pipeline Integration
+
+- [ ] **Update Tekton Pipelines for Intelligent Workflow Integration** 🔥 **HIGH PRIORITY**
+  - **Requirement**: ADR-0006 Tekton-Agent Integration Architecture compliance
+  - **Issue**: Current pipelines don't use new intelligent workshop creation endpoints
+  - **Scope**: Integrate dual-template strategy with existing Tekton pipeline infrastructure
+  - **Components**:
+    - [ ] Update workflow-1-new-workshop pipeline to use /create-workshop-intelligent endpoint
+    - [ ] Update workflow-3-enhance-workshop pipeline with repository classification
+    - [ ] Integrate human-in-the-loop approval tasks with new pipeline approval endpoints
+    - [ ] Test end-to-end Tekton pipeline execution with intelligent routing
+  - **Verification**:
+    - [ ] Tekton pipeline automatically classifies repositories (existing_workshop vs application)
+    - [ ] Pipeline routes to correct workflow based on classification
+    - [ ] Human approval gates work with new approval endpoints
+    - [ ] Expected Gitea deliverables created via Tekton pipeline execution
+  - **Expected Tekton Outcomes**:
+    - [ ] **Pipeline Outcome**: workflow-1 creates NEW repositories with showroom_template_default
+    - [ ] **Pipeline Outcome**: workflow-3 creates ENHANCED copies of existing workshops
+    - [ ] **Pipeline Outcome**: Human approval gates integrated with frontend decision interface
+  - **ADR Reference**: ADR-0006, ADR-0003
+
 ## 📊 MEDIUM PRIORITY (Quality & Enhancement)
 
 ### Content Quality Workflows
@@ -243,7 +265,7 @@
 
 ## 🔄 PROGRESS TRACKING
 
-**Completion Status**: 6/10 tasks completed (60%) - **🎉 MAJOR MILESTONES ACHIEVED!**
+**Completion Status**: 6/11 tasks completed (55%) - **🎉 MAJOR MILESTONES ACHIEVED + NEW HIGH PRIORITY IDENTIFIED**
 
 **✅ COMPLETED**:
 1. ✅ Fix pipeline response transformation issues (RESOLVED - commit a10d2164) **✅ VALIDATED BY TEKTON PIPELINE TEST**
@@ -273,11 +295,16 @@
 - **Template Selection**: showroom_template_default vs original repository cloning
 - **80% Code Reuse**: Leveraging existing Template Converter Agent
 
+**⚠️ NEW HIGH PRIORITY IDENTIFIED:**
+- **Tekton Pipeline Integration**: ADR-0006 requires using Tekton pipelines for end-to-end testing
+- **Architecture Compliance**: Current intelligent endpoints need integration with existing Tekton infrastructure
+- **Expected Deliverables**: Gitea repositories should be created via Tekton pipeline execution, not direct API calls
+
 **Next Immediate Actions**:
-1. **Test complete end-to-end intelligent workflow** (Repository → Classification → Routing → Approval → Gitea)
-2. **Enhance Content Quality Assurance Workflows** (RAG content validation)
-3. **Implement Advanced Monitoring Dashboard Features** (real-time tracking)
-4. **Optimize Performance and Scalability** (caching, async processing)
+1. **Test complete end-to-end intelligent workflow via Tekton pipelines** (ADR-0006 compliance)
+2. **Update Tekton pipelines to use new intelligent endpoints** (integrate dual-template strategy)
+3. **Enhance Content Quality Assurance Workflows** (RAG content validation)
+4. **Implement Advanced Monitoring Dashboard Features** (real-time tracking)
 
 **📋 DOCUMENTATION IMPROVEMENT**: Added comprehensive Gitea deliverable specifications to clarify expected outcomes for each pipeline workflow.
 
