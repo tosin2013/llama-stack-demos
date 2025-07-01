@@ -4,6 +4,10 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.client.Entity;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -50,6 +54,9 @@ public class PipelineIntegrationResource {
 
     @ConfigProperty(name = "quarkus.profile", defaultValue = "prod")
     String profile;
+
+    // HTTP client for direct Gitea API calls
+    private final Client httpClient = ClientBuilder.newClient();
 
     /**
      * Content Creator Agent - Create Workshop Content
@@ -1123,13 +1130,77 @@ public class PipelineIntegrationResource {
 
                 LOG.infof("✅ Gitea repository created successfully: %s", repositoryUrl);
                 return repositoryUrl != null ? repositoryUrl : "";
+            } else if (agentResult != null && "completed".equals(agentResult.get("status"))) {
+                // Check if agent returned simplified implementation
+                String result = (String) agentResult.get("result");
+                if (result != null && result.contains("simplified implementation")) {
+                    LOG.warnf("⚠️ Agent returned simplified implementation, attempting direct Gitea API call");
+                    return createGiteaRepositoryDirect(workshopName, workshopContent);
+                } else {
+                    // Extract repository URL from completed response
+                    String repositoryUrl = extractRepositoryUrlFromResponse(result);
+                    LOG.infof("✅ Gitea repository created successfully: %s", repositoryUrl);
+                    return repositoryUrl != null ? repositoryUrl : "";
+                }
             } else {
-                LOG.warnf("⚠️ Failed to create Gitea repository via Source Manager Agent");
-                return "";
+                LOG.warnf("⚠️ Failed to create Gitea repository via Source Manager Agent, attempting direct API call");
+                return createGiteaRepositoryDirect(workshopName, workshopContent);
             }
 
         } catch (Exception e) {
             LOG.errorf("❌ Error creating Gitea repository: %s", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Create Gitea repository directly via API (fallback method)
+     */
+    private String createGiteaRepositoryDirect(String workshopName, String workshopContent) {
+        try {
+            LOG.infof("📁 Creating Gitea repository directly via API: %s", workshopName);
+
+            // Get Gitea configuration from environment/config
+            String giteaUrl = "https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com";
+            String giteaApiUrl = giteaUrl + "/api/v1";
+            String giteaOrg = "workshop-system";
+
+            // Get Gitea token from secret
+            String giteaToken = System.getenv("GITEA_TOKEN");
+            if (giteaToken == null || giteaToken.isEmpty()) {
+                LOG.warnf("⚠️ GITEA_TOKEN not available for direct API call");
+                return "";
+            }
+
+            // Create repository via Gitea API
+            Map<String, Object> repoData = new HashMap<>();
+            repoData.put("name", workshopName);
+            repoData.put("description", "Workshop created via Workshop Template System");
+            repoData.put("private", false);
+            repoData.put("auto_init", true);
+            repoData.put("default_branch", "main");
+
+            WebTarget target = httpClient.target(giteaApiUrl + "/orgs/" + giteaOrg + "/repos");
+            Response response = target.request(MediaType.APPLICATION_JSON)
+                .header("Authorization", "token " + giteaToken)
+                .post(Entity.json(repoData));
+
+            if (response.getStatus() == 201) {
+                Map<String, Object> responseData = response.readEntity(Map.class);
+                String repositoryUrl = (String) responseData.get("html_url");
+                response.close();
+
+                LOG.infof("✅ Gitea repository created directly via API: %s", repositoryUrl);
+                return repositoryUrl;
+            } else {
+                String errorBody = response.readEntity(String.class);
+                response.close();
+                LOG.errorf("❌ Failed to create Gitea repository directly: HTTP %d - %s", response.getStatus(), errorBody);
+                return "";
+            }
+
+        } catch (Exception e) {
+            LOG.errorf("❌ Error creating Gitea repository directly: %s", e.getMessage());
             return "";
         }
     }
