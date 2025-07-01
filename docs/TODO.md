@@ -143,16 +143,72 @@
     - [ ] Update workflow-3-enhance-workshop pipeline with repository classification
     - [ ] Integrate human-in-the-loop approval tasks with new pipeline approval endpoints
     - [ ] Test end-to-end Tekton pipeline execution with intelligent routing
-  - **Verification**:
-    - [ ] Tekton pipeline automatically classifies repositories (existing_workshop vs application)
-    - [ ] Pipeline routes to correct workflow based on classification
-    - [ ] Human approval gates work with new approval endpoints
-    - [ ] Expected Gitea deliverables created via Tekton pipeline execution
+  - **Verification** (using tkn CLI - make no assumptions):
+    - [ ] **Deploy new Tekton resources**: `oc apply -f kubernetes/tekton/tasks/intelligent-workshop-creation.yaml -n workshop-system`
+    - [ ] **Deploy updated approval task**: `oc apply -f kubernetes/tekton/tasks/human-oversight-approval.yaml -n workshop-system`
+    - [ ] **Deploy intelligent pipeline**: `oc apply -f kubernetes/tekton/pipelines/workflow-1-intelligent-workshop.yaml -n workshop-system`
+    - [ ] **Verify task deployment**: `tkn task list -n workshop-system | grep intelligent-workshop-creation`
+    - [ ] **Verify pipeline deployment**: `tkn pipeline list -n workshop-system | grep workflow-1-intelligent-workshop`
+    - [ ] **Test pipeline execution**: `tkn pipeline start workflow-1-intelligent-workshop -n workshop-system --param repository-url=https://github.com/tosin2013/ansible-controller-cac.git --param workshop-name=ansible-cac-tekton-test --param auto-approve=true --workspace name=shared-data,claimName=workshop-shared-workspace --workspace name=gitea-auth,emptyDir=""`
+    - [ ] **Monitor pipeline run**: `tkn pipelinerun logs -f -n workshop-system` (use latest run name)
+    - [ ] **Verify classification results**: Check pipeline run results for repository classification and workflow routing
+    - [ ] **Verify approval integration**: Test human approval gates with new pipeline approval endpoints
+    - [ ] **Verify Gitea deliverable**: Confirm expected repository created in Gitea via pipeline execution
   - **Expected Tekton Outcomes**:
     - [ ] **Pipeline Outcome**: workflow-1 creates NEW repositories with showroom_template_default
     - [ ] **Pipeline Outcome**: workflow-3 creates ENHANCED copies of existing workshops
     - [ ] **Pipeline Outcome**: Human approval gates integrated with frontend decision interface
   - **ADR Reference**: ADR-0006, ADR-0003
+
+### Tekton Pipeline Validation Protocol
+
+- [ ] **Validate Tekton Infrastructure and Pipeline Integration** 🔍 **VALIDATION REQUIRED**
+  - **Purpose**: Verify Tekton pipeline integration works correctly with no assumptions
+  - **Prerequisites**: OpenShift cluster access, tkn CLI installed, workshop-system namespace exists
+  - **Validation Commands** (execute in sequence):
+    ```bash
+    # 1. Verify current Tekton infrastructure
+    tkn pipeline list -n workshop-system
+    tkn task list -n workshop-system
+
+    # 2. Check workspace and PVC availability
+    oc get pvc -n workshop-system | grep workshop-shared-workspace
+
+    # 3. Verify monitoring service deployment and route
+    oc get route workshop-monitoring-service -n workshop-system
+    curl -k https://$(oc get route workshop-monitoring-service -n workshop-system -o jsonpath='{.spec.host}')/health
+
+    # 4. Test intelligent endpoint availability (after build completes)
+    curl -k -X POST https://$(oc get route workshop-monitoring-service -n workshop-system -o jsonpath='{.spec.host}')/api/pipeline/content-creator/create-workshop-intelligent \
+      -H "Content-Type: application/json" \
+      -d '{"workshop_name": "test", "repository_url": "https://github.com/tosin2013/ansible-controller-cac.git"}'
+
+    # 5. Execute intelligent pipeline with real repository
+    tkn pipeline start workflow-1-intelligent-workshop -n workshop-system \
+      --param repository-url=https://github.com/tosin2013/ansible-controller-cac.git \
+      --param workshop-name=ansible-cac-tekton-validation \
+      --param auto-approve=true \
+      --workspace name=shared-data,claimName=workshop-shared-workspace \
+      --workspace name=gitea-auth,emptyDir=""
+
+    # 6. Monitor pipeline execution
+    tkn pipelinerun list -n workshop-system
+    tkn pipelinerun logs <run-name> -f -n workshop-system
+
+    # 7. Verify expected outcomes
+    tkn pipelinerun describe <run-name> -n workshop-system
+    ```
+  - **Expected Results**:
+    - [ ] Pipeline completes successfully (Status: Succeeded)
+    - [ ] Repository classification occurs (check task results)
+    - [ ] Workflow routing decision made (workflow1 vs workflow3)
+    - [ ] Human approval gates function (if auto-approve=false)
+    - [ ] Gitea repository created (verify URL in pipeline results)
+  - **Failure Scenarios to Test**:
+    - [ ] Invalid repository URL handling
+    - [ ] Network connectivity issues
+    - [ ] Approval timeout scenarios
+    - [ ] Workspace permission problems
 
 ## 📊 MEDIUM PRIORITY (Quality & Enhancement)
 
@@ -265,7 +321,7 @@
 
 ## 🔄 PROGRESS TRACKING
 
-**Completion Status**: 6/11 tasks completed (55%) - **🎉 MAJOR MILESTONES ACHIEVED + NEW HIGH PRIORITY IDENTIFIED**
+**Completion Status**: 6/12 tasks completed (50%) - **🎉 MAJOR MILESTONES ACHIEVED + TEKTON INTEGRATION IMPLEMENTED**
 
 **✅ COMPLETED**:
 1. ✅ Fix pipeline response transformation issues (RESOLVED - commit a10d2164) **✅ VALIDATED BY TEKTON PIPELINE TEST**
@@ -295,16 +351,17 @@
 - **Template Selection**: showroom_template_default vs original repository cloning
 - **80% Code Reuse**: Leveraging existing Template Converter Agent
 
-**⚠️ NEW HIGH PRIORITY IDENTIFIED:**
-- **Tekton Pipeline Integration**: ADR-0006 requires using Tekton pipelines for end-to-end testing
-- **Architecture Compliance**: Current intelligent endpoints need integration with existing Tekton infrastructure
-- **Expected Deliverables**: Gitea repositories should be created via Tekton pipeline execution, not direct API calls
+**⚠️ TEKTON INTEGRATION IMPLEMENTED - VALIDATION REQUIRED:**
+- **Tekton Pipeline Integration**: ADR-0006 compliant implementation created
+- **Architecture Compliance**: Intelligent endpoints integrated with Tekton infrastructure
+- **Expected Deliverables**: Gitea repositories will be created via Tekton pipeline execution
+- **🔍 VALIDATION NEEDED**: Use tkn CLI commands to verify integration works correctly (make no assumptions)
 
 **Next Immediate Actions**:
-1. **Test complete end-to-end intelligent workflow via Tekton pipelines** (ADR-0006 compliance)
-2. **Update Tekton pipelines to use new intelligent endpoints** (integrate dual-template strategy)
-3. **Enhance Content Quality Assurance Workflows** (RAG content validation)
-4. **Implement Advanced Monitoring Dashboard Features** (real-time tracking)
+1. **Validate Tekton pipeline integration using tkn CLI** (concrete verification, no assumptions)
+2. **Execute end-to-end intelligent workflow via Tekton pipelines** (ADR-0006 compliance)
+3. **Verify expected Gitea deliverables created via pipeline execution** (validate TODO.md outcomes)
+4. **Enhance Content Quality Assurance Workflows** (RAG content validation)
 
 **📋 DOCUMENTATION IMPROVEMENT**: Added comprehensive Gitea deliverable specifications to clarify expected outcomes for each pipeline workflow.
 
