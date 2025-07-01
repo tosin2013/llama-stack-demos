@@ -9,6 +9,7 @@ import org.jboss.logging.Logger;
 
 import com.redhat.workshop.monitoring.service.AgentOrchestrationService;
 import com.redhat.workshop.monitoring.service.ApprovalService;
+import com.redhat.workshop.monitoring.service.RepositoryClassificationService;
 import com.redhat.workshop.monitoring.model.pipeline.*;
 import com.redhat.workshop.monitoring.model.pipeline.UpdateWorkshopRequest;
 import com.redhat.workshop.monitoring.model.pipeline.ApproveUpdateRequest;
@@ -21,6 +22,7 @@ import com.redhat.workshop.monitoring.model.pipeline.PipelineApprovalDecision;
 import com.redhat.workshop.monitoring.model.ApprovalRequest;
 import com.redhat.workshop.monitoring.model.ApprovalDecision;
 import com.redhat.workshop.monitoring.model.ApprovalStatus;
+import com.redhat.workshop.monitoring.model.RepositoryClassification;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +44,9 @@ public class PipelineIntegrationResource {
 
     @Inject
     ApprovalService approvalService;
+
+    @Inject
+    RepositoryClassificationService repositoryClassificationService;
 
     @ConfigProperty(name = "quarkus.profile", defaultValue = "prod")
     String profile;
@@ -964,6 +969,148 @@ public class PipelineIntegrationResource {
             return Response.status(500)
                 .entity(Map.of("error", "Failed to process approval decision: " + e.getMessage()))
                 .build();
+        }
+    }
+
+    // ========================================
+    // ADR-0001 DUAL-TEMPLATE STRATEGY ENDPOINTS
+    // ========================================
+
+    /**
+     * Intelligent Workshop Creation Endpoint
+     * Automatically classifies repositories and routes to appropriate workflow based on ADR-0001
+     * - Existing workshops → Workflow 3 (Enhancement)
+     * - Applications/Tutorial content → Workflow 1 (New Workshop Creation)
+     */
+    @POST
+    @Path("/content-creator/create-workshop-intelligent")
+    public Response createWorkshopIntelligent(CreateWorkshopRequest request) {
+        LOG.infof("🧠 INTELLIGENT WORKSHOP CREATION: Repository '%s', Workshop '%s'",
+                 request.getRepositoryUrl(), request.getWorkshopName());
+
+        try {
+            // Validate request
+            if (request.getRepositoryUrl() == null || request.getRepositoryUrl().trim().isEmpty()) {
+                return Response.status(400)
+                    .entity(Map.of("error", "Repository URL is required for intelligent workshop creation"))
+                    .build();
+            }
+
+            if (request.getWorkshopName() == null || request.getWorkshopName().trim().isEmpty()) {
+                return Response.status(400)
+                    .entity(Map.of("error", "Workshop name is required"))
+                    .build();
+            }
+
+            // Step 1: Classify repository using ADR-0001 logic
+            LOG.debugf("🔍 Classifying repository: %s", request.getRepositoryUrl());
+            RepositoryClassification classification = repositoryClassificationService.classifyRepository(request.getRepositoryUrl());
+
+            // Step 2: Update request with classification results
+            request.setRepositoryClassification(classification.getClassificationType());
+            request.setWorkflowType(classification.getRecommendedWorkflow());
+            request.setDetectedFramework(classification.getDetectedFramework());
+
+            // Step 3: Log workflow decision
+            logWorkflowDecision(request.getRepositoryUrl(), classification);
+
+            // Step 4: Route to appropriate workflow
+            Response workflowResponse;
+            if (classification.shouldUseWorkflow3()) {
+                // Workflow 3: Enhancement - Clone original workshop
+                LOG.infof("🔄 Routing to Workflow 3 (Enhancement) for existing workshop");
+                EnhanceWorkshopRequest enhanceRequest = convertToEnhanceRequest(request, classification);
+                workflowResponse = enhanceWorkshopContent(enhanceRequest);
+            } else {
+                // Workflow 1: New Workshop Creation - Use showroom_template_default
+                LOG.infof("🆕 Routing to Workflow 1 (New Creation) for application/tutorial content");
+                workflowResponse = createWorkshopContent(request);
+            }
+
+            // Step 5: Build unified response with classification metadata
+            return buildUnifiedResponse(workflowResponse, classification, request);
+
+        } catch (Exception e) {
+            LOG.errorf("Failed to create workshop intelligently: %s", e.getMessage());
+            return Response.status(500)
+                .entity(Map.of(
+                    "error", "Failed to create workshop intelligently: " + e.getMessage(),
+                    "repository_url", request.getRepositoryUrl(),
+                    "workshop_name", request.getWorkshopName()
+                ))
+                .build();
+        }
+    }
+
+    // ========================================
+    // WORKFLOW ROUTING HELPER METHODS
+    // ========================================
+
+    /**
+     * Convert CreateWorkshopRequest to EnhanceWorkshopRequest for Workflow 3
+     */
+    private EnhanceWorkshopRequest convertToEnhanceRequest(CreateWorkshopRequest request, RepositoryClassification classification) {
+        EnhanceWorkshopRequest enhanceRequest = new EnhanceWorkshopRequest();
+        enhanceRequest.setRepositoryUrl(request.getRepositoryUrl());
+        enhanceRequest.setWorkshopName(request.getWorkshopName());
+        enhanceRequest.setEnhancementPlan(String.format(
+            "Intelligent enhancement of existing %s workshop. Classification confidence: %.2f. " +
+            "Detected framework: %s. Workflow: %s",
+            classification.getDetectedFramework(), classification.getConfidence(),
+            classification.getDetectedFramework(), classification.getRecommendedWorkflow()
+        ));
+        enhanceRequest.setEnhancementType("intelligent-classification");
+
+        LOG.debugf("🔄 Converted to EnhanceWorkshopRequest: %s", enhanceRequest.getWorkshopName());
+        return enhanceRequest;
+    }
+
+    /**
+     * Log workflow decision for audit and debugging
+     */
+    private void logWorkflowDecision(String repositoryUrl, RepositoryClassification classification) {
+        LOG.infof("📊 WORKFLOW DECISION: Repository '%s' → Classification: %s, Framework: %s, Workflow: %s, Confidence: %.2f",
+                 repositoryUrl,
+                 classification.getClassificationType(),
+                 classification.getDetectedFramework(),
+                 classification.getRecommendedWorkflow(),
+                 classification.getConfidence());
+
+        if (!classification.getIndicators().isEmpty()) {
+            LOG.debugf("🔍 Classification indicators: %s", String.join(", ", classification.getIndicators()));
+        }
+    }
+
+    /**
+     * Build unified response format with classification metadata
+     */
+    private Response buildUnifiedResponse(Response workflowResponse, RepositoryClassification classification, CreateWorkshopRequest request) {
+        try {
+            // Extract original response data
+            Object originalEntity = workflowResponse.getEntity();
+            Map<String, Object> originalData = (Map<String, Object>) originalEntity;
+
+            // Build enhanced response with classification metadata
+            Map<String, Object> enhancedResponse = new HashMap<>(originalData);
+            enhancedResponse.put("classification", Map.of(
+                "repository_classification", classification.getClassificationType(),
+                "detected_framework", classification.getDetectedFramework(),
+                "recommended_workflow", classification.getRecommendedWorkflow(),
+                "confidence", classification.getConfidence(),
+                "template_source", classification.getTemplateSource(),
+                "gitea_strategy", classification.getGiteaStrategy(),
+                "workflow_description", classification.getWorkflowDescription()
+            ));
+            enhancedResponse.put("intelligent_routing", true);
+            enhancedResponse.put("adr_compliance", "ADR-0001");
+
+            return Response.status(workflowResponse.getStatus())
+                .entity(enhancedResponse)
+                .build();
+
+        } catch (Exception e) {
+            LOG.warnf("Failed to build unified response, returning original: %s", e.getMessage());
+            return workflowResponse;
         }
     }
 }
