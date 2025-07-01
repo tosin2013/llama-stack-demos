@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Clock, 
-  User, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Clock,
+  User,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
   ArrowUp,
   Eye,
   MessageSquare,
   Calendar,
-  Filter
+  Filter,
+  ThumbsUp,
+  ThumbsDown,
+  Edit3,
+  Send,
+  X
 } from 'lucide-react';
 
 /**
@@ -26,6 +31,18 @@ const ApprovalQueue = ({ onApprovalSelect, refreshTrigger }) => {
     priority: 'all',
     status: 'pending'
   });
+
+  // Decision modal state
+  const [showDecisionModal, setShowDecisionModal] = useState(false);
+  const [selectedApproval, setSelectedApproval] = useState(null);
+  const [decisionForm, setDecisionForm] = useState({
+    decision: '',
+    comments: '',
+    approver: 'system-user',
+    requestedChanges: '',
+    approvalReason: ''
+  });
+  const [submittingDecision, setSubmittingDecision] = useState(false);
 
   // Fetch pending approvals
   const fetchApprovals = async () => {
@@ -124,6 +141,74 @@ const ApprovalQueue = ({ onApprovalSelect, refreshTrigger }) => {
   const needsEscalation = (approval) => {
     if (!approval.escalation_at) return false;
     return new Date() > new Date(approval.escalation_at) && approval.status !== 'escalated';
+  };
+
+  // Decision handling functions
+  const openDecisionModal = (approval, decision) => {
+    setSelectedApproval(approval);
+    setDecisionForm({
+      decision: decision,
+      comments: '',
+      approver: 'system-user',
+      requestedChanges: decision === 'needs_changes' ? '' : '',
+      approvalReason: decision === 'approved' ? '' : ''
+    });
+    setShowDecisionModal(true);
+  };
+
+  const closeDecisionModal = () => {
+    setShowDecisionModal(false);
+    setSelectedApproval(null);
+    setDecisionForm({
+      decision: '',
+      comments: '',
+      approver: 'system-user',
+      requestedChanges: '',
+      approvalReason: ''
+    });
+  };
+
+  const submitDecision = async () => {
+    if (!selectedApproval || !decisionForm.decision) return;
+
+    try {
+      setSubmittingDecision(true);
+
+      const response = await fetch(`/api/pipeline/approval/${selectedApproval.approval_id}/decision`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          decision: decisionForm.decision,
+          comments: decisionForm.comments,
+          approver: decisionForm.approver,
+          requested_changes: decisionForm.requestedChanges,
+          approval_reason: decisionForm.approvalReason,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to submit decision: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Decision submitted successfully:', result);
+
+      // Close modal and refresh approvals
+      closeDecisionModal();
+      fetchApprovals();
+
+      // Show success message
+      setError(null);
+
+    } catch (err) {
+      console.error('Error submitting decision:', err);
+      setError(`Failed to submit decision: ${err.message}`);
+    } finally {
+      setSubmittingDecision(false);
+    }
   };
 
   if (loading) {
@@ -254,14 +339,56 @@ const ApprovalQueue = ({ onApprovalSelect, refreshTrigger }) => {
                   )}
                 </div>
 
-                {/* Status and Actions */}
-                <div className="flex items-center ml-4">
+                {/* Status and Decision Actions */}
+                <div className="flex flex-col items-end ml-4 space-y-2">
+                  {/* Status Display */}
                   <div className="flex items-center">
                     {getStatusIcon(approval.status)}
                     <span className="ml-1 text-sm text-gray-600 capitalize">
                       {approval.status.replace('_', ' ')}
                     </span>
                   </div>
+
+                  {/* Decision Buttons - Only show for pending/in_review status */}
+                  {(approval.status === 'pending' || approval.status === 'in_review') && (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDecisionModal(approval, 'approved');
+                        }}
+                        className="flex items-center px-3 py-1 bg-green-100 hover:bg-green-200 text-green-800 text-xs rounded-md transition-colors"
+                        title="Approve this request"
+                      >
+                        <ThumbsUp className="w-3 h-3 mr-1" />
+                        Approve
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDecisionModal(approval, 'needs_changes');
+                        }}
+                        className="flex items-center px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs rounded-md transition-colors"
+                        title="Request changes"
+                      >
+                        <Edit3 className="w-3 h-3 mr-1" />
+                        Changes
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDecisionModal(approval, 'rejected');
+                        }}
+                        className="flex items-center px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs rounded-md transition-colors"
+                        title="Reject this request"
+                      >
+                        <ThumbsDown className="w-3 h-3 mr-1" />
+                        Reject
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -275,6 +402,142 @@ const ApprovalQueue = ({ onApprovalSelect, refreshTrigger }) => {
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>{approvals.length} pending approval{approvals.length !== 1 ? 's' : ''}</span>
             <span>Last updated: {new Date().toLocaleTimeString()}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Decision Modal */}
+      {showDecisionModal && selectedApproval && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {decisionForm.decision === 'approved' && '✅ Approve Request'}
+                  {decisionForm.decision === 'rejected' && '❌ Reject Request'}
+                  {decisionForm.decision === 'needs_changes' && '📝 Request Changes'}
+                </h3>
+                <button
+                  onClick={closeDecisionModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4">
+              {/* Approval Details */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                <h4 className="font-medium text-gray-900 mb-1">
+                  {selectedApproval.name || selectedApproval.type.replace('_', ' ').toUpperCase()}
+                </h4>
+                <p className="text-sm text-gray-600">
+                  Requested by: {selectedApproval.requester}
+                </p>
+                {selectedApproval.context && (
+                  <p className="text-sm text-gray-700 mt-1">
+                    {selectedApproval.context}
+                  </p>
+                )}
+              </div>
+
+              {/* Decision Form */}
+              <div className="space-y-4">
+                {/* Approver */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Approver
+                  </label>
+                  <input
+                    type="text"
+                    value={decisionForm.approver}
+                    onChange={(e) => setDecisionForm({...decisionForm, approver: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Your name or ID"
+                  />
+                </div>
+
+                {/* Comments */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Comments
+                  </label>
+                  <textarea
+                    value={decisionForm.comments}
+                    onChange={(e) => setDecisionForm({...decisionForm, comments: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Add your comments about this decision..."
+                  />
+                </div>
+
+                {/* Conditional Fields */}
+                {decisionForm.decision === 'approved' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Approval Reason
+                    </label>
+                    <textarea
+                      value={decisionForm.approvalReason}
+                      onChange={(e) => setDecisionForm({...decisionForm, approvalReason: e.target.value})}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Why are you approving this request?"
+                    />
+                  </div>
+                )}
+
+                {decisionForm.decision === 'needs_changes' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Requested Changes
+                    </label>
+                    <textarea
+                      value={decisionForm.requestedChanges}
+                      onChange={(e) => setDecisionForm({...decisionForm, requestedChanges: e.target.value})}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      placeholder="Describe what changes are needed..."
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={closeDecisionModal}
+                disabled={submittingDecision}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitDecision}
+                disabled={submittingDecision || !decisionForm.decision}
+                className={`px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 flex items-center ${
+                  decisionForm.decision === 'approved' ? 'bg-green-600 hover:bg-green-700' :
+                  decisionForm.decision === 'rejected' ? 'bg-red-600 hover:bg-red-700' :
+                  'bg-yellow-600 hover:bg-yellow-700'
+                }`}
+              >
+                {submittingDecision ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Submit Decision
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
