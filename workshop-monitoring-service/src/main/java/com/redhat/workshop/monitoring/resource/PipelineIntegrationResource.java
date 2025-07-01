@@ -1102,30 +1102,61 @@ public class PipelineIntegrationResource {
             Map<String, Object> responseData = (Map<String, Object>) responseEntity;
             String workshopContent = (String) responseData.getOrDefault("workshop_content", "Generated workshop content");
 
-            // Create repository request
-            CreateRepositoryRequest repoRequest = new CreateRepositoryRequest();
-            repoRequest.setRepositoryName(workshopName);
-            repoRequest.setWorkshopContent(workshopContent);
-            repoRequest.setVisibility("public");
-            repoRequest.setGiteaUrl("https://gitea-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com");
+            // Call Source Manager Agent directly to create repository
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("operation", "create");
+            parameters.put("repository_name", workshopName);
+            parameters.put("source_url", "https://github.com/rhpds/showroom_template_default.git");
+            parameters.put("options", "auto_init,workshop_content");
 
-            // Call Source Manager Agent to create repository
-            Response repoResponse = createRepository(repoRequest);
+            // Call Source Manager Agent via orchestration service
+            Map<String, Object> agentResult = agentOrchestrationService.invokeAgent(
+                "source-manager",
+                "manage_workshop_repository_tool",
+                parameters
+            );
 
-            if (repoResponse.getStatus() == 200) {
-                Object repoEntity = repoResponse.getEntity();
-                Map<String, Object> repoData = (Map<String, Object>) repoEntity;
-                String repositoryUrl = (String) repoData.get("repository_url");
+            if (agentResult != null && "success".equals(agentResult.get("status"))) {
+                // Extract repository URL from agent response
+                String agentResponse = (String) agentResult.get("response");
+                String repositoryUrl = extractRepositoryUrlFromResponse(agentResponse);
 
                 LOG.infof("✅ Gitea repository created successfully: %s", repositoryUrl);
                 return repositoryUrl != null ? repositoryUrl : "";
             } else {
-                LOG.warnf("⚠️ Failed to create Gitea repository, status: %d", repoResponse.getStatus());
+                LOG.warnf("⚠️ Failed to create Gitea repository via Source Manager Agent");
                 return "";
             }
 
         } catch (Exception e) {
             LOG.errorf("❌ Error creating Gitea repository: %s", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Extract repository URL from Source Manager Agent response
+     */
+    private String extractRepositoryUrlFromResponse(String agentResponse) {
+        try {
+            if (agentResponse != null && agentResponse.contains("Repository URL")) {
+                // Look for Gitea URL pattern in the response
+                String[] lines = agentResponse.split("\n");
+                for (String line : lines) {
+                    if (line.contains("gitea") && line.contains("http")) {
+                        // Extract URL from the line
+                        String[] parts = line.split("\\s+");
+                        for (String part : parts) {
+                            if (part.startsWith("http") && part.contains("gitea")) {
+                                return part.trim();
+                            }
+                        }
+                    }
+                }
+            }
+            return "";
+        } catch (Exception e) {
+            LOG.warnf("Failed to extract repository URL from response: %s", e.getMessage());
             return "";
         }
     }
