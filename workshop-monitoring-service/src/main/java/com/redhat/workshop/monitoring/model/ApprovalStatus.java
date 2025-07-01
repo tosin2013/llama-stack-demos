@@ -29,7 +29,12 @@ public enum ApprovalStatus {
      * Approval request has been rejected by the reviewer
      */
     REJECTED("rejected"),
-    
+
+    /**
+     * Approval request requires changes before it can be approved
+     */
+    NEEDS_CHANGES("needs_changes"),
+
     /**
      * Approval request has been escalated to higher authority due to timeout or urgency
      */
@@ -64,10 +69,10 @@ public enum ApprovalStatus {
     }
 
     /**
-     * Check if status represents a completed approval (approved or rejected)
+     * Check if status represents a completed approval (approved, rejected, or needs changes)
      */
     public boolean isComplete() {
-        return this == APPROVED || this == REJECTED;
+        return this == APPROVED || this == REJECTED || this == NEEDS_CHANGES;
     }
 
     /**

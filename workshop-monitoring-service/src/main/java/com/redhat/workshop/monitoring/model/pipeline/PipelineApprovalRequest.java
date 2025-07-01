@@ -2,8 +2,6 @@ package com.redhat.workshop.monitoring.model.pipeline;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.runtime.annotations.RegisterForReflection;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import com.redhat.workshop.monitoring.model.ApprovalRequest;
 import java.util.HashMap;
@@ -18,11 +16,9 @@ import java.util.Map;
 public class PipelineApprovalRequest {
 
     @JsonProperty("approval_type")
-    @NotBlank(message = "Approval type is required")
     private String approvalType;
 
     @JsonProperty("workflow_id")
-    @NotBlank(message = "Workflow ID is required")
     private String workflowId;
 
     @JsonProperty("repository_url")

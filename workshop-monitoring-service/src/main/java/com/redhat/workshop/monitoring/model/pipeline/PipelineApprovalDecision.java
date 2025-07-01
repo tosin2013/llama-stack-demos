@@ -2,8 +2,6 @@ package com.redhat.workshop.monitoring.model.pipeline;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.runtime.annotations.RegisterForReflection;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 
 import com.redhat.workshop.monitoring.model.ApprovalDecision;
 import java.time.Instant;
@@ -17,15 +15,12 @@ import java.time.Instant;
 public class PipelineApprovalDecision {
 
     @JsonProperty("decision")
-    @NotBlank(message = "Decision is required")
-    @Pattern(regexp = "approved|rejected|needs_changes", message = "Decision must be 'approved', 'rejected', or 'needs_changes'")
     private String decision;
 
     @JsonProperty("comments")
     private String comments;
 
     @JsonProperty("approver")
-    @NotBlank(message = "Approver is required")
     private String approver;
 
     @JsonProperty("timestamp")
