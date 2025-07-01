@@ -1,0 +1,17 @@
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  name: test-template-converter-$(date +%s)
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    test: agent-integration
+spec:
+  taskRef:
+    name: agent-task-template-converter
+  params:
+  - name: repository-url
+    value: "https://github.com/jeremyrdavis/dddhexagonalworkshop"
+  - name: analysis-type
+    value: "workflow-determination"
+  timeout: "10m"

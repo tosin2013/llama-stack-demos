@@ -1,0 +1,119 @@
+# Environment-specific configuration patches for workshop-system
+
+# Update pipeline default parameters for workshop-system environment
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: workflow-1-new-workshop
+spec:
+  params:
+  - name: repository-url
+    type: string
+    description: Source repository URL to convert into workshop
+  - name: workshop-name
+    type: string
+    description: Name for the new workshop
+  - name: base-template
+    type: string
+    description: Base template to use (showroom_template_default)
+    default: "showroom_template_default"
+  - name: gitea-repo-name
+    type: string
+    description: Name for the Gitea repository to create
+  - name: human-approver
+    type: string
+    description: Human approver for oversight gates
+    default: "workshop-system-operator"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: workflow-3-enhance-workshop
+spec:
+  params:
+  - name: repository-url
+    type: string
+    description: Source repository URL of existing workshop to enhance
+  - name: workshop-name
+    type: string
+    description: Name for the enhanced workshop
+  - name: original-workshop-url
+    type: string
+    description: URL of the original workshop to clone and enhance
+  - name: gitea-repo-name
+    type: string
+    description: Name for the enhanced Gitea repository
+  - name: human-approver
+    type: string
+    description: Human approver for oversight gates
+    default: "workshop-system-operator"
+  - name: enhancement-type
+    type: string
+    description: Type of enhancement to apply
+    default: "content-update"
+
+---
+# Update human oversight approval task with environment-specific defaults
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: human-oversight-approval
+spec:
+  params:
+  - name: approval-type
+    type: string
+    description: Type of approval required
+  - name: workflow-id
+    type: string
+    description: Unique workflow identifier for tracking
+  - name: approver
+    type: string
+    description: Human approver identifier
+    default: "workshop-system-operator"
+  - name: approval-data
+    type: string
+    description: Data to present for approval decision
+  - name: repository-url
+    type: string
+    description: Repository URL being processed
+    default: ""
+  - name: workshop-name
+    type: string
+    description: Workshop name being processed
+    default: ""
+  - name: timeout-minutes
+    type: string
+    description: Timeout for approval in minutes
+    default: "30"
+
+---
+# Update BuildConfig trigger task with environment-specific configuration
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: openshift-buildconfig-trigger
+spec:
+  params:
+  - name: workshop-name
+    type: string
+    description: Name of the workshop
+  - name: gitea-repository-url
+    type: string
+    description: URL of the Gitea repository to build
+  - name: build-type
+    type: string
+    description: Type of build (new-workshop, enhanced-workshop)
+    default: "new-workshop"
+  - name: openshift-namespace
+    type: string
+    description: OpenShift namespace for deployment
+    default: "workshop-system"
+  - name: base-image
+    type: string
+    description: Base image for the build
+    default: "registry.access.redhat.com/ubi8/httpd-24:latest"
+  - name: timeout-minutes
+    type: string
+    description: Build timeout in minutes
+    default: "20"

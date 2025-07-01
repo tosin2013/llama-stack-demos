@@ -171,6 +171,12 @@ spec:
           value: "http://llamastack-server.llama-serve.svc.cluster.local:8321"
         - name: INFERENCE_MODEL_ID
           value: "meta-llama/Llama-3.2-3B-Instruct"
+        - name: WORKSPACE_PATH
+          value: "/workspace/shared-data"
+        - name: WORKSPACE_ENABLED
+          value: "true"
+        - name: WORKSPACE_SCRIPTS_PATH
+          value: "/opt/workspace-scripts"
         resources:
           requests:
             memory: "1Gi"
@@ -193,10 +199,21 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /opt/app-root/src/config
+        - name: shared-workspace
+          mountPath: /workspace/shared-data
+        - name: coordination-scripts
+          mountPath: /opt/workspace-scripts
       volumes:
       - name: config-volume
         configMap:
           name: workshop-system-config
+      - name: shared-workspace
+        persistentVolumeClaim:
+          claimName: shared-workspace-storage
+      - name: coordination-scripts
+        configMap:
+          name: workspace-coordination-scripts
+          defaultMode: 0755
 
 ---
 apiVersion: apps/v1
@@ -272,6 +289,12 @@ spec:
             secretKeyRef:
               name: gitea-credentials
               key: GITEA_TOKEN
+        - name: WORKSPACE_PATH
+          value: "/workspace/shared-data"
+        - name: WORKSPACE_ENABLED
+          value: "true"
+        - name: WORKSPACE_SCRIPTS_PATH
+          value: "/opt/workspace-scripts"
         resources:
           requests:
             memory: "1Gi"
@@ -294,10 +317,21 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /opt/app-root/src/config
+        - name: shared-workspace
+          mountPath: /workspace/shared-data
+        - name: coordination-scripts
+          mountPath: /opt/workspace-scripts
       volumes:
       - name: config-volume
         configMap:
           name: workshop-system-config
+      - name: shared-workspace
+        persistentVolumeClaim:
+          claimName: shared-workspace-storage
+      - name: coordination-scripts
+        configMap:
+          name: workspace-coordination-scripts
+          defaultMode: 0755
 
 ---
 apiVersion: apps/v1

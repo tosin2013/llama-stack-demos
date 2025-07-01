@@ -1,0 +1,129 @@
+# Integration patches for Tekton-Agent system
+
+# Add Tekton-related environment variables to agent deployments
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: template-converter-agent
+spec:
+  template:
+    spec:
+      containers:
+      - name: template-converter-agent
+        env:
+        - name: TEKTON_INTEGRATION_ENABLED
+          value: "true"
+        - name: PIPELINE_EXECUTION_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: tekton-integration-config
+              key: pipeline_execution_mode
+        - name: HUMAN_OVERSIGHT_REQUIRED
+          valueFrom:
+            configMapKeyRef:
+              name: tekton-integration-config
+              key: human_oversight_required
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-creator-agent
+spec:
+  template:
+    spec:
+      containers:
+      - name: content-creator-agent
+        env:
+        - name: TEKTON_INTEGRATION_ENABLED
+          value: "true"
+        - name: PIPELINE_EXECUTION_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: tekton-integration-config
+              key: pipeline_execution_mode
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: source-manager-agent
+spec:
+  template:
+    spec:
+      containers:
+      - name: source-manager-agent
+        env:
+        - name: TEKTON_INTEGRATION_ENABLED
+          value: "true"
+        - name: PIPELINE_EXECUTION_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: tekton-integration-config
+              key: pipeline_execution_mode
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-validation-agent
+spec:
+  template:
+    spec:
+      containers:
+      - name: research-validation-agent
+        env:
+        - name: TEKTON_INTEGRATION_ENABLED
+          value: "true"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: documentation-pipeline-agent
+spec:
+  template:
+    spec:
+      containers:
+      - name: documentation-pipeline-agent
+        env:
+        - name: TEKTON_INTEGRATION_ENABLED
+          value: "true"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-chat-agent
+spec:
+  template:
+    spec:
+      containers:
+      - name: workshop-chat-agent
+        env:
+        - name: TEKTON_INTEGRATION_ENABLED
+          value: "true"
+
+---
+# Add Tekton-related configuration to monitoring service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-monitoring-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: workshop-monitoring-service
+        env:
+        - name: TEKTON_INTEGRATION_ENABLED
+          value: "true"
+        - name: TEKTON_NAMESPACE
+          value: "workshop-system"
+        - name: PIPELINE_MONITORING_ENABLED
+          value: "true"
+        - name: HUMAN_OVERSIGHT_TIMEOUT_MINUTES
+          valueFrom:
+            configMapKeyRef:
+              name: tekton-integration-config
+              key: approval_timeout_minutes

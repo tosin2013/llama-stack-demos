@@ -8,12 +8,19 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import com.redhat.workshop.monitoring.service.AgentOrchestrationService;
+import com.redhat.workshop.monitoring.service.ApprovalService;
 import com.redhat.workshop.monitoring.model.pipeline.*;
 import com.redhat.workshop.monitoring.model.pipeline.UpdateWorkshopRequest;
 import com.redhat.workshop.monitoring.model.pipeline.ApproveUpdateRequest;
 import com.redhat.workshop.monitoring.model.pipeline.UpdateRAGContentRequest;
 import com.redhat.workshop.monitoring.model.pipeline.ValidateReferencesRequest;
 import com.redhat.workshop.monitoring.model.pipeline.EnhanceWithReferencesRequest;
+import com.redhat.workshop.monitoring.model.pipeline.PipelineApprovalRequest;
+import com.redhat.workshop.monitoring.model.pipeline.PipelineApprovalResponse;
+import com.redhat.workshop.monitoring.model.pipeline.PipelineApprovalDecision;
+import com.redhat.workshop.monitoring.model.ApprovalRequest;
+import com.redhat.workshop.monitoring.model.ApprovalDecision;
+import com.redhat.workshop.monitoring.model.ApprovalStatus;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +39,9 @@ public class PipelineIntegrationResource {
 
     @Inject
     AgentOrchestrationService agentOrchestrationService;
+
+    @Inject
+    ApprovalService approvalService;
 
     @ConfigProperty(name = "quarkus.profile", defaultValue = "prod")
     String profile;
@@ -810,5 +820,150 @@ public class PipelineIntegrationResource {
         }
 
         return pipelineResponse;
+    }
+
+    // ========================================
+    // PIPELINE APPROVAL ENDPOINTS
+    // ========================================
+
+    /**
+     * Submit Pipeline Approval Request
+     * Generic endpoint for Tekton pipelines to submit approval requests
+     * Bridges Tekton tasks with existing ApprovalService infrastructure
+     */
+    @POST
+    @Path("/approval/submit")
+    public Response submitPipelineApproval(PipelineApprovalRequest request) {
+        LOG.infof("🔧 PIPELINE APPROVAL: Submit approval request for workflow '%s', type '%s'",
+                 request.getWorkflowId(), request.getApprovalType());
+
+        try {
+            // Validate request
+            if (request.getApprovalType() == null || request.getApprovalType().trim().isEmpty()) {
+                return Response.status(400)
+                    .entity(Map.of("error", "Approval type is required"))
+                    .build();
+            }
+
+            if (request.getWorkflowId() == null || request.getWorkflowId().trim().isEmpty()) {
+                return Response.status(400)
+                    .entity(Map.of("error", "Workflow ID is required"))
+                    .build();
+            }
+
+            // Transform to ApprovalRequest and submit
+            ApprovalRequest approvalRequest = request.toApprovalRequest();
+            ApprovalRequest submittedApproval = approvalService.submitApproval(approvalRequest);
+
+            // Transform response for pipeline compatibility
+            PipelineApprovalResponse response = PipelineApprovalResponse.fromApprovalRequest(submittedApproval);
+            response.setWorkflowId(request.getWorkflowId());
+
+            LOG.infof("🔧 PIPELINE APPROVAL: Submitted successfully - ID: %s, Status: %s",
+                     response.getApprovalId(), response.getStatus());
+
+            return Response.ok(response).build();
+
+        } catch (Exception e) {
+            LOG.errorf("Failed to submit pipeline approval: %s", e.getMessage());
+            return Response.status(500)
+                .entity(Map.of("error", "Failed to submit approval request: " + e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Get Pipeline Approval Status
+     * Allows Tekton pipelines to poll for approval status and decisions
+     */
+    @GET
+    @Path("/approval/{approvalId}/status")
+    public Response getPipelineApprovalStatus(@PathParam("approvalId") String approvalId) {
+        LOG.debugf("🔧 PIPELINE APPROVAL: Check status for approval ID: %s", approvalId);
+
+        try {
+            // Get approval from service
+            ApprovalRequest approval = approvalService.getApprovalById(approvalId);
+
+            if (approval == null) {
+                return Response.status(404)
+                    .entity(Map.of("error", "Approval not found: " + approvalId))
+                    .build();
+            }
+
+            // Transform to pipeline response format
+            PipelineApprovalResponse response = PipelineApprovalResponse.fromApprovalRequest(approval);
+
+            LOG.debugf("🔧 PIPELINE APPROVAL: Status check - ID: %s, Status: %s, Decision: %s",
+                      approvalId, response.getStatus(), response.getDecision());
+
+            return Response.ok(response).build();
+
+        } catch (Exception e) {
+            LOG.errorf("Failed to get pipeline approval status: %s", e.getMessage());
+            return Response.status(500)
+                .entity(Map.of("error", "Failed to get approval status: " + e.getMessage()))
+                .build();
+        }
+    }
+
+    /**
+     * Process Pipeline Approval Decision
+     * Handles approval decisions from human reviewers via the React interface
+     */
+    @POST
+    @Path("/approval/{approvalId}/decision")
+    public Response processPipelineApprovalDecision(@PathParam("approvalId") String approvalId,
+                                                   PipelineApprovalDecision decision) {
+        LOG.infof("🔧 PIPELINE APPROVAL: Process decision for ID: %s, Decision: %s by %s",
+                 approvalId, decision.getDecision(), decision.getApprover());
+
+        try {
+            // Transform to ApprovalDecision
+            ApprovalDecision approvalDecision = decision.toApprovalDecision();
+
+            // Process decision based on type
+            ApprovalRequest updatedApproval;
+            if (decision.isApproved()) {
+                updatedApproval = approvalService.approveRequest(approvalId, approvalDecision);
+            } else if (decision.isRejected()) {
+                updatedApproval = approvalService.rejectRequest(approvalId, approvalDecision);
+            } else if (decision.needsChanges()) {
+                // Handle needs_changes as a special case of rejection
+                updatedApproval = approvalService.rejectRequest(approvalId, approvalDecision);
+                if (updatedApproval != null) {
+                    updatedApproval.setStatus(ApprovalStatus.NEEDS_CHANGES);
+                }
+            } else {
+                return Response.status(400)
+                    .entity(Map.of("error", "Invalid decision: " + decision.getDecision()))
+                    .build();
+            }
+
+            if (updatedApproval == null) {
+                return Response.status(404)
+                    .entity(Map.of("error", "Approval not found or cannot be updated: " + approvalId))
+                    .build();
+            }
+
+            // Transform response for pipeline compatibility
+            PipelineApprovalResponse response = PipelineApprovalResponse.fromApprovalRequest(updatedApproval);
+
+            LOG.infof("🔧 PIPELINE APPROVAL: Decision processed - ID: %s, Final Status: %s",
+                     approvalId, response.getStatus());
+
+            return Response.ok(response).build();
+
+        } catch (IllegalStateException e) {
+            LOG.warnf("Invalid approval state for decision: %s", e.getMessage());
+            return Response.status(409)
+                .entity(Map.of("error", "Approval is not in a valid state for decision: " + e.getMessage()))
+                .build();
+        } catch (Exception e) {
+            LOG.errorf("Failed to process pipeline approval decision: %s", e.getMessage());
+            return Response.status(500)
+                .entity(Map.of("error", "Failed to process approval decision: " + e.getMessage()))
+                .build();
+        }
     }
 }

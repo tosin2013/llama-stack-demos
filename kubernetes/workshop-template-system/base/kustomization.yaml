@@ -22,6 +22,8 @@ resources:
   - imagestreams.yaml
   - workshop-system-buildconfig.yaml
   - gitea-config.yaml
+  - shared-workspace-pvc.yaml
+  - workspace-coordination-configmap.yaml
 
 # Common labels applied to all resources
 labels:

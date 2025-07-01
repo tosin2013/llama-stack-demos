@@ -1,0 +1,34 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: test-enhanced-workspace-$(date +%s)
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    test: enhanced-workspace
+    adr: "0007"
+  annotations:
+    description: "Test enhanced shared workspace strategy (ADR-0007)"
+spec:
+  pipelineRef:
+    name: workflow-1-new-workshop
+  params:
+  - name: repository-url
+    value: "https://github.com/jeremyrdavis/dddhexagonalworkshop"
+  - name: workshop-name
+    value: "enhanced-workspace-test"
+  - name: base-template
+    value: "showroom_template_default"
+  - name: gitea-repo-name
+    value: "enhanced-workspace-test"
+  - name: human-approver
+    value: "workshop-system-operator"
+  - name: auto-approve
+    value: "true"
+  timeout: "30m"
+  workspaces:
+  - name: shared-data
+    persistentVolumeClaim:
+      claimName: shared-workspace-storage
+  - name: gitea-auth
+    emptyDir: {}

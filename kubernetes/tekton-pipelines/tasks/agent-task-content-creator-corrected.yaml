@@ -1,0 +1,256 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-content-creator-corrected
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-template-system
+    app.kubernetes.io/component: content-creator-agent
+  annotations:
+    description: "Content Creator Agent Task - CORRECTED to use Quarkus Middleware"
+    tekton.dev/categories: "AI,Workshop,Content"
+    tekton.dev/tags: "content-creator,a2a-protocol,quarkus-middleware"
+spec:
+  description: |
+    Content Creator Agent Task (CORRECTED VERSION)
+    
+    This task calls the Content Creator Agent via the Quarkus middleware
+    instead of direct agent endpoints, fixing the HTTP 404 issues.
+    
+    Uses: /api/pipeline/content-creator/create-workshop endpoint
+  params:
+    - name: repository-url
+      description: Repository URL to analyze for workshop creation
+      type: string
+    - name: workshop-name
+      description: Name of the workshop to create
+      type: string
+    - name: base-template
+      description: Base template to use (e.g., showroom_template_default)
+      type: string
+      default: "showroom_template_default"
+    - name: enhancement-plan
+      description: Enhancement plan for existing workshops (Workflow 3)
+      type: string
+      default: ""
+    - name: original-content
+      description: Original workshop content for enhancement (Workflow 3)
+      type: string
+      default: ""
+    - name: quarkus-middleware-url
+      description: Quarkus middleware base URL
+      type: string
+      default: "https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+    - name: timeout-seconds
+      description: Timeout for middleware call in seconds
+      type: string
+      default: "600"
+    - name: workspace-mode
+      description: Operation mode (hybrid, file-based, api-only)
+      type: string
+      default: "hybrid"
+  results:
+    - name: workshop-content
+      description: Generated or enhanced workshop content
+    - name: content-summary
+      description: Summary of content creation or enhancement
+    - name: enhanced-content
+      description: Enhanced workshop content (for Workflow 3)
+    - name: enhancement-summary
+      description: Summary of enhancements applied (for Workflow 3)
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for workshop content
+      optional: true
+  steps:
+    - name: call-content-creator-via-middleware
+      image: registry.access.redhat.com/ubi8/ubi:latest
+      script: |
+        #!/bin/bash
+        set -e
+
+        echo "🎯 Content Creator Agent Task (CORRECTED - Using Quarkus Middleware)"
+        echo "=================================================================="
+        echo "Repository URL: $(params.repository-url)"
+        echo "Workshop Name: $(params.workshop-name)"
+        echo "Base Template: $(params.base-template)"
+        echo "Middleware URL: $(params.quarkus-middleware-url)"
+        echo ""
+
+        # Install required tools
+        dnf install -y curl jq
+
+        # Check if workspace is available (ADR-0007)
+        if [ -d "/workspace/shared-data" ]; then
+          echo "📁 Workspace available, using file-based operations"
+          WORKSPACE_PATH="/workspace/shared-data"
+          OPERATION_MODE="file-based"
+          echo "Workspace Mode: $(params.workspace-mode)"
+          echo "Workspace Path: $WORKSPACE_PATH"
+
+          # Display workspace content
+          echo ""
+          echo "📂 Workspace Content:"
+          ls -la /workspace/shared-data/ || echo "Workspace empty"
+          if [ -d "/workspace/shared-data/workshop-content" ]; then
+            echo ""
+            echo "📁 Workshop Content:"
+            ls -la /workspace/shared-data/workshop-content/ | head -10
+          fi
+          echo ""
+        else
+          echo "🌐 No workspace available, using API-only operations"
+          WORKSPACE_PATH=""
+          OPERATION_MODE="api-only"
+        fi
+
+        # Determine operation type based on parameters
+        if [ -n "$(params.enhancement-plan)" ] && [ -n "$(params.original-content)" ]; then
+          echo "📝 Operation: Workshop Enhancement (Workflow 3)"
+          OPERATION_TYPE="ENHANCEMENT"
+        else
+          echo "🆕 Operation: New Workshop Creation (Workflow 1)"
+          OPERATION_TYPE="CREATION"
+        fi
+
+        if [ "$OPERATION_TYPE" = "ENHANCEMENT" ]; then
+          echo "🔄 Calling Quarkus Middleware for Workshop Enhancement..."
+          
+          # Prepare enhancement request payload for middleware
+          REQUEST_PAYLOAD=$(cat <<EOF
+        {
+          "workshop_name": "$(params.workshop-name)",
+          "repository_url": "$(params.repository-url)",
+          "enhancement_plan": "$(params.enhancement-plan)",
+          "original_content": "$(params.original-content)",
+          "enhancement_type": "content-update"
+        }
+        EOF
+          )
+          
+          # Call Quarkus middleware enhancement endpoint
+          MIDDLEWARE_ENDPOINT="$(params.quarkus-middleware-url)/api/pipeline/content-creator/enhance-workshop"
+          
+        else
+          echo "🆕 Calling Quarkus Middleware for New Workshop Creation..."
+
+          # Prepare creation request payload for middleware
+          REQUEST_PAYLOAD=$(cat <<EOF
+        {
+          "workshop_name": "$(params.workshop-name)",
+          "repository_url": "$(params.repository-url)",
+          "base_template": "$(params.base-template)",
+          "workspace_mode": "$OPERATION_MODE",
+          "target_directory": "/workspace/shared-data/final-output"
+        }
+        EOF
+          )
+          
+          # Call Quarkus middleware creation endpoint
+          MIDDLEWARE_ENDPOINT="$(params.quarkus-middleware-url)/api/pipeline/content-creator/create-workshop"
+        fi
+
+        echo "📝 Request Payload:"
+        echo "$REQUEST_PAYLOAD" | jq .
+        echo ""
+        echo "🎯 Calling Middleware Endpoint: $MIDDLEWARE_ENDPOINT"
+        echo ""
+
+        # Call Quarkus middleware instead of direct agent
+        RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$MIDDLEWARE_ENDPOINT" \
+          -H "Content-Type: application/json" \
+          -d "$REQUEST_PAYLOAD" \
+          --connect-timeout 30 \
+          --max-time $(params.timeout-seconds))
+
+        # Extract HTTP status and body
+        HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+        RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+
+        echo "📊 Middleware Response (HTTP $HTTP_STATUS):"
+        echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+        echo ""
+
+        # Check HTTP status
+        if [ "$HTTP_STATUS" != "200" ]; then
+          echo "❌ Middleware call failed with HTTP status: $HTTP_STATUS"
+          echo "Response: $RESPONSE_BODY"
+          exit 1
+        fi
+
+        # Check for JSON error in response
+        if echo "$RESPONSE_BODY" | jq -e '.error' > /dev/null 2>&1; then
+          echo "❌ Middleware returned error:"
+          echo "$RESPONSE_BODY" | jq -r '.error'
+          exit 1
+        fi
+
+        # Extract and save results based on operation type
+        if [ "$OPERATION_TYPE" = "ENHANCEMENT" ]; then
+          # Enhancement operation results
+          if echo "$RESPONSE_BODY" | jq -e '.enhanced_content' > /dev/null 2>&1; then
+            ENHANCED_CONTENT=$(echo "$RESPONSE_BODY" | jq -r '.enhanced_content')
+            echo "$ENHANCED_CONTENT" > $(results.enhanced-content.path)
+            echo "$ENHANCED_CONTENT" > $(results.workshop-content.path)  # Also set main result
+            
+            ENHANCEMENT_SUMMARY=$(echo "$RESPONSE_BODY" | jq -r '.enhancement_summary // "Workshop content enhanced successfully via Quarkus middleware"')
+            echo "$ENHANCEMENT_SUMMARY" > $(results.enhancement-summary.path)
+            echo "$ENHANCEMENT_SUMMARY" > $(results.content-summary.path)  # Also set main summary
+            
+            echo "✅ Workshop enhancement completed successfully via Quarkus middleware"
+          else
+            echo "❌ Invalid enhancement response - missing 'enhanced_content' field"
+            exit 1
+          fi
+        else
+          # Creation operation results
+          if echo "$RESPONSE_BODY" | jq -e '.workshop_content' > /dev/null 2>&1; then
+            WORKSHOP_CONTENT=$(echo "$RESPONSE_BODY" | jq -r '.workshop_content')
+            echo "$WORKSHOP_CONTENT" > $(results.workshop-content.path)
+            
+            CONTENT_SUMMARY=$(echo "$RESPONSE_BODY" | jq -r '.content_summary // "Workshop content created successfully via Quarkus middleware"')
+            echo "$CONTENT_SUMMARY" > $(results.content-summary.path)
+            
+            echo "✅ Workshop creation completed successfully via Quarkus middleware"
+          else
+            echo "❌ Invalid creation response - missing 'workshop_content' field"
+            exit 1
+          fi
+        fi
+
+    - name: log-content-summary
+      image: registry.access.redhat.com/ubi8/ubi:latest
+      script: |
+        #!/bin/bash
+
+        echo "📋 Content Creator Agent Summary (Quarkus Middleware)"
+        echo "===================================================="
+        echo "Repository URL: $(params.repository-url)"
+        echo "Workshop Name: $(params.workshop-name)"
+        echo "Middleware URL: $(params.quarkus-middleware-url)"
+        echo ""
+
+        # Determine operation type
+        if [ -n "$(params.enhancement-plan)" ] && [ -n "$(params.original-content)" ]; then
+          OPERATION_TYPE="ENHANCEMENT"
+          echo "🔄 Workshop Enhancement Results:"
+          echo "  Enhancement Plan Applied: $(params.enhancement-plan)"
+          if [ -f "$(results.enhancement-summary.path)" ]; then
+            echo "  Enhancement Summary: $(cat $(results.enhancement-summary.path))"
+          fi
+        else
+          OPERATION_TYPE="CREATION"
+          echo "🆕 New Workshop Creation Results:"
+          echo "  Base Template: $(params.base-template)"
+          if [ -f "$(results.content-summary.path)" ]; then
+            echo "  Content Summary: $(cat $(results.content-summary.path))"
+          fi
+        fi
+
+        if [ -f "$(results.workshop-content.path)" ]; then
+          CONTENT_LENGTH=$(cat $(results.workshop-content.path) | wc -c)
+          echo "  Content Length: $CONTENT_LENGTH characters"
+        fi
+
+        echo ""
+        echo "🚀 Workshop content ready for next pipeline stage (via Quarkus middleware)"

@@ -1,0 +1,55 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: tekton-agent-integration-workshop-system
+
+# Base Tekton resources
+resources:
+  - ../../base
+
+# Environment-specific configuration
+configMapGenerator:
+  - name: tekton-agent-config
+    behavior: merge
+    literals:
+      # Environment-specific agent endpoints
+      - template_converter_endpoint=http://template-converter-agent.workshop-system.svc.cluster.local:80
+      - content_creator_endpoint=http://content-creator-agent.workshop-system.svc.cluster.local:80
+      - source_manager_endpoint=http://source-manager-agent.workshop-system.svc.cluster.local:80
+      - research_validation_endpoint=http://research-validation-agent.workshop-system.svc.cluster.local:80
+      - documentation_pipeline_endpoint=http://documentation-pipeline-agent.workshop-system.svc.cluster.local:80
+      - workshop_chat_endpoint=http://workshop-chat-agent.workshop-system.svc.cluster.local:80
+      
+      # Environment-specific monitoring service
+      - monitoring_service_endpoint=http://workshop-monitoring-service.workshop-system.svc.cluster.local:8080
+      - monitoring_service_external_url=https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com
+      
+      # Environment-specific configuration
+      - openshift_namespace=workshop-system
+      - workshop_domain=apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com
+      - gitea_url=https://gitea-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com
+
+# Environment-specific patches
+patches:
+  - path: patches/environment-config.yaml
+    target:
+      kind: Pipeline
+  - path: patches/environment-config.yaml
+    target:
+      kind: Task
+
+# Common labels for this environment
+labels:
+  - pairs:
+      environment: workshop-system
+      cluster: cluster-9cfzr
+
+# Common annotations for this environment
+commonAnnotations:
+  environment: "workshop-system"
+  cluster: "apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+  deployment-date: "2025-06-29"
+
+# Namespace override (should match workshop-template-system)
+namespace: workshop-system

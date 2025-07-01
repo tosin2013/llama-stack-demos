@@ -1,0 +1,257 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: workflow-1-new-workshop-corrected
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-template-system
+    app.kubernetes.io/component: workflow-1
+  annotations:
+    description: "Workflow 1: New Workshop Creation - CORRECTED to use Quarkus Middleware"
+    tekton.dev/categories: "AI,Workshop,Content"
+    tekton.dev/tags: "workflow-1,a2a-protocol,quarkus-middleware"
+spec:
+  description: |
+    Workflow 1: New Workshop Creation (CORRECTED VERSION)
+    
+    This pipeline creates new workshops from repositories using the A2A protocol
+    via Quarkus middleware, fixing the HTTP 404 endpoint issues.
+    
+    Key Corrections:
+    - Uses agent-task-content-creator-corrected task
+    - Calls Quarkus middleware endpoints instead of direct agent endpoints
+    - Maintains compatibility with existing workspace and approval workflows
+  params:
+    - name: repository-url
+      description: Repository URL to analyze for workshop creation
+      type: string
+    - name: workshop-name
+      description: Name of the workshop to create
+      type: string
+    - name: base-template
+      description: Base template to use (e.g., showroom_template_default)
+      type: string
+      default: "showroom_template_default"
+    - name: gitea-repo-name
+      description: Name for the Gitea repository
+      type: string
+    - name: human-approver
+      description: Human approver for the workflow
+      type: string
+      default: "system-operator"
+    - name: auto-approve
+      description: Enable auto-approve mode for testing
+      type: string
+      default: "false"
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for workshop content
+    - name: gitea-auth
+      description: Gitea authentication workspace
+  tasks:
+    # Phase 1: Workspace Initialization
+    - name: workspace-initialization
+      taskRef:
+        name: workspace-initialization
+      params:
+        - name: base-template
+          value: $(params.base-template)
+        - name: workshop-name
+          value: $(params.workshop-name)
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+
+    # Phase 2: Repository Analysis
+    - name: repository-analysis
+      taskRef:
+        name: agent-task-template-converter
+      params:
+        - name: repository-url
+          value: $(params.repository-url)
+        - name: analysis-depth
+          value: "comprehensive"
+        - name: target-format
+          value: "rhpds_showroom"
+        - name: agent-endpoint
+          value: "http://template-converter-agent:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - workspace-initialization
+
+    # Phase 3: Human Approval
+    - name: human-approval
+      taskRef:
+        name: agent-task-human-oversight
+      params:
+        - name: approval-type
+          value: "repository-analysis"
+        - name: workflow-id
+          value: "workflow-1-$(context.pipelineRun.name)"
+        - name: approver
+          value: $(params.human-approver)
+        - name: auto-approve
+          value: $(params.auto-approve)
+        - name: agent-endpoint
+          value: "http://human-oversight-coordinator:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - repository-analysis
+
+    # Phase 4: Content Creation (CORRECTED)
+    - name: content-creation
+      taskRef:
+        name: agent-task-content-creator-corrected  # Using corrected task
+      params:
+        - name: repository-url
+          value: $(params.repository-url)
+        - name: workshop-name
+          value: $(params.workshop-name)
+        - name: base-template
+          value: $(params.base-template)
+        - name: quarkus-middleware-url
+          value: "https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+        - name: timeout-seconds
+          value: "600"
+        - name: workspace-mode
+          value: "hybrid"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - human-approval
+
+    # Phase 5: Content Validation
+    - name: content-validation
+      taskRef:
+        name: agent-task-research-validation
+      params:
+        - name: workshop-content
+          value: $(tasks.content-creation.results.workshop-content)
+        - name: validation-type
+          value: "comprehensive"
+        - name: agent-endpoint
+          value: "http://research-validation-agent:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - content-creation
+
+    # Phase 6: Human Approval for Content Quality
+    - name: human-approval-content-quality
+      taskRef:
+        name: agent-task-human-oversight
+      params:
+        - name: approval-type
+          value: "content-quality"
+        - name: workflow-id
+          value: "workflow-1-$(context.pipelineRun.name)"
+        - name: approver
+          value: $(params.human-approver)
+        - name: auto-approve
+          value: $(params.auto-approve)
+        - name: agent-endpoint
+          value: "http://human-oversight-coordinator:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - content-validation
+
+    # Phase 7: Gitea Repository Creation
+    - name: gitea-repository-creation
+      taskRef:
+        name: agent-task-source-manager
+      params:
+        - name: repository-name
+          value: $(params.gitea-repo-name)
+        - name: workshop-content
+          value: $(tasks.content-creation.results.workshop-content)
+        - name: gitea-url
+          value: "https://gitea-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+        - name: visibility
+          value: "public"
+        - name: agent-endpoint
+          value: "http://source-manager-agent:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+        - name: gitea-auth
+          workspace: gitea-auth
+      runAfter:
+        - human-approval-content-quality
+
+    # Phase 8: BuildConfig Deployment
+    - name: buildconfig-deployment
+      taskRef:
+        name: buildconfig-deployment
+      params:
+        - name: gitea-repo-url
+          value: "https://gitea-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/$(params.gitea-repo-name)"
+        - name: workshop-name
+          value: $(params.workshop-name)
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - gitea-repository-creation
+
+    # Phase 9: Documentation Generation
+    - name: documentation-generation
+      taskRef:
+        name: agent-task-documentation-pipeline
+      params:
+        - name: workshop-name
+          value: $(params.workshop-name)
+        - name: repository-url
+          value: $(params.repository-url)
+        - name: agent-endpoint
+          value: "http://documentation-pipeline-agent:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - buildconfig-deployment
+
+    # Phase 10: Workshop Chat Setup
+    - name: workshop-chat-setup
+      taskRef:
+        name: agent-task-workshop-chat
+      params:
+        - name: workshop-name
+          value: $(params.workshop-name)
+        - name: workshop-content
+          value: $(tasks.content-creation.results.workshop-content)
+        - name: agent-endpoint
+          value: "http://workshop-chat-agent:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - documentation-generation
+
+    # Phase 11: Final Human Approval
+    - name: human-approval-final-deployment
+      taskRef:
+        name: agent-task-human-oversight
+      params:
+        - name: approval-type
+          value: "final-deployment"
+        - name: workflow-id
+          value: "workflow-1-$(context.pipelineRun.name)"
+        - name: approver
+          value: $(params.human-approver)
+        - name: auto-approve
+          value: $(params.auto-approve)
+        - name: agent-endpoint
+          value: "http://human-oversight-coordinator:80"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - workshop-chat-setup

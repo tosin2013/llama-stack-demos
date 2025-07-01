@@ -1,0 +1,172 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: workflow-1-simple-corrected
+  namespace: workshop-system
+  labels:
+    app.kubernetes.io/name: workshop-template-system
+    app.kubernetes.io/component: workflow-1
+  annotations:
+    description: "Workflow 1: Simple Corrected Test - Content Creator via Quarkus Middleware"
+    tekton.dev/categories: "AI,Workshop,Content"
+    tekton.dev/tags: "workflow-1,a2a-protocol,quarkus-middleware,test"
+spec:
+  description: |
+    Workflow 1: Simple Corrected Test
+    
+    This pipeline tests the corrected Content Creator task that uses
+    Quarkus middleware instead of direct agent endpoints.
+    
+    Simplified version with only essential tasks to test the fix.
+  params:
+    - name: repository-url
+      description: Repository URL to analyze for workshop creation
+      type: string
+    - name: workshop-name
+      description: Name of the workshop to create
+      type: string
+    - name: base-template
+      description: Base template to use (e.g., showroom_template_default)
+      type: string
+      default: "showroom_template_default"
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for workshop content
+  tasks:
+    # Phase 1: Workspace Initialization
+    - name: workspace-initialization
+      taskRef:
+        name: workspace-initialization
+      params:
+        - name: repository-url
+          value: $(params.repository-url)
+        - name: base-template
+          value: $(params.base-template)
+        - name: workshop-name
+          value: $(params.workshop-name)
+        - name: workflow-type
+          value: "1"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+
+    # Phase 2: Repository Analysis (ADR-0018 Compliant)
+    - name: repository-analysis
+      taskSpec:
+        params:
+          - name: repository-url
+            type: string
+          - name: quarkus-middleware-url
+            type: string
+            default: "https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+        results:
+          - name: analysis-result
+            description: Repository analysis result
+        steps:
+          - name: call-middleware
+            image: registry.access.redhat.com/ubi8/ubi:latest
+            script: |
+              #!/bin/bash
+              set -e
+
+              echo "🔍 Repository Analysis via Quarkus Middleware (ADR-0018)"
+              echo "======================================================="
+              echo "Repository: $(params.repository-url)"
+              echo "Middleware: $(params.quarkus-middleware-url)"
+              echo ""
+
+              # Install required tools
+              dnf install -y curl jq
+
+              # ADR-0018: Simple HTTP call to Quarkus middleware
+              RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST \
+                "$(params.quarkus-middleware-url)/api/pipeline/template-converter/analyze-repository" \
+                -H "Content-Type: application/json" \
+                -d "{\"repository_url\": \"$(params.repository-url)\", \"analysis_depth\": \"comprehensive\"}")
+
+              # Extract HTTP status and body
+              HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+              RESPONSE_BODY=$(echo "$RESPONSE" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+
+              echo "📊 Middleware Response (HTTP $HTTP_STATUS):"
+              echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+              echo ""
+
+              # Check HTTP status
+              if [ "$HTTP_STATUS" != "200" ]; then
+                echo "❌ Middleware call failed with HTTP status: $HTTP_STATUS"
+                exit 1
+              fi
+
+              # Save result
+              echo "$RESPONSE_BODY" > $(results.analysis-result.path)
+              echo "✅ Repository analysis completed via Quarkus middleware"
+      params:
+        - name: repository-url
+          value: $(params.repository-url)
+        - name: quarkus-middleware-url
+          value: "https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+      runAfter:
+        - workspace-initialization
+
+    # Phase 3: Content Creation (CORRECTED - Using Quarkus Middleware)
+    - name: content-creation-corrected
+      taskRef:
+        name: agent-task-content-creator-corrected  # Using corrected task
+      params:
+        - name: repository-url
+          value: $(params.repository-url)
+        - name: workshop-name
+          value: $(params.workshop-name)
+        - name: base-template
+          value: $(params.base-template)
+        - name: quarkus-middleware-url
+          value: "https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+        - name: timeout-seconds
+          value: "600"
+        - name: workspace-mode
+          value: "hybrid"
+      workspaces:
+        - name: shared-data
+          workspace: shared-data
+      runAfter:
+        - repository-analysis
+
+    # Phase 4: Summary Task
+    - name: pipeline-summary
+      taskSpec:
+        params:
+          - name: workshop-name
+            type: string
+          - name: repository-url
+            type: string
+        results:
+          - name: pipeline-status
+            description: Overall pipeline status
+        steps:
+          - name: summary
+            image: registry.access.redhat.com/ubi8/ubi:latest
+            script: |
+              #!/bin/bash
+              echo "🎉 CORRECTED WORKFLOW 1 PIPELINE COMPLETED SUCCESSFULLY!"
+              echo "======================================================="
+              echo ""
+              echo "✅ Workshop Name: $(params.workshop-name)"
+              echo "✅ Repository: $(params.repository-url)"
+              echo "✅ Content Creator: Used Quarkus middleware successfully"
+              echo "✅ Pipeline Status: All phases completed"
+              echo ""
+              echo "🚀 The corrected pipeline demonstrates that:"
+              echo "   - Workspace initialization works"
+              echo "   - Repository analysis via A2A protocol works"
+              echo "   - Content creation via Quarkus middleware works"
+              echo "   - No more HTTP 404 errors on Content Creator endpoints"
+              echo ""
+              echo "SUCCESS: Quarkus middleware integration is working!" > $(results.pipeline-status.path)
+      params:
+        - name: workshop-name
+          value: $(params.workshop-name)
+        - name: repository-url
+          value: $(params.repository-url)
+      runAfter:
+        - content-creation-corrected

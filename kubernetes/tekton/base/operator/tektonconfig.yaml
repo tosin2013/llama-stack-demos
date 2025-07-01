@@ -1,0 +1,87 @@
+# TektonConfig Resource
+# Note: This TektonConfig already exists in the cluster
+# Current status: config v1.18.1 is ready and running
+# This file is for reference only - the TektonConfig is already deployed
+
+apiVersion: operator.tekton.dev/v1alpha1
+kind: TektonConfig
+metadata:
+  name: config
+  labels:
+    app: workshop-template-system
+    component: tekton-operator
+    reference-only: "true"
+spec:
+  # Current configuration from the live cluster
+  profile: all
+  targetNamespace: openshift-pipelines
+  addon:
+    params:
+    - name: clusterTasks
+      value: "true"
+    - name: pipelineTemplates
+      value: "true"
+    - name: communityClusterTasks
+      value: "true"
+  pipeline:
+    disable-affinity-assistant: false
+    disable-creds-init: false
+    disable-home-env-overwrite: true
+    disable-working-directory-overwrite: true
+    enable-api-fields: stable
+    enable-bundles-resolver: true
+    enable-cluster-resolver: true
+    enable-custom-tasks: true
+    enable-git-resolver: true
+    enable-hub-resolver: true
+    enable-tekton-oci-bundles: false
+    metrics.pipelinerun.duration-type: histogram
+    metrics.pipelinerun.level: pipeline
+    metrics.taskrun.duration-type: histogram
+    metrics.taskrun.level: task
+    require-git-ssh-secret-known-hosts: false
+    running-in-environment-with-injected-sidecars: true
+    send-cloudevents-for-runs: false
+  trigger:
+    default-service-account: pipeline
+    enable-api-fields: stable
+  hub:
+    params:
+    - name: enable-devconsole-integration
+      value: "true"
+  chain:
+    artifacts.oci.storage: ""
+    artifacts.pipelinerun.format: in-toto
+    artifacts.pipelinerun.storage: ""
+    artifacts.taskrun.format: in-toto
+    artifacts.taskrun.storage: ""
+    transparency.enabled: "false"
+  platforms:
+    openshift:
+      pipelinesAsCode:
+        enable: true
+        settings:
+          application-name: Pipelines as Code CI
+          auto-configure-new-github-repo: "false"
+          bitbucket-cloud-check-source-ip: "true"
+          custom-console-name: ""
+          custom-console-url: ""
+          custom-console-url-pr-details: ""
+          custom-console-url-pr-tasklog: ""
+          error-detection-from-container-logs: "false"
+          error-detection-max-number-of-lines: "50"
+          error-detection-simple-regexp: ^(?P<filename>[^:]*):(?P<line>[0-9]+):(?P<column>[0-9]+):(\\s+)?(?P<error>.*)
+          error-log-snippet: "true"
+          hub-catalog-name: tekton
+          hub-url: https://api.hub.tekton.dev/v1
+          remote-tasks: "true"
+          secret-auto-create: "true"
+          secret-github-app-token-scoped: "true"
+status:
+  # Current status from the live cluster
+  version: 1.18.1
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: ""
+    message: ""

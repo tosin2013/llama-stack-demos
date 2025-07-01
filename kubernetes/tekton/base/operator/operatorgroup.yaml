@@ -1,0 +1,18 @@
+# OpenShift Pipelines Operator Group
+# Note: This operator group already exists in the cluster
+# Current status: openshift-pipelines-operator-rh.v1.18.1 is installed and running
+# This file is for reference only - the operator is already deployed cluster-wide
+
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: global-operators
+  namespace: openshift-operators
+  labels:
+    app: workshop-template-system
+    component: tekton-operator
+    reference-only: "true"
+spec:
+  # Empty spec means cluster-wide installation
+  # This allows the operator to watch all namespaces
+  # The actual operator group already exists in the cluster

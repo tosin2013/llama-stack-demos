@@ -1,0 +1,95 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: tekton-agent-integration-base
+
+# Tekton pipeline and task resources
+# Note: OpenShift Pipelines operator (v1.18.1) is already installed cluster-wide
+# This kustomization deploys our custom pipelines and tasks to workshop-system namespace
+resources:
+  # Operator reference files (for documentation - already deployed)
+  # - operator/subscription.yaml
+  # - operator/operatorgroup.yaml
+  # - operator/tektonconfig.yaml
+
+  # Agent Tasks (relative to kubernetes/tekton/base directory)
+  - ../tasks/agent-task-template-converter.yaml
+  - ../tasks/agent-task-content-creator.yaml
+  - ../tasks/agent-task-source-manager.yaml
+  - ../tasks/agent-task-research-validation.yaml
+  - ../tasks/agent-task-documentation-pipeline.yaml
+  - ../tasks/agent-task-workshop-chat.yaml
+
+  # System Tasks
+  - ../tasks/human-oversight-approval.yaml
+  - ../tasks/openshift-buildconfig-trigger.yaml
+
+  # Pipelines
+  - ../pipelines/workflow-1-new-workshop.yaml
+  - ../pipelines/workflow-3-enhance-workshop.yaml
+
+# Common labels applied to all Tekton resources
+labels:
+  - pairs:
+      app: workshop-template-system
+      component: tekton-integration
+      version: v1.0.0
+
+# Common annotations
+commonAnnotations:
+  description: "Tekton-Agent Integration - ADR-0006 Implementation"
+  maintainer: "workshop-system-team"
+  adr-reference: "ADR-0006-tekton-agent-integration-architecture"
+
+# Namespace for all Tekton resources
+namespace: workshop-system
+
+# ConfigMap generator for Tekton configuration
+configMapGenerator:
+  - name: tekton-agent-config
+    literals:
+      # Agent endpoints (internal cluster URLs)
+      - template_converter_endpoint=http://template-converter-agent:80
+      - content_creator_endpoint=http://content-creator-agent:80
+      - source_manager_endpoint=http://source-manager-agent:80
+      - research_validation_endpoint=http://research-validation-agent:80
+      - documentation_pipeline_endpoint=http://documentation-pipeline-agent:80
+      - workshop_chat_endpoint=http://workshop-chat-agent:80
+      
+      # Human oversight configuration
+      - monitoring_service_endpoint=http://workshop-monitoring-service:8080
+      - human_oversight_timeout_minutes=60
+      - default_approver=system-operator
+      
+      # Pipeline configuration
+      - openshift_namespace=workshop-system
+      - base_image=registry.access.redhat.com/ubi8/httpd-24:latest
+      - build_timeout_minutes=30
+      - agent_timeout_seconds=300
+      
+      # Repository configuration
+      - default_base_template=showroom_template_default
+      - gitea_webhook_secret=workshop-webhook-secret
+
+# Patches for environment-specific customization
+patchesStrategicMerge:
+  - patches/resource-limits.yaml
+
+# JSON patches for specific modifications
+patchesJson6902:
+  # Update human oversight approval task with monitoring service URL
+  - target:
+      group: tekton.dev
+      version: v1beta1
+      kind: Task
+      name: human-oversight-approval
+    path: patches/monitoring-service-url.yaml
+  
+  # Update agent tasks with proper endpoint URLs
+  - target:
+      group: tekton.dev
+      version: v1beta1
+      kind: Task
+      name: agent-task-template-converter
+    path: patches/agent-endpoints.yaml

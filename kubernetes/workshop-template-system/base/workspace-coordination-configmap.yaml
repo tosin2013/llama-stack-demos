@@ -1,0 +1,254 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workspace-coordination-scripts
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: workspace-coordination
+data:
+  workspace-init.sh: |
+    #!/bin/bash
+    # Workspace Initialization Script (ADR-0007)
+    set -e
+    
+    WORKSPACE_ROOT="/workspace/shared-data"
+    PIPELINE_ID="${1:-unknown}"
+    COMPONENT="${2:-unknown}"
+    
+    echo "🚀 Initializing workspace for pipeline: $PIPELINE_ID, component: $COMPONENT"
+    
+    # Create pipeline-specific directory structure
+    PIPELINE_DIR="$WORKSPACE_ROOT/pipelines/$PIPELINE_ID"
+    mkdir -p "$PIPELINE_DIR"/{workspace-content,agent-artifacts/{content-creator,source-manager,template-converter},metadata/locks,final-output}
+    
+    # Create agent working directories
+    mkdir -p "$WORKSPACE_ROOT/agents"/{content-creator,source-manager}/{working,cache}
+    mkdir -p "$WORKSPACE_ROOT/agents/shared-tools"
+    
+    # Create shared directories
+    mkdir -p "$WORKSPACE_ROOT/shared"/{templates,git-cache,coordination/resource-locks}
+    
+    # Initialize pipeline metadata
+    cat > "$PIPELINE_DIR/metadata/pipeline-info.json" <<EOF
+    {
+      "pipeline_id": "$PIPELINE_ID",
+      "start_time": "$(date -Iseconds)",
+      "status": "initializing",
+      "components": ["$COMPONENT"],
+      "workspace_version": "1.0.0"
+    }
+    EOF
+    
+    # Initialize agent status tracking
+    cat > "$PIPELINE_DIR/metadata/agent-status.json" <<EOF
+    {
+      "template-converter": {"status": "pending", "start_time": null, "end_time": null},
+      "content-creator": {"status": "pending", "start_time": null, "end_time": null},
+      "source-manager": {"status": "pending", "start_time": null, "end_time": null}
+    }
+    EOF
+    
+    # Set permissions
+    chmod -R 755 "$PIPELINE_DIR"
+    
+    echo "✅ Workspace initialized: $PIPELINE_DIR"
+    echo "📁 Directory structure:"
+    ls -la "$PIPELINE_DIR"
+
+  workspace-lock.sh: |
+    #!/bin/bash
+    # Workspace File Locking Script (ADR-0007)
+    set -e
+    
+    WORKSPACE_ROOT="/workspace/shared-data"
+    PIPELINE_ID="$1"
+    RESOURCE="$2"
+    ACTION="$3"  # acquire, release, check
+    TIMEOUT="${4:-30}"
+    
+    LOCK_DIR="$WORKSPACE_ROOT/pipelines/$PIPELINE_ID/metadata/locks"
+    LOCK_FILE="$LOCK_DIR/$RESOURCE.lock"
+    
+    acquire_lock() {
+        local start_time=$(date +%s)
+        local end_time=$((start_time + TIMEOUT))
+        
+        while [ $(date +%s) -lt $end_time ]; do
+            if mkdir "$LOCK_FILE" 2>/dev/null; then
+                echo "$$:$(date -Iseconds)" > "$LOCK_FILE/info"
+                echo "🔒 Lock acquired: $RESOURCE"
+                return 0
+            fi
+            echo "⏳ Waiting for lock: $RESOURCE"
+            sleep 1
+        done
+        
+        echo "❌ Lock timeout: $RESOURCE"
+        return 1
+    }
+    
+    release_lock() {
+        if [ -d "$LOCK_FILE" ]; then
+            rm -rf "$LOCK_FILE"
+            echo "🔓 Lock released: $RESOURCE"
+        else
+            echo "⚠️  Lock not found: $RESOURCE"
+        fi
+    }
+    
+    check_lock() {
+        if [ -d "$LOCK_FILE" ]; then
+            echo "🔒 Lock exists: $RESOURCE"
+            cat "$LOCK_FILE/info" 2>/dev/null || echo "No lock info"
+            return 0
+        else
+            echo "🔓 Lock free: $RESOURCE"
+            return 1
+        fi
+    }
+    
+    case "$ACTION" in
+        acquire) acquire_lock ;;
+        release) release_lock ;;
+        check) check_lock ;;
+        *) echo "Usage: $0 <pipeline-id> <resource> <acquire|release|check> [timeout]"; exit 1 ;;
+    esac
+
+  workspace-status.sh: |
+    #!/bin/bash
+    # Workspace Status Management Script (ADR-0007)
+    set -e
+    
+    WORKSPACE_ROOT="/workspace/shared-data"
+    PIPELINE_ID="$1"
+    AGENT="$2"
+    STATUS="$3"  # pending, running, completed, failed
+    
+    STATUS_FILE="$WORKSPACE_ROOT/pipelines/$PIPELINE_ID/metadata/agent-status.json"
+    
+    if [ ! -f "$STATUS_FILE" ]; then
+        echo "❌ Status file not found: $STATUS_FILE"
+        exit 1
+    fi
+    
+    # Update agent status with timestamp
+    TIMESTAMP=$(date -Iseconds)
+    
+    case "$STATUS" in
+        running)
+            jq --arg agent "$AGENT" --arg time "$TIMESTAMP" \
+               '.[$agent].status = "running" | .[$agent].start_time = $time' \
+               "$STATUS_FILE" > "$STATUS_FILE.tmp" && mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+            ;;
+        completed|failed)
+            jq --arg agent "$AGENT" --arg status "$STATUS" --arg time "$TIMESTAMP" \
+               '.[$agent].status = $status | .[$agent].end_time = $time' \
+               "$STATUS_FILE" > "$STATUS_FILE.tmp" && mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+            ;;
+        *)
+            jq --arg agent "$AGENT" --arg status "$STATUS" \
+               '.[$agent].status = $status' \
+               "$STATUS_FILE" > "$STATUS_FILE.tmp" && mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+            ;;
+    esac
+    
+    echo "📊 Updated $AGENT status to: $STATUS"
+    echo "Current status:"
+    jq . "$STATUS_FILE"
+
+  workspace-cleanup.sh: |
+    #!/bin/bash
+    # Workspace Cleanup Script (ADR-0007)
+    set -e
+    
+    WORKSPACE_ROOT="/workspace/shared-data"
+    PIPELINE_ID="$1"
+    ACTION="${2:-archive}"  # archive, delete
+    
+    PIPELINE_DIR="$WORKSPACE_ROOT/pipelines/$PIPELINE_ID"
+    
+    if [ ! -d "$PIPELINE_DIR" ]; then
+        echo "⚠️  Pipeline directory not found: $PIPELINE_DIR"
+        exit 0
+    fi
+    
+    case "$ACTION" in
+        archive)
+            ARCHIVE_DIR="$WORKSPACE_ROOT/completed/$(date +%Y-%m-%d)/$PIPELINE_ID"
+            mkdir -p "$(dirname "$ARCHIVE_DIR")"
+            
+            echo "📦 Archiving pipeline: $PIPELINE_ID"
+            mv "$PIPELINE_DIR" "$ARCHIVE_DIR"
+            
+            # Create archive metadata
+            cat > "$ARCHIVE_DIR/archive-info.json" <<EOF
+    {
+      "pipeline_id": "$PIPELINE_ID",
+      "archived_time": "$(date -Iseconds)",
+      "original_path": "$PIPELINE_DIR",
+      "archive_path": "$ARCHIVE_DIR"
+    }
+    EOF
+            
+            echo "✅ Pipeline archived: $ARCHIVE_DIR"
+            ;;
+            
+        delete)
+            echo "🗑️  Deleting pipeline: $PIPELINE_ID"
+            rm -rf "$PIPELINE_DIR"
+            echo "✅ Pipeline deleted: $PIPELINE_ID"
+            ;;
+            
+        *)
+            echo "Usage: $0 <pipeline-id> <archive|delete>"
+            exit 1
+            ;;
+    esac
+
+  workspace-monitor.sh: |
+    #!/bin/bash
+    # Workspace Monitoring Script (ADR-0007)
+    
+    WORKSPACE_ROOT="/workspace/shared-data"
+    
+    echo "📊 Workspace Status Report"
+    echo "========================="
+    echo "Timestamp: $(date)"
+    echo ""
+    
+    # Storage usage
+    echo "💾 Storage Usage:"
+    df -h "$WORKSPACE_ROOT" | tail -1
+    echo ""
+    
+    # Active pipelines
+    echo "🔄 Active Pipelines:"
+    if [ -d "$WORKSPACE_ROOT/pipelines" ]; then
+        find "$WORKSPACE_ROOT/pipelines" -maxdepth 1 -type d -name "pipeline-run-*" | while read pipeline_dir; do
+            pipeline_id=$(basename "$pipeline_dir")
+            if [ -f "$pipeline_dir/metadata/pipeline-info.json" ]; then
+                status=$(jq -r '.status' "$pipeline_dir/metadata/pipeline-info.json" 2>/dev/null || echo "unknown")
+                start_time=$(jq -r '.start_time' "$pipeline_dir/metadata/pipeline-info.json" 2>/dev/null || echo "unknown")
+                echo "  - $pipeline_id: $status (started: $start_time)"
+            else
+                echo "  - $pipeline_id: no metadata"
+            fi
+        done
+    else
+        echo "  No active pipelines"
+    fi
+    echo ""
+    
+    # Agent working directories
+    echo "🤖 Agent Workspaces:"
+    if [ -d "$WORKSPACE_ROOT/agents" ]; then
+        du -sh "$WORKSPACE_ROOT/agents"/* 2>/dev/null || echo "  No agent workspaces"
+    fi
+    echo ""
+    
+    # Shared cache
+    echo "📦 Shared Cache:"
+    if [ -d "$WORKSPACE_ROOT/shared" ]; then
+        du -sh "$WORKSPACE_ROOT/shared"/* 2>/dev/null || echo "  No shared cache"
+    fi

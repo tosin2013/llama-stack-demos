@@ -228,16 +228,8 @@ spec:
       value: $(params.repository-url)
     runAfter: [workshop-chat-update]
 
-  results:
-  - name: enhanced-workshop-url
-    description: URL of the enhanced workshop deployment
-    value: "$(tasks.buildconfig-trigger.results.workshop-url)"
-  - name: gitea-repository-url
-    description: URL of the updated Gitea repository
-    value: "$(tasks.gitea-repository-update.results.updated-repo-url)"
-  - name: enhancement-summary
-    description: Summary of enhancements applied
-    value: "$(tasks.content-enhancement.results.enhancement-summary)"
-  - name: workflow-status
-    description: Overall workflow completion status
-    value: "completed"
+  # Results will be added once task results are properly defined
+  # results:
+  # - name: workflow-status
+  #   description: Overall workflow completion status
+  #   value: "completed"

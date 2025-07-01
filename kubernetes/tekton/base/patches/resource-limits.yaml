@@ -1,0 +1,137 @@
+# Resource limits for Tekton tasks
+# This patch applies resource limits to all Tekton task steps
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-template-converter
+spec:
+  steps:
+  - name: call-template-converter-agent
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+  - name: log-analysis-summary
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-content-creator
+spec:
+  steps:
+  - name: determine-content-operation
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+  - name: call-content-creator-agent
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "400m"
+  - name: log-content-summary
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: agent-task-source-manager
+spec:
+  steps:
+  - name: call-source-manager-agent
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "400m"
+  - name: log-operation-summary
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: human-oversight-approval
+spec:
+  steps:
+  - name: request-human-approval
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+  - name: log-approval-result
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: openshift-buildconfig-trigger
+spec:
+  steps:
+  - name: setup-openshift-cli
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+  - name: create-or-update-buildconfig
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "400m"
+  - name: trigger-build
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "200m"
+      limits:
+        memory: "512Mi"
+        cpu: "400m"

@@ -1,0 +1,113 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: workshop-template-system-with-tekton
+
+# Include both the existing workshop system and Tekton integration
+resources:
+  # Existing workshop template system
+  - ../workshop-template-system
+  
+  # Tekton integration overlay
+  - ../tekton/overlays/workshop-system
+
+# Generator options
+generatorOptions:
+  disableNameSuffixHash: true
+
+# Additional ConfigMap for Tekton-specific configuration
+configMapGenerator:
+  - name: tekton-integration-config
+    literals:
+      # Integration configuration
+      - tekton_enabled=true
+      - pipeline_execution_mode=automatic
+      - human_oversight_required=true
+      - approval_timeout_minutes=30
+      
+      # Test repository configuration
+      - test_repo_ddd_hexagonal=https://github.com/jeremyrdavis/dddhexagonalworkshop
+      - test_repo_ansible_cac=https://github.com/tosin2013/ansible-controller-cac.git
+      - test_repo_llama_stack=https://github.com/tosin2013/llama-stack-demos
+      
+      # Workflow mapping
+      - ddd_hexagonal_workflow=3
+      - ansible_cac_workflow=1
+      - llama_stack_workflow=1
+
+# Common labels for the integrated system
+commonLabels:
+  app: workshop-template-system
+  version: v1.0.0
+  integration: tekton-agent
+
+# Common annotations for the integrated system
+commonAnnotations:
+  description: "Workshop Template System with Tekton-Agent Integration (ADR-0006)"
+  maintainer: "workshop-system-team"
+  adr-reference: "ADR-0006-tekton-agent-integration-architecture"
+  integration-date: "2025-06-29"
+
+# Namespace for all resources
+namespace: workshop-system
+
+# Images that can be customized per environment
+images:
+  - name: workshop-system
+    newName: quay.io/workshop-system/workshop-system
+    newTag: latest
+
+# Replacements for dynamic configuration
+replacements:
+  # Replace cluster domain in Tekton tasks
+  - source:
+      kind: ConfigMap
+      name: workshop-system-config
+      fieldPath: data.workshop_domain
+    targets:
+      - select:
+          kind: Task
+          name: openshift-buildconfig-trigger
+        fieldPaths:
+          - spec.steps[3].script
+        options:
+          delimiter: "."
+          index: 0
+
+  # Replace monitoring service URL in human oversight task
+  - source:
+      kind: ConfigMap
+      name: workshop-system-config
+      fieldPath: data.monitoring_service_url
+    targets:
+      - select:
+          kind: Task
+          name: human-oversight-approval
+        fieldPaths:
+          - spec.steps[0].script
+        options:
+          delimiter: "="
+          index: 1
+
+# Patches for integrated system customization
+patchesStrategicMerge:
+  - patches/tekton-integration.yaml
+
+# JSON patches for specific Tekton integration modifications
+patchesJson6902:
+  # Update agent tasks with ConfigMap references
+  - target:
+      group: tekton.dev
+      version: v1beta1
+      kind: Task
+      name: agent-task-template-converter
+    path: patches/agent-configmap-refs.yaml
+  
+  # Update pipelines with integrated configuration
+  - target:
+      group: tekton.dev
+      version: v1beta1
+      kind: Pipeline
+      name: workflow-1-new-workshop
+    path: patches/pipeline-integration.yaml

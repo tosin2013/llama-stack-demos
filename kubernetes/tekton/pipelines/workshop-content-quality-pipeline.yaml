@@ -1,0 +1,231 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: workshop-content-quality-pipeline
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: content-quality
+    version: v1.0.0
+spec:
+  description: |
+    Workshop Content Quality & RAG Update Pipeline
+    Ensures workshop content quality through external reference validation and RAG updates.
+    Focuses on content accuracy, freshness, and integration of authoritative external sources.
+  params:
+  - name: workshop-name
+    type: string
+    description: Name of the workshop to analyze for content quality
+  - name: repository-url
+    type: string
+    description: Workshop repository URL for content analysis
+    default: ""
+  - name: content-source
+    type: string
+    description: Source of workshop content (repository, gitea, workspace)
+    default: "repository"
+  - name: quality-threshold
+    type: string
+    description: Minimum quality threshold for content acceptance (0.0-1.0)
+    default: "0.75"
+  - name: validation-scope
+    type: string
+    description: Scope of validation (external-references, all, links-only)
+    default: "external-references"
+  - name: rag-update-mode
+    type: string
+    description: RAG update strategy (incremental, full, selective)
+    default: "incremental"
+  - name: require-approval
+    type: string
+    description: Whether human approval is required for content updates
+    default: "true"
+  - name: approver
+    type: string
+    description: Person responsible for approving content quality updates
+    default: "content-quality-manager"
+  - name: middleware-endpoint
+    type: string
+    description: Workshop Monitoring Service (Middleware) endpoint
+    default: "http://workshop-monitoring-service:8080"
+  workspaces:
+  - name: shared-data
+    description: Shared workspace for workshop content analysis
+  - name: quality-reports
+    description: Workspace for storing quality analysis reports
+  tasks:
+
+  # Task 1: Extract and analyze workshop content
+  - name: analyze-workshop-content
+    taskRef:
+      name: agent-task-template-converter
+    params:
+    - name: repository-url
+      value: "$(params.repository-url)"
+    - name: analysis-depth
+      value: "content-quality"
+    - name: target-format
+      value: "quality-analysis"
+    - name: middleware-endpoint
+      value: "$(params.middleware-endpoint)"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+
+  # Task 2: Validate external references in workshop content
+  - name: validate-external-references
+    runAfter:
+    - analyze-workshop-content
+    taskRef:
+      name: content-quality-validation-task
+    params:
+    - name: workshop-name
+      value: "$(params.workshop-name)"
+    - name: workshop-content
+      value: "$(tasks.analyze-workshop-content.results.workshop-content)"
+    - name: validation-scope
+      value: "$(params.validation-scope)"
+    - name: quality-threshold
+      value: "$(params.quality-threshold)"
+    - name: middleware-endpoint
+      value: "$(params.middleware-endpoint)"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+    - name: quality-reports
+      workspace: quality-reports
+
+  # Task 3: Update RAG with validated external content
+  - name: update-rag-content
+    runAfter:
+    - validate-external-references
+    taskRef:
+      name: rag-content-update-task
+    params:
+    - name: workshop-name
+      value: "$(params.workshop-name)"
+    - name: workshop-content
+      value: "$(tasks.analyze-workshop-content.results.workshop-content)"
+    - name: validated-references
+      value: "$(tasks.validate-external-references.results.validated-references)"
+    - name: update-mode
+      value: "$(params.rag-update-mode)"
+    - name: quality-threshold
+      value: "$(params.quality-threshold)"
+    - name: middleware-endpoint
+      value: "$(params.middleware-endpoint)"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+
+  # Task 4: Enhance workshop content with validated references
+  - name: enhance-content-with-references
+    runAfter:
+    - update-rag-content
+    taskRef:
+      name: agent-task-content-creator
+    params:
+    - name: repository-url
+      value: "$(params.repository-url)"
+    - name: workshop-name
+      value: "$(params.workshop-name)"
+    - name: operation-type
+      value: "enhance-with-references"
+    - name: validated-references
+      value: "$(tasks.validate-external-references.results.validated-references)"
+    - name: enhancement-strategy
+      value: "contextual"
+    - name: middleware-endpoint
+      value: "$(params.middleware-endpoint)"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+
+  # Task 5: Generate content quality report
+  - name: generate-quality-report
+    runAfter:
+    - enhance-content-with-references
+    taskRef:
+      name: agent-task-documentation-pipeline
+    params:
+    - name: workshop-content
+      value: "$(tasks.enhance-content-with-references.results.enhanced-content)"
+    - name: workshop-name
+      value: "$(params.workshop-name)"
+    - name: documentation-type
+      value: "content-quality-report"
+    - name: quality-metrics
+      value: "$(tasks.validate-external-references.results.quality-metrics)"
+    - name: middleware-endpoint
+      value: "$(params.middleware-endpoint)"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+    - name: quality-reports
+      workspace: quality-reports
+
+  # Task 6: Human oversight for content quality approval
+  - name: content-quality-approval
+    when:
+    - input: "$(params.require-approval)"
+      operator: in
+      values: ["true"]
+    runAfter:
+    - generate-quality-report
+    taskRef:
+      name: human-oversight-approval
+    params:
+    - name: approval-type
+      value: "content-quality"
+    - name: workshop-name
+      value: "$(params.workshop-name)"
+    - name: approver
+      value: "$(params.approver)"
+    - name: quality-report
+      value: "$(tasks.generate-quality-report.results.quality-report)"
+    - name: quality-score
+      value: "$(tasks.validate-external-references.results.overall-quality-score)"
+    - name: timeout-minutes
+      value: "120"
+    - name: middleware-endpoint
+      value: "$(params.middleware-endpoint)"
+
+  # Task 7: Update workshop repository with quality improvements
+  - name: update-workshop-with-improvements
+    runAfter:
+    - content-quality-approval
+    taskRef:
+      name: agent-task-source-manager
+    params:
+    - name: repository-url
+      value: "$(params.repository-url)"
+    - name: workshop-name
+      value: "$(params.workshop-name)"
+    - name: operation-type
+      value: "quality-update"
+    - name: enhanced-content
+      value: "$(tasks.enhance-content-with-references.results.enhanced-content)"
+    - name: quality-report
+      value: "$(tasks.generate-quality-report.results.quality-report)"
+    - name: middleware-endpoint
+      value: "$(params.middleware-endpoint)"
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+
+  results:
+  - name: content-quality-score
+    description: Overall content quality score after improvements
+    value: "$(tasks.validate-external-references.results.overall-quality-score)"
+  - name: references-validated
+    description: Number of external references validated
+    value: "$(tasks.validate-external-references.results.references-validated)"
+  - name: rag-update-status
+    description: Status of RAG knowledge base update
+    value: "$(tasks.update-rag-content.results.update-status)"
+  - name: content-enhancement-summary
+    description: Summary of content enhancements made
+    value: "$(tasks.enhance-content-with-references.results.enhancement-summary)"
+  - name: quality-report-url
+    description: URL to the generated content quality report
+    value: "$(tasks.generate-quality-report.results.report-url)"

@@ -38,7 +38,7 @@ spec:
 
   workspaces:
   - name: shared-data
-    description: Shared workspace for pipeline data
+    description: Shared workspace for workshop content and agent coordination (ADR-0007)
   - name: gitea-auth
     description: Gitea authentication credentials
 

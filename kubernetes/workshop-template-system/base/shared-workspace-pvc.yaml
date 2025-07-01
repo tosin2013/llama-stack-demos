@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-workspace-storage
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: shared-workspace
+    storage-type: rwx-workspace
+  annotations:
+    description: "Shared workspace storage for agents and Tekton pipelines (ADR-0007)"
+    storage.kubernetes.io/provisioner: "ocs-storagecluster-cephfs"
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: ocs-storagecluster-cephfs
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workspace-config
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: workspace-management
+data:
+  workspace-path: "/workspace/shared-data"
+  workspace-structure: |
+    # Enhanced Shared Workspace Structure (ADR-0007)
+    /workspace/shared-data/
+    ├── pipelines/                 # Pipeline-specific workspaces (isolated)
+    │   ├── {pipeline-run-id}/     # Unique per pipeline run
+    │   │   ├── workspace-content/ # Git cloned repository content
+    │   │   ├── agent-artifacts/   # Agent-generated content
+    │   │   │   ├── content-creator/
+    │   │   │   ├── source-manager/
+    │   │   │   └── template-converter/
+    │   │   ├── metadata/          # Pipeline metadata and coordination
+    │   │   │   ├── pipeline-info.json
+    │   │   │   ├── agent-status.json
+    │   │   │   └── locks/         # File locking for coordination
+    │   │   └── final-output/      # Ready for Gitea deployment
+    │   └── {another-pipeline-run-id}/
+    ├── agents/                    # Agent working directories
+    │   ├── content-creator/       # Content Creator Agent workspace
+    │   │   ├── working/           # Temporary working files
+    │   │   └── cache/             # Agent-specific cache
+    │   ├── source-manager/        # Source Manager Agent workspace
+    │   │   ├── working/           # Temporary working files
+    │   │   ├── gitea-sync/        # Gitea synchronization staging
+    │   │   └── cache/             # Agent-specific cache
+    │   └── shared-tools/          # Shared utilities and scripts
+    ├── shared/                    # Shared resources across all components
+    │   ├── templates/             # Cached template repositories
+    │   │   ├── showroom_template_default/
+    │   │   └── cached-repos/
+    │   ├── git-cache/             # Git repository cache
+    │   └── coordination/          # Global coordination files
+    │       ├── active-pipelines.json
+    │       └── resource-locks/
+    └── completed/                 # Archived completed pipelines
+        └── {date}/
+            └── {pipeline-run-id}/ # Archived for reference
+  
+  cleanup-policy: |
+    # Workspace Cleanup Policy
+    # - Active pipelines: Keep until pipeline completion + 1 hour
+    # - Completed pipelines: Archive for 24 hours, then cleanup
+    # - Templates cache: Keep for 7 days
+    # - Shared cache: Keep for 3 days
+    
+    ACTIVE_RETENTION_HOURS=1
+    COMPLETED_RETENTION_HOURS=24
+    TEMPLATE_CACHE_DAYS=7
+    SHARED_CACHE_DAYS=3
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: workspace-cleanup
+  namespace: workshop-system
+  labels:
+    app: workshop-template-system
+    component: workspace-management
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: workshop-system-sa
+          containers:
+          - name: workspace-cleanup
+            image: registry.access.redhat.com/ubi8/ubi:latest
+            command:
+            - /bin/bash
+            - -c
+            - |
+              echo "🧹 Workspace Cleanup Job (ADR-0007)"
+              echo "=================================="
+              
+              WORKSPACE_ROOT="/workspace/shared-data"
+              CURRENT_TIME=$(date +%s)
+              
+              # Cleanup completed pipelines older than 24 hours
+              echo "🗂️  Cleaning up completed pipelines..."
+              find "$WORKSPACE_ROOT/completed" -type d -name "pipeline-run-*" -mtime +1 -exec rm -rf {} \; 2>/dev/null || true
+              
+              # Cleanup active pipelines that are stale (older than 6 hours)
+              echo "🔄 Cleaning up stale active pipelines..."
+              find "$WORKSPACE_ROOT/active-pipelines" -type d -name "pipeline-run-*" -mtime +0.25 -exec rm -rf {} \; 2>/dev/null || true
+              
+              # Cleanup old template cache
+              echo "📦 Cleaning up template cache..."
+              find "$WORKSPACE_ROOT/templates/cached-repos" -type d -mtime +7 -exec rm -rf {} \; 2>/dev/null || true
+              
+              # Cleanup shared cache
+              echo "💾 Cleaning up shared cache..."
+              find "$WORKSPACE_ROOT/shared-cache" -type f -mtime +3 -delete 2>/dev/null || true
+              
+              # Report storage usage
+              echo "📊 Current workspace usage:"
+              du -sh "$WORKSPACE_ROOT"/* 2>/dev/null || echo "No workspace directories found"
+              
+              echo "✅ Workspace cleanup completed"
+            volumeMounts:
+            - name: shared-workspace
+              mountPath: /workspace/shared-data
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+          volumes:
+          - name: shared-workspace
+            persistentVolumeClaim:
+              claimName: shared-workspace-storage
+          restartPolicy: OnFailure

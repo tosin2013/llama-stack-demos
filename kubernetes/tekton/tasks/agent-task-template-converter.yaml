@@ -17,10 +17,10 @@ spec:
   - name: repository-url
     type: string
     description: GitHub repository URL to analyze
-  - name: analysis-type
+  - name: analysis-depth
     type: string
-    description: Type of analysis to perform (new-workshop-classification, existing-workshop-detection, repository-structure)
-    default: "repository-structure"
+    description: Depth of analysis to perform (quick, standard, deep)
+    default: "standard"
   - name: agent-endpoint
     type: string
     description: Template Converter Agent endpoint
@@ -50,29 +50,33 @@ spec:
       echo "🔍 Template Converter Agent Task"
       echo "================================"
       echo "Repository URL: $(params.repository-url)"
-      echo "Analysis Type: $(params.analysis-type)"
+      echo "Analysis Depth: $(params.analysis-depth)"
       echo "Agent Endpoint: $(params.agent-endpoint)"
       echo ""
       
       # Install required tools
       dnf install -y curl jq
       
-      # Prepare request payload
-      REQUEST_PAYLOAD=$(cat <<EOF
+      # This REQUEST_PAYLOAD is legacy - we now use INVOKE_PAYLOAD for the /invoke endpoint
+      
+      # Call Template Converter Agent endpoint using the correct /invoke endpoint
+      INVOKE_PAYLOAD=$(cat <<EOF
       {
-        "repository_url": "$(params.repository-url)",
-        "analysis_type": "$(params.analysis-type)"
+        "tool_name": "analyze_repository_tool",
+        "parameters": {
+          "repository_url": "$(params.repository-url)",
+          "analysis_depth": "$(params.analysis-depth)"
+        }
       }
       EOF
       )
-      
-      echo "📝 Calling Template Converter Agent..."
-      echo "Request: $REQUEST_PAYLOAD"
-      
-      # Call Template Converter Agent endpoint
-      RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)/tools/analyze_repository_structure_tool" \
+
+      echo "📝 Calling Template Converter Agent via /invoke endpoint..."
+      echo "Invoke Payload: $INVOKE_PAYLOAD"
+
+      RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "$(params.agent-endpoint)/invoke" \
         -H "Content-Type: application/json" \
-        -d "$REQUEST_PAYLOAD" \
+        -d "$INVOKE_PAYLOAD" \
         --connect-timeout 30 \
         --max-time $(params.timeout-seconds))
       
@@ -100,14 +104,22 @@ spec:
       
       # Extract and validate results
       if echo "$RESPONSE_BODY" | jq -e '.result' > /dev/null 2>&1; then
-        # Extract main analysis result
+        # Extract main analysis result (this is a markdown string, not JSON)
         ANALYSIS_RESULT=$(echo "$RESPONSE_BODY" | jq -r '.result')
         echo "$ANALYSIS_RESULT" > $(results.analysis-result.path)
-        
-        # Extract repository classification
-        REPO_CLASSIFICATION=$(echo "$ANALYSIS_RESULT" | jq -r '.repository_classification // "application"')
+
+        # Parse the markdown result to extract classification
+        # Look for "Workshop Type" in the markdown
+        if echo "$ANALYSIS_RESULT" | grep -q "existing_workshop"; then
+          REPO_CLASSIFICATION="existing_workshop"
+        elif echo "$ANALYSIS_RESULT" | grep -q "tutorial_content"; then
+          REPO_CLASSIFICATION="tutorial_content"
+        else
+          REPO_CLASSIFICATION="application"
+        fi
+
         echo "$REPO_CLASSIFICATION" > $(results.repository-classification.path)
-        
+
         # Determine workflow type based on classification
         if [ "$REPO_CLASSIFICATION" = "existing_workshop" ]; then
           echo "3" > $(results.workflow-type.path)
@@ -116,12 +128,12 @@ spec:
           echo "1" > $(results.workflow-type.path)
           echo "showroom_template_default" > $(results.template-source.path)
         fi
-        
+
         echo "✅ Template Converter Agent analysis completed successfully"
         echo "Repository Classification: $REPO_CLASSIFICATION"
         echo "Recommended Workflow: $(cat $(results.workflow-type.path))"
         echo "Template Source: $(cat $(results.template-source.path))"
-        
+
       else
         echo "❌ Invalid response format - missing 'result' field"
         echo "Response: $RESPONSE_BODY"
@@ -136,7 +148,7 @@ spec:
       echo "📋 Template Converter Agent Analysis Summary"
       echo "==========================================="
       echo "Repository URL: $(params.repository-url)"
-      echo "Analysis Type: $(params.analysis-type)"
+      echo "Analysis Depth: $(params.analysis-depth)"
       echo ""
       
       REPO_CLASSIFICATION=$(cat $(results.repository-classification.path))

@@ -58,13 +58,46 @@ spec:
       echo ""
       
       # Install required tools
-      dnf install -y git tree
-      
-      # Create workspace structure
-      echo "📁 Creating workspace structure..."
-      mkdir -p /workspace/shared-data/workshop-content
-      mkdir -p /workspace/shared-data/metadata
-      cd /workspace/shared-data/workshop-content
+      dnf install -y git jq
+
+      # Initialize coordinated workspace structure
+      echo "📁 Initializing coordinated workspace structure..."
+      PIPELINE_ID="$(params.workshop-name)-$(date +%s)"
+
+      # Create pipeline-specific directory structure
+      PIPELINE_DIR="/workspace/shared-data/pipelines/$PIPELINE_ID"
+      mkdir -p "$PIPELINE_DIR"/{workspace-content,agent-artifacts/{content-creator,source-manager,template-converter},metadata/locks,final-output}
+
+      # Create agent working directories
+      mkdir -p /workspace/shared-data/agents/{content-creator,source-manager}/{working,cache}
+      mkdir -p /workspace/shared-data/agents/shared-tools
+
+      # Create shared directories
+      mkdir -p /workspace/shared-data/shared/{templates,git-cache,coordination/resource-locks}
+
+      # Initialize pipeline metadata
+      cat > "$PIPELINE_DIR/metadata/pipeline-info.json" <<EOF
+      {
+        "pipeline_id": "$PIPELINE_ID",
+        "start_time": "$(date -Iseconds)",
+        "status": "initializing",
+        "workflow_type": "$(params.workflow-type)",
+        "repository_url": "$(params.repository-url)",
+        "workshop_name": "$(params.workshop-name)",
+        "workspace_version": "1.0.0"
+      }
+      EOF
+
+      # Initialize agent status tracking
+      cat > "$PIPELINE_DIR/metadata/agent-status.json" <<EOF
+      {
+        "template-converter": {"status": "pending", "start_time": null, "end_time": null},
+        "content-creator": {"status": "pending", "start_time": null, "end_time": null},
+        "source-manager": {"status": "pending", "start_time": null, "end_time": null}
+      }
+      EOF
+
+      cd "$PIPELINE_DIR/workspace-content"
       
       # Initialize workspace based on workflow type
       if [ "$(params.workflow-type)" = "3" ]; then
@@ -75,7 +108,7 @@ spec:
         git clone $(params.repository-url) .
         
         # Create metadata for enhancement workflow
-        cat > /workspace/shared-data/metadata/workflow-info.json <<EOF
+        cat > "$PIPELINE_DIR/metadata/workflow-info.json" <<EOF
       {
         "workflow_type": "3",
         "strategy": "enhancement",
@@ -94,7 +127,7 @@ spec:
         git clone https://github.com/rhpds/showroom_template_default.git .
         
         # Create metadata for creation workflow
-        cat > /workspace/shared-data/metadata/workflow-info.json <<EOF
+        cat > "$PIPELINE_DIR/metadata/workflow-info.json" <<EOF
       {
         "workflow_type": "1",
         "strategy": "creation",
@@ -123,9 +156,13 @@ spec:
       echo "📂 Directory Structure:"
       tree -L 3 . || ls -la
       
+      # Update pipeline status
+      jq '.status = "initialized"' "$PIPELINE_DIR/metadata/pipeline-info.json" > "$PIPELINE_DIR/metadata/pipeline-info.json.tmp"
+      mv "$PIPELINE_DIR/metadata/pipeline-info.json.tmp" "$PIPELINE_DIR/metadata/pipeline-info.json"
+
       # Write results
       echo "success" > $(results.workspace-status.path)
-      echo "/workspace/shared-data/workshop-content" > $(results.content-path.path)
+      echo "$PIPELINE_DIR/workspace-content" > $(results.content-path.path)
       echo "$FILES_COUNT" > $(results.files-count.path)
       
       echo ""
@@ -140,9 +177,14 @@ spec:
       
       echo "🔍 Validating Workspace Content"
       echo "==============================="
-      
-      CONTENT_PATH="/workspace/shared-data/workshop-content"
-      METADATA_PATH="/workspace/shared-data/metadata"
+
+      # Read paths from task results
+      CONTENT_PATH=$(cat $(results.content-path.path))
+      PIPELINE_DIR=$(dirname "$CONTENT_PATH")
+      METADATA_PATH="$PIPELINE_DIR/metadata"
+
+      echo "Content Path: $CONTENT_PATH"
+      echo "Metadata Path: $METADATA_PATH"
       
       # Validate workspace structure
       if [ ! -d "$CONTENT_PATH" ]; then
