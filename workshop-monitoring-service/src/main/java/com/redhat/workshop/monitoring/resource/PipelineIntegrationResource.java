@@ -1014,21 +1014,30 @@ public class PipelineIntegrationResource {
             // Step 3: Log workflow decision
             logWorkflowDecision(request.getRepositoryUrl(), classification);
 
-            // Step 4: Route to appropriate workflow
+            // Step 4: Route to appropriate workflow and create Gitea repository
             Response workflowResponse;
+            String giteaRepositoryUrl = "";
+
             if (classification.shouldUseWorkflow3()) {
                 // Workflow 3: Enhancement - Clone original workshop
                 LOG.infof("🔄 Routing to Workflow 3 (Enhancement) for existing workshop");
                 EnhanceWorkshopRequest enhanceRequest = convertToEnhanceRequest(request, classification);
                 workflowResponse = enhanceWorkshopContent(enhanceRequest);
+
+                // Create enhanced repository in Gitea
+                giteaRepositoryUrl = createGiteaRepository(request.getWorkshopName() + "-enhanced", workflowResponse, classification);
+
             } else {
                 // Workflow 1: New Workshop Creation - Use showroom_template_default
                 LOG.infof("🆕 Routing to Workflow 1 (New Creation) for application/tutorial content");
                 workflowResponse = createWorkshopContent(request);
+
+                // Create new repository in Gitea
+                giteaRepositoryUrl = createGiteaRepository(request.getWorkshopName(), workflowResponse, classification);
             }
 
-            // Step 5: Build unified response with classification metadata
-            return buildUnifiedResponse(workflowResponse, classification, request);
+            // Step 5: Build unified response with classification metadata and Gitea URL
+            return buildUnifiedResponseWithGitea(workflowResponse, classification, request, giteaRepositoryUrl);
 
         } catch (Exception e) {
             LOG.errorf("Failed to create workshop intelligently: %s", e.getMessage());
@@ -1082,15 +1091,55 @@ public class PipelineIntegrationResource {
     }
 
     /**
-     * Build unified response format with classification metadata
+     * Create Gitea repository for workshop content
      */
-    private Response buildUnifiedResponse(Response workflowResponse, RepositoryClassification classification, CreateWorkshopRequest request) {
+    private String createGiteaRepository(String workshopName, Response workflowResponse, RepositoryClassification classification) {
+        try {
+            LOG.infof("📁 Creating Gitea repository for workshop: %s", workshopName);
+
+            // Extract workshop content from workflow response
+            Object responseEntity = workflowResponse.getEntity();
+            Map<String, Object> responseData = (Map<String, Object>) responseEntity;
+            String workshopContent = (String) responseData.getOrDefault("workshop_content", "Generated workshop content");
+
+            // Create repository request
+            CreateRepositoryRequest repoRequest = new CreateRepositoryRequest();
+            repoRequest.setRepositoryName(workshopName);
+            repoRequest.setWorkshopContent(workshopContent);
+            repoRequest.setVisibility("public");
+            repoRequest.setGiteaUrl("https://gitea-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com");
+
+            // Call Source Manager Agent to create repository
+            Response repoResponse = createRepository(repoRequest);
+
+            if (repoResponse.getStatus() == 200) {
+                Object repoEntity = repoResponse.getEntity();
+                Map<String, Object> repoData = (Map<String, Object>) repoEntity;
+                String repositoryUrl = (String) repoData.get("repository_url");
+
+                LOG.infof("✅ Gitea repository created successfully: %s", repositoryUrl);
+                return repositoryUrl != null ? repositoryUrl : "";
+            } else {
+                LOG.warnf("⚠️ Failed to create Gitea repository, status: %d", repoResponse.getStatus());
+                return "";
+            }
+
+        } catch (Exception e) {
+            LOG.errorf("❌ Error creating Gitea repository: %s", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Build unified response format with classification metadata and Gitea URL
+     */
+    private Response buildUnifiedResponseWithGitea(Response workflowResponse, RepositoryClassification classification, CreateWorkshopRequest request, String giteaRepositoryUrl) {
         try {
             // Extract original response data
             Object originalEntity = workflowResponse.getEntity();
             Map<String, Object> originalData = (Map<String, Object>) originalEntity;
 
-            // Build enhanced response with classification metadata
+            // Build enhanced response with classification metadata and Gitea URL
             Map<String, Object> enhancedResponse = new HashMap<>(originalData);
             enhancedResponse.put("classification", Map.of(
                 "repository_classification", classification.getClassificationType(),
@@ -1103,14 +1152,23 @@ public class PipelineIntegrationResource {
             ));
             enhancedResponse.put("intelligent_routing", true);
             enhancedResponse.put("adr_compliance", "ADR-0001");
+            enhancedResponse.put("gitea_repository_url", giteaRepositoryUrl);
+            enhancedResponse.put("repository_created", !giteaRepositoryUrl.isEmpty());
 
             return Response.status(workflowResponse.getStatus())
                 .entity(enhancedResponse)
                 .build();
 
         } catch (Exception e) {
-            LOG.warnf("Failed to build unified response, returning original: %s", e.getMessage());
+            LOG.warnf("Failed to build unified response with Gitea URL, returning original: %s", e.getMessage());
             return workflowResponse;
         }
+    }
+
+    /**
+     * Build unified response format with classification metadata (legacy method)
+     */
+    private Response buildUnifiedResponse(Response workflowResponse, RepositoryClassification classification, CreateWorkshopRequest request) {
+        return buildUnifiedResponseWithGitea(workflowResponse, classification, request, "");
     }
 }
