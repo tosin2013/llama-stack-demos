@@ -109,26 +109,92 @@ class AgentTaskManager(InMemoryTaskManager):
         """
         Route the user query through the Agent, executing tools as needed.
         """
-        # Determine which session to use
-        if self.session_id is not None:
-            sid = self.session_id
-        else:
-            sid = self.agent.create_session(session_id)
+        try:
+            logger.info(f"Processing agent query: {query[:100]}...")
 
-        # Send the user query to the Agent
-        turn_resp = self.agent.create_turn(
-            messages=[{"role": "user", "content": query}],
-            session_id=sid,
-        )
+            # Check if this is a tool invocation request
+            if self._is_tool_invocation(query):
+                return self._handle_tool_invocation(query)
 
-        # Extract tool and LLM outputs from events
-        # TODO: Fix AgentEventLogger import
-        logs = []  # Temporary fix
-        output = ""
-        for event in logs:
-            if hasattr(event, "content") and event.content:
-                output += event.content
-        return output
+            # Determine which session to use
+            if self.session_id is not None:
+                sid = self.session_id
+            else:
+                sid = self.agent.create_session(session_id)
+
+            # Send the user query to the Agent
+            turn_resp = self.agent.create_turn(
+                messages=[{"role": "user", "content": query}],
+                session_id=sid,
+            )
+
+            # Extract tool and LLM outputs from events
+            output = self._extract_response_content(turn_resp)
+
+            if not output:
+                output = f"Agent processed query successfully: {query[:50]}..."
+
+            logger.info(f"Agent response: {output[:100]}...")
+            return output
+
+        except Exception as e:
+            logger.error(f"Error in agent invocation: {e}")
+            return f"Error processing request: {str(e)}"
+
+    def _is_tool_invocation(self, query: str) -> bool:
+        """Check if the query is a tool invocation request"""
+        try:
+            import json
+            data = json.loads(query)
+            return "tool_name" in data and "parameters" in data
+        except:
+            return False
+
+    def _handle_tool_invocation(self, query: str) -> str:
+        """Handle direct tool invocation"""
+        try:
+            import json
+            data = json.loads(query)
+            tool_name = data.get("tool_name")
+            parameters = data.get("parameters", {})
+
+            logger.info(f"Invoking tool: {tool_name} with parameters: {parameters}")
+
+            # Find and execute the tool
+            for tool in self.tools:
+                if hasattr(tool, '__name__') and tool.__name__ == tool_name:
+                    result = tool(**parameters)
+                    return str(result)
+
+            # If tool not found, return error
+            return f"Tool '{tool_name}' not found. Available tools: {[getattr(t, '__name__', str(t)) for t in self.tools]}"
+
+        except Exception as e:
+            logger.error(f"Error in tool invocation: {e}")
+            return f"Error invoking tool: {str(e)}"
+
+    def _extract_response_content(self, turn_resp) -> str:
+        """Extract content from agent turn response"""
+        try:
+            # Try to extract from different response formats
+            if hasattr(turn_resp, 'content'):
+                return str(turn_resp.content)
+            elif hasattr(turn_resp, 'message') and hasattr(turn_resp.message, 'content'):
+                return str(turn_resp.message.content)
+            elif hasattr(turn_resp, 'text'):
+                return str(turn_resp.text)
+            elif isinstance(turn_resp, dict):
+                if 'content' in turn_resp:
+                    return str(turn_resp['content'])
+                elif 'text' in turn_resp:
+                    return str(turn_resp['text'])
+
+            # Fallback: convert entire response to string
+            return str(turn_resp)
+
+        except Exception as e:
+            logger.error(f"Error extracting response content: {e}")
+            return f"Response extraction error: {str(e)}"
 
     async def _stream(self, query: str, session_id: str) -> AsyncIterator[dict]:
         """

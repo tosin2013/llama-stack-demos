@@ -93,27 +93,58 @@ class A2ARequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps({"status": "healthy"}).encode())
     
     def _handle_send_task(self):
-        """Handle task submission"""
+        """Handle task submission with real agent processing"""
         try:
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             request_data = json.loads(post_data.decode('utf-8'))
-            
-            # This is a simplified implementation
-            # In a full implementation, this would handle the A2A protocol properly
-            response = {
-                "id": request_data.get("id", "unknown"),
-                "result": {
-                    "id": request_data.get("params", {}).get("id", "task-id"),
-                    "status": {
-                        "state": "completed",
-                        "message": {
-                            "role": "agent",
-                            "parts": [{"type": "text", "text": "Task completed (simplified implementation)"}]
+
+            logger.info(f"Processing task request: {request_data.get('id', 'unknown')}")
+
+            # Process task through task manager
+            try:
+                # Create SendTaskRequest from incoming data
+                from common.types import SendTaskRequest
+                task_request = SendTaskRequest(**request_data)
+
+                # Process task asynchronously
+                import asyncio
+                task_response = asyncio.run(self.task_manager.on_send_task(task_request))
+
+                # Convert response to dict format
+                response = {
+                    "id": task_response.id,
+                    "result": {
+                        "id": task_response.result.id,
+                        "status": {
+                            "state": task_response.result.status.state,
+                            "message": {
+                                "role": task_response.result.status.message.role,
+                                "parts": [{"type": part.type, "text": part.text} for part in task_response.result.status.message.parts]
+                            }
+                        },
+                        "artifacts": [{"parts": [{"type": part.type, "text": part.text} for part in artifact.parts]} for artifact in task_response.result.artifacts] if task_response.result.artifacts else []
+                    }
+                }
+
+                logger.info(f"Task processed successfully: {response['result']['status']['state']}")
+
+            except Exception as e:
+                logger.error(f"Error processing task through task manager: {e}")
+                # Fallback response with error information
+                response = {
+                    "id": request_data.get("id", "unknown"),
+                    "result": {
+                        "id": request_data.get("params", {}).get("id", "task-id"),
+                        "status": {
+                            "state": "failed",
+                            "message": {
+                                "role": "agent",
+                                "parts": [{"type": "text", "text": f"Task processing error: {str(e)}"}]
+                            }
                         }
                     }
                 }
-            }
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')

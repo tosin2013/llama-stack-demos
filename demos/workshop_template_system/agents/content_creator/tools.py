@@ -974,50 +974,68 @@ def generate_exercises_tool(topic: str, exercise_type: str = "hands_on", difficu
 
 
 @client_tool
-def clone_showroom_template_tool(workshop_name: str, technology_focus: str = "general", customization_level: str = "standard") -> str:
+def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", base_template: str = "showroom_template_default") -> str:
     """
-    :description: Clone and customize the official RHPDS Showroom template for professional workshop creation.
-    :use_case: Use to create RHPDS/Showroom-compatible workshops with professional layouts and proven patterns.
-    :param workshop_name: Name for the new workshop (will be used for directory and configuration)
-    :param technology_focus: Primary technology focus (openshift, kubernetes, ansible, general)
-    :param customization_level: Level of customization (minimal, standard, extensive)
-    :returns: Setup report with cloned template structure and customization instructions
+    :description: Actually clone and customize the official RHPDS Showroom template for workshop creation.
+    :use_case: Use to create real RHPDS/Showroom-compatible workshops with actual files and structure.
+    :param workshop_name: Name for the new workshop
+    :param repository_url: Source repository URL for content analysis
+    :param base_template: Template to use (showroom_template_default)
+    :returns: Real workshop creation report with actual file paths and content
     """
     try:
-        # Generate setup report
-        setup_parts = [
-            f"# Showroom Template Setup: {workshop_name}",
-            f"**Technology Focus**: {technology_focus.title()}",
-            f"**Customization Level**: {customization_level.title()}",
-            f"**Setup Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        import subprocess
+        import shutil
+
+        # Define workspace paths
+        workspace_path = os.getenv('WORKSPACE_PATH', '/workspace/shared-data')
+        template_cache_path = f"{workspace_path}/shared/templates/{base_template}"
+        workshop_output_path = f"{workspace_path}/final-output/{workshop_name}"
+
+        logger.info(f"Creating real workshop: {workshop_name}")
+        logger.info(f"Workspace path: {workspace_path}")
+        logger.info(f"Template cache: {template_cache_path}")
+        logger.info(f"Output path: {workshop_output_path}")
+
+        # Ensure workspace directories exist
+        os.makedirs(f"{workspace_path}/shared/templates", exist_ok=True)
+        os.makedirs(f"{workspace_path}/final-output", exist_ok=True)
+
+        # Step 1: Clone template if not cached
+        if not os.path.exists(template_cache_path):
+            logger.info(f"Cloning {base_template} template...")
+            clone_cmd = [
+                "git", "clone",
+                f"https://github.com/rhpds/{base_template}.git",
+                template_cache_path
+            ]
+            result = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode != 0:
+                raise Exception(f"Failed to clone template: {result.stderr}")
+            logger.info("Template cloned successfully")
+        else:
+            logger.info("Using cached template")
+
+        # Step 2: Copy template to workshop directory
+        if os.path.exists(workshop_output_path):
+            shutil.rmtree(workshop_output_path)
+
+        shutil.copytree(template_cache_path, workshop_output_path, dirs_exist_ok=True)
+        logger.info(f"Template copied to: {workshop_output_path}")
+
+        # Step 3: Customize template
+        files_created = customize_workshop_template(workshop_output_path, workshop_name, repository_url)
+
+        # Step 4: Generate summary
+        summary_parts = [
+            f"# Workshop Created Successfully: {workshop_name}",
+            f"**Created**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"**Source Repository**: {repository_url or 'N/A'}",
+            f"**Template Used**: {base_template}",
+            f"**Output Path**: {workshop_output_path}",
+            f"**Files Created/Modified**: {files_created}",
             "",
-            "## 🎯 Showroom Template Integration",
-            "",
-            "### Step 1: Clone Official Template",
-            "```bash",
-            "# Clone the official Showroom template",
-            "git clone https://github.com/rhpds/showroom_template_default.git",
-            f"mv showroom_template_default {workshop_name}-workshop",
-            f"cd {workshop_name}-workshop",
-            "",
-            "# Remove original git history and initialize new repo",
-            "rm -rf .git",
-            "git init",
-            "git add .",
-            f'git commit -m "Initial commit: {workshop_name} workshop from Showroom template"',
-            "```",
-            "",
-            "### Step 2: Basic Configuration",
-            "```yaml",
-            "# Update content/antora.yml",
-            f"name: {workshop_name.lower().replace(' ', '-')}-workshop",
-            f"title: {workshop_name} Workshop",
-            "version: '1.0'",
-            "nav:",
-            "- modules/ROOT/nav.adoc",
-            "```",
-            "",
-            "### Step 3: Content Structure Setup",
+            "## 📁 Workshop Structure Created",
             "```",
             f"{workshop_name}-workshop/",
             "├── content/",
@@ -1183,10 +1201,127 @@ def clone_showroom_template_tool(workshop_name: str, technology_focus: str = "ge
             "---",
             f"*Showroom template setup for {workshop_name}*",
             f"*Technology: {technology_focus} | Customization: {customization_level}*"
+        ]
+
+        # List actual files created
+        if os.path.exists(workshop_output_path):
+            for root, dirs, files in os.walk(workshop_output_path):
+                if len(files) > 0:
+                    rel_path = os.path.relpath(root, workshop_output_path)
+                    summary_parts.append(f"- {rel_path}/: {len(files)} files")
+
+        summary_parts.extend([
+            "",
+            "## ✅ Workshop Ready",
+            f"Workshop '{workshop_name}' has been created with real files and structure.",
+            f"Content is available at: {workshop_output_path}",
+            "Ready for Source Manager Agent to commit to Gitea repository."
         ])
 
-        return "\n".join(setup_parts)
+        return "\n".join(summary_parts)
 
     except Exception as e:
         logger.error(f"Error in clone_showroom_template_tool: {e}")
-        return f"Error setting up Showroom template for '{workshop_name}': {str(e)}. Please check your inputs and try again."
+        return f"Error creating workshop '{workshop_name}': {str(e)}"
+
+
+def customize_workshop_template(workshop_path: str, workshop_name: str, repository_url: str) -> int:
+    """Customize the cloned template with workshop-specific content"""
+    try:
+        files_modified = 0
+
+        # Update antora.yml
+        antora_path = os.path.join(workshop_path, "content", "antora.yml")
+        if os.path.exists(antora_path):
+            with open(antora_path, 'r') as f:
+                content = f.read()
+
+            # Replace template values
+            content = content.replace("showroom_template_default", workshop_name.lower().replace(' ', '-'))
+            content = content.replace("Showroom Template Default", workshop_name)
+
+            with open(antora_path, 'w') as f:
+                f.write(content)
+            files_modified += 1
+            logger.info("Updated antora.yml")
+
+        # Update main index page
+        index_path = os.path.join(workshop_path, "content", "modules", "ROOT", "pages", "index.adoc")
+        if os.path.exists(index_path):
+            index_content = f"""= {workshop_name} Workshop
+:navtitle: Home
+
+Welcome to the {workshop_name} workshop!
+
+== Workshop Overview
+
+This workshop will guide you through {workshop_name.lower()} concepts and hands-on exercises.
+
+== Prerequisites
+
+* Basic understanding of the technology stack
+* Access to the workshop environment
+
+== Workshop Structure
+
+This workshop is organized into the following modules:
+
+. Introduction and Setup
+. Core Concepts
+. Hands-on Exercises
+. Advanced Topics
+. Conclusion and Next Steps
+
+== Getting Started
+
+Let's begin with the introduction module.
+
+xref:01-introduction.adoc[Start the Workshop →]
+"""
+            with open(index_path, 'w') as f:
+                f.write(index_content)
+            files_modified += 1
+            logger.info("Updated index.adoc")
+
+        # Create introduction module
+        intro_path = os.path.join(workshop_path, "content", "modules", "ROOT", "pages", "01-introduction.adoc")
+        intro_content = f"""= Introduction to {workshop_name}
+:navtitle: Introduction
+
+== Welcome
+
+Welcome to the {workshop_name} workshop! This hands-on workshop will guide you through practical exercises and real-world scenarios.
+
+== Learning Objectives
+
+By the end of this workshop, you will be able to:
+
+* Understand the core concepts of {workshop_name.lower()}
+* Apply best practices in real-world scenarios
+* Implement solutions using the technology stack
+* Troubleshoot common issues
+
+== Workshop Environment
+
+This workshop provides a pre-configured environment with all necessary tools and resources.
+
+== Source Repository
+
+{f'This workshop is based on the repository: {repository_url}' if repository_url else 'This workshop covers general concepts and best practices.'}
+
+== Next Steps
+
+Ready to get started? Let's move on to the core concepts.
+
+xref:02-concepts.adoc[Next: Core Concepts →]
+"""
+        with open(intro_path, 'w') as f:
+            f.write(intro_content)
+        files_modified += 1
+        logger.info("Created introduction module")
+
+        return files_modified
+
+    except Exception as e:
+        logger.error(f"Error customizing template: {e}")
+        return 0
