@@ -1,6 +1,63 @@
+# Environment files
 .env
-__pycache__
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs and editors
 *.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Code quality reports
+bandit-report.json
+safety-report.json
+mypy-report/
+.mypy_cache/
 
 # Node.js dependencies
 node_modules/
@@ -9,8 +66,22 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 
+# Java/Maven (for Quarkus middleware)
+target/
+*.jar
+*.war
+*.ear
+*.class
+
 # Prevent sensitive data from being committed
 **/*private-secret.yaml
 **/*private-secret.yml
 
+# Workshop template cache
 showroom_template_default
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
