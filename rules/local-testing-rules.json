@@ -1,0 +1,119 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Local Testing Before OpenShift Deployment Rules",
+    "description": "Critical rules for local development and testing workflows to prevent issues before OpenShift deployment",
+    "created": "2025-01-04T10:58:59.834Z",
+    "lastModified": "2025-01-04T10:58:59.834Z",
+    "author": "Workshop Template System Development Team",
+    "tags": ["local-testing", "openshift", "quarkus", "development"]
+  },
+  "rules": [
+    {
+      "id": "LOCAL-001",
+      "name": "Test Quarkus Service Locally",
+      "pattern": "mvn.*quarkus:dev",
+      "severity": "error",
+      "message": "Always test Quarkus services locally before building for OpenShift",
+      "description": "Run Quarkus in dev mode locally to test new endpoints and functionality",
+      "category": "local_testing",
+      "examples": {
+        "good": [
+          "cd workshop-monitoring-service",
+          "mvn quarkus:dev",
+          "curl http://localhost:8086/api/pipeline/config"
+        ],
+        "bad": [
+          "# Skip local testing",
+          "mvn clean package",
+          "oc start-build"
+        ]
+      },
+      "rationale": "Catches compilation errors, endpoint issues, and configuration problems before OpenShift deployment"
+    },
+    {
+      "id": "LOCAL-002",
+      "name": "Validate Endpoints Locally",
+      "pattern": "curl.*localhost",
+      "severity": "error",
+      "message": "Test all new endpoints locally before pushing to OpenShift",
+      "description": "Verify that new API endpoints work correctly in local development",
+      "category": "local_testing",
+      "examples": {
+        "good": [
+          "curl http://localhost:8086/api/pipeline/config",
+          "curl -X POST http://localhost:8086/api/pipeline/validate-parameters",
+          "curl http://localhost:8086/api/monitoring/health"
+        ],
+        "bad": [
+          "# Deploy without testing",
+          "oc start-build workshop-monitoring-service-build"
+        ]
+      },
+      "rationale": "Prevents deploying broken endpoints that would cause 404 errors or service failures"
+    },
+    {
+      "id": "LOCAL-003",
+      "name": "Run Unit Tests Before Build",
+      "pattern": "mvn.*test",
+      "severity": "warning",
+      "message": "Run unit tests locally before building for OpenShift",
+      "description": "Execute test suite to catch regressions and validate functionality",
+      "category": "local_testing",
+      "examples": {
+        "good": [
+          "mvn test",
+          "mvn clean test",
+          "mvn verify"
+        ],
+        "bad": [
+          "mvn clean package -DskipTests",
+          "# Skip all testing"
+        ]
+      },
+      "rationale": "Identifies code issues, regressions, and broken functionality before deployment"
+    },
+    {
+      "id": "BUILD-003",
+      "name": "Local Build Before OpenShift",
+      "pattern": "mvn.*package",
+      "severity": "error",
+      "message": "Always build and test locally before triggering OpenShift builds",
+      "description": "Perform local Maven build to catch compilation and packaging issues",
+      "category": "build_validation",
+      "examples": {
+        "good": [
+          "mvn clean package",
+          "mvn clean verify",
+          "# Then push and build in OpenShift"
+        ],
+        "bad": [
+          "git push",
+          "oc start-build",
+          "# Without local build"
+        ]
+      },
+      "rationale": "Catches build failures locally instead of wasting OpenShift build resources"
+    },
+    {
+      "id": "LOCAL-007",
+      "name": "Validate JSON Responses Locally",
+      "pattern": "curl.*jq",
+      "severity": "warning",
+      "message": "Validate JSON response format and content locally",
+      "description": "Test API responses for correct JSON format and expected data structure",
+      "category": "local_testing",
+      "examples": {
+        "good": [
+          "curl http://localhost:8086/api/pipeline/config | jq '.'",
+          "curl http://localhost:8086/api/monitoring/agents | jq '.data'"
+        ],
+        "bad": [
+          "# Deploy without response validation",
+          "oc start-build"
+        ]
+      },
+      "rationale": "Ensures API responses are properly formatted and contain expected data"
+    }
+  ]
+}
