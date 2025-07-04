@@ -4,19 +4,22 @@ Implements ADR-0002: Human-in-the-Loop Agent Integration
 """
 
 import json
+
+# from llama_stack_client.types import Attachment  # Not available in
+# current version
+import logging
 import time
 import uuid
-import requests
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
-# from llama_stack_client.types import Attachment  # Not available in current version
-import logging
 
 # Simple tool decorator workaround
+
+
 def client_tool(func):
     """Simple tool decorator placeholder"""
     func.tool_name = func.__name__
     return func
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,45 +30,50 @@ APPROVAL_TYPES = {
         "description": "Validate ADR-0001 workflow routing decisions",
         "timeout_hours": 4,
         "escalation_hours": 2,
-        "required_role": "technical_lead"
+        "required_role": "technical_lead",
     },
     "content_review": {
-        "name": "Workshop Content Quality Review", 
+        "name": "Workshop Content Quality Review",
         "description": "Review generated workshop content for quality and appropriateness",
         "timeout_hours": 8,
         "escalation_hours": 4,
-        "required_role": "subject_matter_expert"
+        "required_role": "subject_matter_expert",
     },
     "deployment_authorization": {
         "name": "Production Deployment Authorization",
         "description": "Final approval for workshop deployment to production",
         "timeout_hours": 2,
         "escalation_hours": 1,
-        "required_role": "workshop_owner"
+        "required_role": "workshop_owner",
     },
     "conflict_resolution": {
         "name": "Agent Conflict Resolution",
         "description": "Human intervention for agent disagreements or failures",
         "timeout_hours": 1,
         "escalation_hours": 0.5,
-        "required_role": "system_administrator"
-    }
+        "required_role": "system_administrator",
+    },
 }
 
 # Approval status values
 APPROVAL_STATUS = {
     "PENDING": "pending",
-    "IN_REVIEW": "in_review", 
+    "IN_REVIEW": "in_review",
     "APPROVED": "approved",
     "REJECTED": "rejected",
     "ESCALATED": "escalated",
-    "TIMEOUT": "timeout"
+    "TIMEOUT": "timeout",
 }
+
 
 def get_monitoring_service_url() -> str:
     """Get the monitoring service URL from environment or default"""
     import os
-    return os.getenv("MONITORING_SERVICE_URL", "http://workshop-monitoring-service:8086")
+
+    return os.getenv(
+        "MONITORING_SERVICE_URL", "http://workshop-monitoring-service:8086"
+    )
+
 
 @client_tool
 def submit_for_approval_tool(
@@ -73,7 +81,7 @@ def submit_for_approval_tool(
     content_data: str,
     priority: str = "normal",
     requester: str = "workshop-system",
-    context: str = ""
+    context: str = "",
 ) -> str:
     """
     :description: Submit content, decisions, or workflows for human review and approval.
@@ -88,18 +96,24 @@ def submit_for_approval_tool(
     try:
         # Validate approval type
         if approval_type not in APPROVAL_TYPES:
-            return f"Error: Invalid approval type '{approval_type}'. Valid types: {', '.join(APPROVAL_TYPES.keys())}"
-        
+            return f"Error: Invalid approval type '{approval_type}'. Valid types: {
+                ', '.join(
+                    APPROVAL_TYPES.keys())}"
+
         # Generate unique approval ID
         approval_id = str(uuid.uuid4())
         approval_config = APPROVAL_TYPES[approval_type]
-        
+
         # Parse content data
         try:
-            content = json.loads(content_data) if isinstance(content_data, str) else content_data
+            content = (
+                json.loads(content_data)
+                if isinstance(content_data, str)
+                else content_data
+            )
         except json.JSONDecodeError:
             content = {"raw_content": content_data}
-        
+
         # Create approval request
         approval_request = {
             "approval_id": approval_id,
@@ -115,13 +129,17 @@ def submit_for_approval_tool(
             "escalation_hours": approval_config["escalation_hours"],
             "status": APPROVAL_STATUS["PENDING"],
             "created_at": datetime.now().isoformat(),
-            "timeout_at": (datetime.now() + timedelta(hours=approval_config["timeout_hours"])).isoformat(),
-            "escalation_at": (datetime.now() + timedelta(hours=approval_config["escalation_hours"])).isoformat()
+            "timeout_at": (
+                datetime.now() + timedelta(hours=approval_config["timeout_hours"])
+            ).isoformat(),
+            "escalation_at": (
+                datetime.now() + timedelta(hours=approval_config["escalation_hours"])
+            ).isoformat(),
         }
-        
+
         # Submit to monitoring service (simulated for now)
         monitoring_url = get_monitoring_service_url()
-        
+
         # Generate comprehensive approval report
         report_parts = [
             f"# Human Approval Request Submitted: {approval_type.title()}",
@@ -158,17 +176,21 @@ def submit_for_approval_tool(
             "## 📝 Additional Context",
             f"**Context**: {context if context else 'No additional context provided'}",
             "",
-            f"✅ **Approval request submitted successfully with ID: {approval_id}**"
+            f"✅ **Approval request submitted successfully with ID: {approval_id}**",
         ]
-        
+
         # Log the approval submission
-        logger.info(f"Approval submitted: {approval_id} ({approval_type}) by {requester}")
-        
+        logger.info(
+            f"Approval submitted: {approval_id} ({approval_type}) by {requester}"
+        )
+
         return "\n".join(report_parts)
-        
+
     except Exception as e:
         logger.error(f"Error in submit_for_approval_tool: {e}")
-        return f"Error submitting approval request: {str(e)}. Please check your inputs and try again."
+        return f"Error submitting approval request: {
+            str(e)}. Please check your inputs and try again."
+
 
 @client_tool
 def check_approval_status_tool(approval_id: str, include_details: bool = True) -> str:
@@ -182,8 +204,9 @@ def check_approval_status_tool(approval_id: str, include_details: bool = True) -
     try:
         # Simulate status check (will integrate with monitoring service API)
         monitoring_url = get_monitoring_service_url()
-        
-        # For now, simulate different status scenarios based on approval_id patterns
+
+        # For now, simulate different status scenarios based on approval_id
+        # patterns
         if "test" in approval_id.lower():
             status = APPROVAL_STATUS["APPROVED"]
             reviewer = "test.reviewer@example.com"
@@ -199,81 +222,93 @@ def check_approval_status_tool(approval_id: str, include_details: bool = True) -
             reviewer = None
             decision_time = None
             comments = "Awaiting reviewer assignment and initial review"
-        
+
         # Generate status report
         report_parts = [
             f"# Approval Status Report: {approval_id}",
             f"**Current Status**: {status.upper()}",
             f"**Last Updated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            ""
+            "",
         ]
-        
+
         if include_details:
-            report_parts.extend([
-                "## 📊 Approval Details",
-                f"**Approval ID**: {approval_id}",
-                f"**Status**: {status}",
-                f"**Assigned Reviewer**: {reviewer if reviewer else 'Not yet assigned'}",
-                f"**Decision Time**: {decision_time if decision_time else 'Pending'}",
-                "",
-                "## 💬 Comments",
-                f"**Latest Comment**: {comments}",
-                "",
-                "## 🌐 Access Links",
-                f"**Dashboard**: {monitoring_url}/approvals/{approval_id}",
-                f"**API Endpoint**: {monitoring_url}/api/approvals/{approval_id}",
-                ""
-            ])
-        
+            report_parts.extend(
+                [
+                    "## 📊 Approval Details",
+                    f"**Approval ID**: {approval_id}",
+                    f"**Status**: {status}",
+                    f"**Assigned Reviewer**: {reviewer if reviewer else 'Not yet assigned'}",
+                    f"**Decision Time**: {decision_time if decision_time else 'Pending'}",
+                    "",
+                    "## 💬 Comments",
+                    f"**Latest Comment**: {comments}",
+                    "",
+                    "## 🌐 Access Links",
+                    f"**Dashboard**: {monitoring_url}/approvals/{approval_id}",
+                    f"**API Endpoint**: {monitoring_url}/api/approvals/{approval_id}",
+                    "",
+                ]
+            )
+
         # Add status-specific information
         if status == APPROVAL_STATUS["PENDING"]:
-            report_parts.extend([
-                "## ⏳ Next Steps",
-                "- Waiting for reviewer assignment",
-                "- Email notification sent to approval queue",
-                "- Use wait_for_approval_tool to pause workflow until decision"
-            ])
+            report_parts.extend(
+                [
+                    "## ⏳ Next Steps",
+                    "- Waiting for reviewer assignment",
+                    "- Email notification sent to approval queue",
+                    "- Use wait_for_approval_tool to pause workflow until decision",
+                ]
+            )
         elif status == APPROVAL_STATUS["IN_REVIEW"]:
-            report_parts.extend([
-                "## 👀 In Review",
-                "- Reviewer is actively examining the content",
-                "- Decision expected within approval timeout window",
-                "- Monitor for updates or use wait_for_approval_tool"
-            ])
+            report_parts.extend(
+                [
+                    "## 👀 In Review",
+                    "- Reviewer is actively examining the content",
+                    "- Decision expected within approval timeout window",
+                    "- Monitor for updates or use wait_for_approval_tool",
+                ]
+            )
         elif status == APPROVAL_STATUS["APPROVED"]:
-            report_parts.extend([
-                "## ✅ Approved",
-                "- Content has been approved for next steps",
-                "- Workflow can proceed to next stage",
-                "- Decision logged in audit trail"
-            ])
+            report_parts.extend(
+                [
+                    "## ✅ Approved",
+                    "- Content has been approved for next steps",
+                    "- Workflow can proceed to next stage",
+                    "- Decision logged in audit trail",
+                ]
+            )
         elif status == APPROVAL_STATUS["REJECTED"]:
-            report_parts.extend([
-                "## ❌ Rejected",
-                "- Content requires revision before proceeding",
-                "- Review comments for specific feedback",
-                "- Resubmit after addressing concerns"
-            ])
+            report_parts.extend(
+                [
+                    "## ❌ Rejected",
+                    "- Content requires revision before proceeding",
+                    "- Review comments for specific feedback",
+                    "- Resubmit after addressing concerns",
+                ]
+            )
         elif status == APPROVAL_STATUS["ESCALATED"]:
-            report_parts.extend([
-                "## 🚨 Escalated",
-                "- Approval has been escalated to higher authority",
-                "- Urgent attention required",
-                "- Monitor for management decision"
-            ])
-        
+            report_parts.extend(
+                [
+                    "## 🚨 Escalated",
+                    "- Approval has been escalated to higher authority",
+                    "- Urgent attention required",
+                    "- Monitor for management decision",
+                ]
+            )
+
         logger.info(f"Status checked for approval: {approval_id} - {status}")
         return "\n".join(report_parts)
-        
+
     except Exception as e:
         logger.error(f"Error in check_approval_status_tool: {e}")
-        return f"Error checking approval status for {approval_id}: {str(e)}. Please verify the approval ID and try again."
+        return f"Error checking approval status for {approval_id}: {
+            str(e)}. Please verify the approval ID and try again."
+
 
 @client_tool
 def wait_for_approval_tool(
-    approval_id: str,
-    timeout_minutes: int = 60,
-    poll_interval_seconds: int = 30
+    approval_id: str, timeout_minutes: int = 60, poll_interval_seconds: int = 30
 ) -> str:
     """
     :description: Pause workflow execution until human approval is received with timeout handling.
@@ -286,9 +321,11 @@ def wait_for_approval_tool(
     try:
         start_time = datetime.now()
         timeout_time = start_time + timedelta(minutes=timeout_minutes)
-        
-        logger.info(f"Waiting for approval: {approval_id} (timeout: {timeout_minutes} minutes)")
-        
+
+        logger.info(
+            f"Waiting for approval: {approval_id} (timeout: {timeout_minutes} minutes)"
+        )
+
         # Generate initial wait report
         report_parts = [
             f"# Waiting for Human Approval: {approval_id}",
@@ -300,84 +337,104 @@ def wait_for_approval_tool(
             "- Monitoring approval status in real-time",
             "- Will return immediately when decision is made",
             "- Automatic escalation on timeout",
-            ""
+            "",
         ]
-        
-        # Simulate waiting process (in real implementation, this would poll the monitoring service)
+
+        # Simulate waiting process (in real implementation, this would poll the
+        # monitoring service)
         poll_count = 0
-        max_polls = (timeout_minutes * 60) // poll_interval_seconds
-        
+        (timeout_minutes * 60) // poll_interval_seconds
+
         while datetime.now() < timeout_time:
             poll_count += 1
-            
+
             # Check status (simulated)
-            status_result = check_approval_status_tool(approval_id, include_details=False)
-            
+            status_result = check_approval_status_tool(
+                approval_id, include_details=False
+            )
+
             # Parse status from result (simplified)
             if "APPROVED" in status_result:
                 elapsed_time = datetime.now() - start_time
-                report_parts.extend([
-                    "## ✅ Approval Received",
-                    f"**Decision**: APPROVED",
-                    f"**Wait Time**: {elapsed_time.total_seconds():.1f} seconds",
-                    f"**Polls**: {poll_count}",
-                    "",
-                    "## 🚀 Next Steps",
-                    "- Workflow can proceed to next stage",
-                    "- Approval decision logged in audit trail",
-                    "- Continue with automated processing"
-                ])
-                
-                logger.info(f"Approval received: {approval_id} after {elapsed_time.total_seconds():.1f} seconds")
+                report_parts.extend(
+                    [
+                        "## ✅ Approval Received",
+                        f"**Decision**: APPROVED",
+                        f"**Wait Time**: {elapsed_time.total_seconds():.1f} seconds",
+                        f"**Polls**: {poll_count}",
+                        "",
+                        "## 🚀 Next Steps",
+                        "- Workflow can proceed to next stage",
+                        "- Approval decision logged in audit trail",
+                        "- Continue with automated processing",
+                    ]
+                )
+
+                logger.info(
+                    f"Approval received: {approval_id} after {
+                        elapsed_time.total_seconds():.1f} seconds"
+                )
                 return "\n".join(report_parts)
-                
+
             elif "REJECTED" in status_result:
                 elapsed_time = datetime.now() - start_time
-                report_parts.extend([
-                    "## ❌ Approval Rejected",
-                    f"**Decision**: REJECTED",
-                    f"**Wait Time**: {elapsed_time.total_seconds():.1f} seconds",
-                    f"**Polls**: {poll_count}",
-                    "",
-                    "## 🔄 Next Steps",
-                    "- Review rejection comments and feedback",
-                    "- Revise content based on reviewer input",
-                    "- Resubmit for approval after corrections"
-                ])
-                
-                logger.info(f"Approval rejected: {approval_id} after {elapsed_time.total_seconds():.1f} seconds")
+                report_parts.extend(
+                    [
+                        "## ❌ Approval Rejected",
+                        f"**Decision**: REJECTED",
+                        f"**Wait Time**: {elapsed_time.total_seconds():.1f} seconds",
+                        f"**Polls**: {poll_count}",
+                        "",
+                        "## 🔄 Next Steps",
+                        "- Review rejection comments and feedback",
+                        "- Revise content based on reviewer input",
+                        "- Resubmit for approval after corrections",
+                    ]
+                )
+
+                logger.info(
+                    f"Approval rejected: {approval_id} after {
+                        elapsed_time.total_seconds():.1f} seconds"
+                )
                 return "\n".join(report_parts)
-            
+
             # Wait before next poll
             time.sleep(poll_interval_seconds)
-        
+
         # Timeout reached
         elapsed_time = datetime.now() - start_time
-        report_parts.extend([
-            "## ⏰ Timeout Reached",
-            f"**Result**: TIMEOUT",
-            f"**Wait Time**: {elapsed_time.total_seconds():.1f} seconds",
-            f"**Total Polls**: {poll_count}",
-            "",
-            "## 🚨 Escalation Required",
-            "- Approval timeout exceeded",
-            "- Automatic escalation triggered",
-            "- Use escalate_approval_tool for urgent processing"
-        ])
-        
-        logger.warning(f"Approval timeout: {approval_id} after {elapsed_time.total_seconds():.1f} seconds")
+        report_parts.extend(
+            [
+                "## ⏰ Timeout Reached",
+                f"**Result**: TIMEOUT",
+                f"**Wait Time**: {elapsed_time.total_seconds():.1f} seconds",
+                f"**Total Polls**: {poll_count}",
+                "",
+                "## 🚨 Escalation Required",
+                "- Approval timeout exceeded",
+                "- Automatic escalation triggered",
+                "- Use escalate_approval_tool for urgent processing",
+            ]
+        )
+
+        logger.warning(
+            f"Approval timeout: {approval_id} after {
+                elapsed_time.total_seconds():.1f} seconds"
+        )
         return "\n".join(report_parts)
 
     except Exception as e:
         logger.error(f"Error in wait_for_approval_tool: {e}")
-        return f"Error waiting for approval {approval_id}: {str(e)}. Please check the approval status manually."
+        return f"Error waiting for approval {approval_id}: {
+            str(e)}. Please check the approval status manually."
+
 
 @client_tool
 def escalate_approval_tool(
     approval_id: str,
     escalation_reason: str,
     urgency_level: str = "high",
-    escalation_target: str = "management"
+    escalation_target: str = "management",
 ) -> str:
     """
     :description: Escalate overdue or urgent approval requests to higher authority or alternative reviewers.
@@ -397,27 +454,31 @@ def escalate_approval_tool(
             "management": {
                 "role": "Engineering Manager",
                 "response_time_hours": 2,
-                "contact": "engineering.manager@company.com"
+                "contact": "engineering.manager@company.com",
             },
             "technical_lead": {
                 "role": "Technical Lead",
                 "response_time_hours": 1,
-                "contact": "tech.lead@company.com"
+                "contact": "tech.lead@company.com",
             },
             "system_admin": {
                 "role": "System Administrator",
                 "response_time_hours": 0.5,
-                "contact": "sysadmin@company.com"
+                "contact": "sysadmin@company.com",
             },
             "on_call": {
                 "role": "On-Call Engineer",
                 "response_time_hours": 0.25,
-                "contact": "oncall@company.com"
-            }
+                "contact": "oncall@company.com",
+            },
         }
 
-        target_info = escalation_targets.get(escalation_target, escalation_targets["management"])
-        new_deadline = escalation_time + timedelta(hours=target_info["response_time_hours"])
+        target_info = escalation_targets.get(
+            escalation_target, escalation_targets["management"]
+        )
+        new_deadline = escalation_time + timedelta(
+            hours=target_info["response_time_hours"]
+        )
 
         # Generate escalation report
         report_parts = [
@@ -450,15 +511,19 @@ def escalate_approval_tool(
             "- Status will update when escalated reviewer takes action",
             "- Further escalation available if needed",
             "",
-            f"🚨 **Escalation completed successfully - {target_info['role']} notified**"
+            f"🚨 **Escalation completed successfully - {target_info['role']} notified**",
         ]
 
-        logger.warning(f"Approval escalated: {approval_id} -> {escalation_target} ({escalation_reason})")
+        logger.warning(
+            f"Approval escalated: {approval_id} -> {escalation_target} ({escalation_reason})"
+        )
         return "\n".join(report_parts)
 
     except Exception as e:
         logger.error(f"Error in escalate_approval_tool: {e}")
-        return f"Error escalating approval {approval_id}: {str(e)}. Please contact system administrator."
+        return f"Error escalating approval {approval_id}: {
+            str(e)}. Please contact system administrator."
+
 
 @client_tool
 def audit_decision_tool(
@@ -466,7 +531,7 @@ def audit_decision_tool(
     decision: str,
     reviewer: str,
     rationale: str = "",
-    compliance_notes: str = ""
+    compliance_notes: str = "",
 ) -> str:
     """
     :description: Log human decisions and maintain compliance audit trails for governance and quality tracking.
@@ -494,8 +559,8 @@ def audit_decision_tool(
             "system_context": {
                 "agent": "human_oversight_coordinator",
                 "adr_compliance": "ADR-0002",
-                "audit_version": "1.0"
-            }
+                "audit_version": "1.0",
+            },
         }
 
         # Generate audit report
@@ -532,7 +597,7 @@ def audit_decision_tool(
             "- Compliance metrics updated",
             "- Audit trail preserved for governance",
             "",
-            f"✅ **Audit record created successfully: {audit_id}**"
+            f"✅ **Audit record created successfully: {audit_id}**",
         ]
 
         # Log the audit decision
@@ -542,7 +607,9 @@ def audit_decision_tool(
 
     except Exception as e:
         logger.error(f"Error in audit_decision_tool: {e}")
-        return f"Error creating audit record for {approval_id}: {str(e)}. Please ensure all required information is provided."
+        return f"Error creating audit record for {approval_id}: {
+            str(e)}. Please ensure all required information is provided."
+
 
 @client_tool
 def submit_rag_update_for_approval_tool(
@@ -551,7 +618,7 @@ def submit_rag_update_for_approval_tool(
     proposed_content: str,
     target_workshop: str = "",
     research_context: str = "",
-    ai_confidence: str = "medium"
+    ai_confidence: str = "medium",
 ) -> str:
     """
     :description: Submit AI-suggested RAG updates or human-curated content for approval before adding to knowledge base.
@@ -582,7 +649,7 @@ def submit_rag_update_for_approval_tool(
             "created_at": datetime.now().isoformat(),
             "timeout_hours": 24,  # 24 hours for RAG updates
             "escalation_hours": 12,  # 12 hours escalation
-            "required_role": "content_curator"
+            "required_role": "content_curator",
         }
 
         # Generate comprehensive RAG update report
@@ -607,68 +674,82 @@ def submit_rag_update_for_approval_tool(
 
         # Add type-specific information
         if update_type == "ai_research":
-            report_parts.extend([
-                "**Type**: AI-Discovered Research",
-                "- AI agent found new research relevant to workshop content",
-                "- Requires human validation for accuracy and relevance",
-                "- Will be integrated into RAG knowledge base upon approval"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: AI-Discovered Research",
+                    "- AI agent found new research relevant to workshop content",
+                    "- Requires human validation for accuracy and relevance",
+                    "- Will be integrated into RAG knowledge base upon approval",
+                ]
+            )
         elif update_type == "human_curation":
-            report_parts.extend([
-                "**Type**: Human-Curated Content",
-                "- Expert-provided content for knowledge enhancement",
-                "- Pre-validated by human expert",
-                "- Ready for integration into RAG system"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: Human-Curated Content",
+                    "- Expert-provided content for knowledge enhancement",
+                    "- Pre-validated by human expert",
+                    "- Ready for integration into RAG system",
+                ]
+            )
         elif update_type == "content_refresh":
-            report_parts.extend([
-                "**Type**: Workshop Content Refresh",
-                "- Updates to existing workshop content based on new information",
-                "- May affect existing learner materials",
-                "- Requires impact assessment before deployment"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: Workshop Content Refresh",
+                    "- Updates to existing workshop content based on new information",
+                    "- May affect existing learner materials",
+                    "- Requires impact assessment before deployment",
+                ]
+            )
         elif update_type == "source_validation":
-            report_parts.extend([
-                "**Type**: Source Validation Update",
-                "- Verification or correction of existing RAG content",
-                "- Quality improvement for knowledge base",
-                "- May involve removing outdated information"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: Source Validation Update",
+                    "- Verification or correction of existing RAG content",
+                    "- Quality improvement for knowledge base",
+                    "- May involve removing outdated information",
+                ]
+            )
 
-        report_parts.extend([
-            "",
-            "## 🔍 Review Requirements",
-            f"**Required Reviewer**: Content Curator",
-            f"**Review Deadline**: {(datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')}",
-            f"**Escalation Time**: {(datetime.now() + timedelta(hours=12)).strftime('%Y-%m-%d %H:%M:%S')}",
-            "",
-            "## 📊 Impact Assessment",
-            "- **Knowledge Base Impact**: Addition to RAG system",
-            "- **Workshop Relevance**: Content applicability to learning objectives",
-            "- **Source Credibility**: Verification of content source reliability",
-            "- **Accuracy Validation**: Technical and factual correctness review",
-            "",
-            "## 🌐 Review Access",
-            f"**Dashboard URL**: {get_monitoring_service_url()}/approvals/{approval_id}",
-            f"**API Status**: {get_monitoring_service_url()}/api/approvals/{approval_id}/status",
-            "",
-            "## 🔔 Next Steps",
-            "1. **Content Curator Notification**: Email sent to designated curator",
-            "2. **Source Verification**: Reviewer validates content source",
-            "3. **Relevance Assessment**: Evaluation of content applicability",
-            "4. **RAG Integration**: Upon approval, content added to knowledge base",
-            "",
-            f"✅ **RAG update request submitted successfully: {approval_id}**"
-        ])
+        report_parts.extend(
+            [
+                "",
+                "## 🔍 Review Requirements",
+                f"**Required Reviewer**: Content Curator",
+                f"**Review Deadline**: {(datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')}",
+                f"**Escalation Time**: {(datetime.now() + timedelta(hours=12)).strftime('%Y-%m-%d %H:%M:%S')}",
+                "",
+                "## 📊 Impact Assessment",
+                "- **Knowledge Base Impact**: Addition to RAG system",
+                "- **Workshop Relevance**: Content applicability to learning objectives",
+                "- **Source Credibility**: Verification of content source reliability",
+                "- **Accuracy Validation**: Technical and factual correctness review",
+                "",
+                "## 🌐 Review Access",
+                f"**Dashboard URL**: {get_monitoring_service_url()}/approvals/{approval_id}",
+                f"**API Status**: {get_monitoring_service_url()}/api/approvals/{approval_id}/status",
+                "",
+                "## 🔔 Next Steps",
+                "1. **Content Curator Notification**: Email sent to designated curator",
+                "2. **Source Verification**: Reviewer validates content source",
+                "3. **Relevance Assessment**: Evaluation of content applicability",
+                "4. **RAG Integration**: Upon approval, content added to knowledge base",
+                "",
+                f"✅ **RAG update request submitted successfully: {approval_id}**",
+            ]
+        )
 
         # Log the RAG update submission
-        logger.info(f"RAG update submitted: {approval_id} ({update_type}) from {content_source}")
+        logger.info(
+            f"RAG update submitted: {approval_id} ({update_type}) from {content_source}"
+        )
 
         return "\n".join(report_parts)
 
     except Exception as e:
         logger.error(f"Error in submit_rag_update_for_approval_tool: {e}")
-        return f"Error submitting RAG update request: {str(e)}. Please check your inputs and try again."
+        return f"Error submitting RAG update request: {
+            str(e)}. Please check your inputs and try again."
+
 
 @client_tool
 def submit_workshop_evolution_request_tool(
@@ -677,7 +758,7 @@ def submit_workshop_evolution_request_tool(
     proposed_changes: str,
     research_basis: str,
     impact_assessment: str = "",
-    urgency: str = "normal"
+    urgency: str = "normal",
 ) -> str:
     """
     :description: Submit requests to evolve existing workshops based on new research, feedback, or content updates.
@@ -699,7 +780,7 @@ def submit_workshop_evolution_request_tool(
             "research_update": 48,
             "technology_refresh": 72,
             "feedback_integration": 24,
-            "content_expansion": 96
+            "content_expansion": 96,
         }.get(evolution_type, 48)
 
         if urgency == "critical":
@@ -721,7 +802,7 @@ def submit_workshop_evolution_request_tool(
             "created_at": datetime.now().isoformat(),
             "timeout_hours": timeout_hours,
             "escalation_hours": timeout_hours / 2,
-            "required_role": "workshop_owner"
+            "required_role": "workshop_owner",
         }
 
         # Generate comprehensive evolution report
@@ -751,68 +832,81 @@ def submit_workshop_evolution_request_tool(
 
         # Add evolution type-specific information
         if evolution_type == "research_update":
-            report_parts.extend([
-                "**Type**: Research-Based Update",
-                "- New research findings require workshop content updates",
-                "- May involve updating examples, case studies, or methodologies",
-                "- Ensures workshop content remains current and evidence-based"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: Research-Based Update",
+                    "- New research findings require workshop content updates",
+                    "- May involve updating examples, case studies, or methodologies",
+                    "- Ensures workshop content remains current and evidence-based",
+                ]
+            )
         elif evolution_type == "technology_refresh":
-            report_parts.extend([
-                "**Type**: Technology Refresh",
-                "- Technology stack or tool updates require workshop changes",
-                "- May involve updating code examples, configurations, or procedures",
-                "- Ensures workshop reflects current technology landscape"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: Technology Refresh",
+                    "- Technology stack or tool updates require workshop changes",
+                    "- May involve updating code examples, configurations, or procedures",
+                    "- Ensures workshop reflects current technology landscape",
+                ]
+            )
         elif evolution_type == "feedback_integration":
-            report_parts.extend([
-                "**Type**: Learner Feedback Integration",
-                "- Workshop improvements based on participant feedback",
-                "- May involve clarifying content, adding examples, or restructuring",
-                "- Enhances learning experience and comprehension"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: Learner Feedback Integration",
+                    "- Workshop improvements based on participant feedback",
+                    "- May involve clarifying content, adding examples, or restructuring",
+                    "- Enhances learning experience and comprehension",
+                ]
+            )
         elif evolution_type == "content_expansion":
-            report_parts.extend([
-                "**Type**: Content Expansion",
-                "- Addition of new modules, sections, or advanced topics",
-                "- Extends workshop scope and learning objectives",
-                "- May require significant structural changes"
-            ])
+            report_parts.extend(
+                [
+                    "**Type**: Content Expansion",
+                    "- Addition of new modules, sections, or advanced topics",
+                    "- Extends workshop scope and learning objectives",
+                    "- May require significant structural changes",
+                ]
+            )
 
-        report_parts.extend([
-            "",
-            "## 🔍 Review Requirements",
-            f"**Required Reviewer**: Workshop Owner",
-            f"**Review Deadline**: {(datetime.now() + timedelta(hours=timeout_hours)).strftime('%Y-%m-%d %H:%M:%S')}",
-            f"**Escalation Time**: {(datetime.now() + timedelta(hours=timeout_hours/2)).strftime('%Y-%m-%d %H:%M:%S')}",
-            "",
-            "## 📈 Evolution Impact",
-            "- **Content Changes**: Modifications to existing workshop materials",
-            "- **Learner Impact**: Effects on current and future participants",
-            "- **Resource Requirements**: Additional development or maintenance needs",
-            "- **Version Control**: Management of workshop content versions",
-            "",
-            "## 🌐 Review Access",
-            f"**Dashboard URL**: {get_monitoring_service_url()}/approvals/{approval_id}",
-            f"**API Status**: {get_monitoring_service_url()}/api/approvals/{approval_id}/status",
-            "",
-            "## 🔔 Next Steps",
-            "1. **Workshop Owner Notification**: Email sent to workshop maintainer",
-            "2. **Impact Review**: Assessment of proposed changes on existing content",
-            "3. **Implementation Planning**: Development of update timeline and resources",
-            "4. **Content Integration**: Upon approval, changes integrated into workshop",
-            "",
-            f"✅ **Workshop evolution request submitted successfully: {approval_id}**"
-        ])
+        report_parts.extend(
+            [
+                "",
+                "## 🔍 Review Requirements",
+                f"**Required Reviewer**: Workshop Owner",
+                f"**Review Deadline**: {(datetime.now() + timedelta(hours=timeout_hours)).strftime('%Y-%m-%d %H:%M:%S')}",
+                f"**Escalation Time**: {(datetime.now() + timedelta(hours=timeout_hours / 2)).strftime('%Y-%m-%d %H:%M:%S')}",
+                "",
+                "## 📈 Evolution Impact",
+                "- **Content Changes**: Modifications to existing workshop materials",
+                "- **Learner Impact**: Effects on current and future participants",
+                "- **Resource Requirements**: Additional development or maintenance needs",
+                "- **Version Control**: Management of workshop content versions",
+                "",
+                "## 🌐 Review Access",
+                f"**Dashboard URL**: {get_monitoring_service_url()}/approvals/{approval_id}",
+                f"**API Status**: {get_monitoring_service_url()}/api/approvals/{approval_id}/status",
+                "",
+                "## 🔔 Next Steps",
+                "1. **Workshop Owner Notification**: Email sent to workshop maintainer",
+                "2. **Impact Review**: Assessment of proposed changes on existing content",
+                "3. **Implementation Planning**: Development of update timeline and resources",
+                "4. **Content Integration**: Upon approval, changes integrated into workshop",
+                "",
+                f"✅ **Workshop evolution request submitted successfully: {approval_id}**",
+            ]
+        )
 
         # Log the workshop evolution submission
-        logger.info(f"Workshop evolution submitted: {approval_id} for {workshop_name} ({evolution_type})")
+        logger.info(
+            f"Workshop evolution submitted: {approval_id} for {workshop_name} ({evolution_type})"
+        )
 
         return "\n".join(report_parts)
 
     except Exception as e:
         logger.error(f"Error in submit_workshop_evolution_request_tool: {e}")
-        return f"Error submitting workshop evolution request: {str(e)}. Please check your inputs and try again."
+        return f"Error submitting workshop evolution request: {
+            str(e)}. Please check your inputs and try again."
 
 
 @client_tool
@@ -820,7 +914,7 @@ def coordinate_evolution_implementation_tool(
     approval_id: str,
     evolution_details: str,
     implementation_priority: str = "normal",
-    safety_checks: bool = True
+    safety_checks: bool = True,
 ) -> str:
     """
     :description: Coordinate the implementation of approved workshop evolution requests with Source Manager Agent.
@@ -834,7 +928,11 @@ def coordinate_evolution_implementation_tool(
     try:
         # Parse evolution details
         try:
-            evolution_data = json.loads(evolution_details) if isinstance(evolution_details, str) else evolution_details
+            evolution_data = (
+                json.loads(evolution_details)
+                if isinstance(evolution_details, str)
+                else evolution_details
+            )
         except json.JSONDecodeError:
             evolution_data = {"description": evolution_details}
 
@@ -867,134 +965,157 @@ def coordinate_evolution_implementation_tool(
         approval_status = check_approval_status_tool(approval_id, include_details=True)
 
         if "APPROVED" in approval_status:
-            report_parts.extend([
-                "✅ **Step 1: Approval Confirmed**",
-                f"   - Approval Status: APPROVED",
-                f"   - Ready for implementation coordination",
-                ""
-            ])
+            report_parts.extend(
+                [
+                    "✅ **Step 1: Approval Confirmed**",
+                    f"   - Approval Status: APPROVED",
+                    f"   - Ready for implementation coordination",
+                    "",
+                ]
+            )
         else:
-            report_parts.extend([
-                "❌ **Step 1: Approval Not Confirmed**",
-                f"   - Current Status: {approval_status}",
-                f"   - Cannot proceed with implementation",
-                ""
-            ])
+            report_parts.extend(
+                [
+                    "❌ **Step 1: Approval Not Confirmed**",
+                    f"   - Current Status: {approval_status}",
+                    f"   - Cannot proceed with implementation",
+                    "",
+                ]
+            )
             return "\n".join(report_parts)
 
         # Step 2: Create evolution tracking record
         evolution_tracking_result = create_evolution_tracking_record(
-            evolution_data,
-            approval_id,
-            coordination_id,
-            monitoring_url
+            evolution_data, approval_id, coordination_id, monitoring_url
         )
 
-        if evolution_tracking_result['success']:
-            evolution_id = evolution_tracking_result['evolution_id']
-            report_parts.extend([
-                "✅ **Step 2: Evolution Tracking Created**",
-                f"   - Evolution ID: `{evolution_id}`",
-                f"   - Tracking URL: {monitoring_url}/api/evolution/{evolution_id}",
-                f"   - Status: REQUESTED → APPROVED",
-                ""
-            ])
+        if evolution_tracking_result["success"]:
+            evolution_id = evolution_tracking_result["evolution_id"]
+            report_parts.extend(
+                [
+                    "✅ **Step 2: Evolution Tracking Created**",
+                    f"   - Evolution ID: `{evolution_id}`",
+                    f"   - Tracking URL: {monitoring_url}/api/evolution/{evolution_id}",
+                    f"   - Status: REQUESTED → APPROVED",
+                    "",
+                ]
+            )
         else:
-            report_parts.extend([
-                "⚠️ **Step 2: Evolution Tracking Warning**",
-                f"   - Error: {evolution_tracking_result['error']}",
-                f"   - Proceeding without tracking (not recommended)",
-                ""
-            ])
+            report_parts.extend(
+                [
+                    "⚠️ **Step 2: Evolution Tracking Warning**",
+                    f"   - Error: {evolution_tracking_result['error']}",
+                    f"   - Proceeding without tracking (not recommended)",
+                    "",
+                ]
+            )
             evolution_id = None
 
         # Step 3: Coordinate with Source Manager Agent
         source_manager_result = coordinate_with_source_manager(
-            evolution_data,
-            approval_id,
-            evolution_id,
-            safety_checks
+            evolution_data, approval_id, evolution_id, safety_checks
         )
 
-        if source_manager_result['success']:
-            report_parts.extend([
-                "✅ **Step 3: Source Manager Coordination**",
-                f"   - Coordination Status: Successful",
-                f"   - Implementation Started: {source_manager_result.get('started', 'Yes')}",
-                f"   - Expected Duration: {source_manager_result.get('duration', 'Unknown')}",
-                ""
-            ])
+        if source_manager_result["success"]:
+            report_parts.extend(
+                [
+                    "✅ **Step 3: Source Manager Coordination**",
+                    f"   - Coordination Status: Successful",
+                    f"   - Implementation Started: {source_manager_result.get('started', 'Yes')}",
+                    f"   - Expected Duration: {source_manager_result.get('duration', 'Unknown')}",
+                    "",
+                ]
+            )
         else:
-            report_parts.extend([
-                "❌ **Step 3: Source Manager Coordination Failed**",
-                f"   - Error: {source_manager_result['error']}",
-                f"   - Implementation Status: Not Started",
-                ""
-            ])
+            report_parts.extend(
+                [
+                    "❌ **Step 3: Source Manager Coordination Failed**",
+                    f"   - Error: {source_manager_result['error']}",
+                    f"   - Implementation Status: Not Started",
+                    "",
+                ]
+            )
 
             # Update evolution tracking if available
             if evolution_id:
-                update_evolution_status(evolution_id, "failed", "human_oversight_coordinator",
-                                      f"Source Manager coordination failed: {source_manager_result['error']}")
+                update_evolution_status(
+                    evolution_id,
+                    "failed",
+                    "human_oversight_coordinator",
+                    f"Source Manager coordination failed: {
+                        source_manager_result['error']}",
+                )
 
             return "\n".join(report_parts)
 
         # Step 4: Set up monitoring and notifications
         monitoring_result = setup_evolution_monitoring(
-            evolution_id,
-            evolution_data,
-            coordination_id
+            evolution_id, evolution_data, coordination_id
         )
 
-        report_parts.extend([
-            "## 📊 Implementation Status",
-            f"**Coordination Result**: ✅ Successfully Initiated",
-            f"**Evolution ID**: {evolution_id if evolution_id else 'Not tracked'}",
-            f"**Source Manager**: Coordinated and implementing",
-            f"**Monitoring**: {'Active' if monitoring_result.get('success') else 'Limited'}",
-            "",
-            "## 🔍 Monitoring and Tracking",
-            f"**Evolution Tracking**: {monitoring_url}/api/evolution/{evolution_id}" if evolution_id else "**Evolution Tracking**: Not available",
-            f"**Approval Record**: {monitoring_url}/api/approvals/{approval_id}",
-            f"**Implementation Status**: Check Source Manager Agent logs",
-            "",
-            "## ⏰ Expected Timeline",
-        ])
+        report_parts.extend(
+            [
+                "## 📊 Implementation Status",
+                f"**Coordination Result**: ✅ Successfully Initiated",
+                f"**Evolution ID**: {evolution_id if evolution_id else 'Not tracked'}",
+                f"**Source Manager**: Coordinated and implementing",
+                f"**Monitoring**: {'Active' if monitoring_result.get('success') else 'Limited'}",
+                "",
+                "## 🔍 Monitoring and Tracking",
+                (
+                    f"**Evolution Tracking**: {monitoring_url}/api/evolution/{evolution_id}"
+                    if evolution_id
+                    else "**Evolution Tracking**: Not available"
+                ),
+                f"**Approval Record**: {monitoring_url}/api/approvals/{approval_id}",
+                f"**Implementation Status**: Check Source Manager Agent logs",
+                "",
+                "## ⏰ Expected Timeline",
+            ]
+        )
 
         # Add timeline based on evolution type
-        evolution_type = evolution_data.get('evolution_type', 'content_update')
+        evolution_type = evolution_data.get("evolution_type", "content_update")
         if evolution_type == "technology_refresh":
-            report_parts.extend([
-                "- **Implementation**: 2-4 hours",
-                "- **Validation**: 1-2 hours",
-                "- **Deployment**: 30 minutes",
-                "- **Total Duration**: 4-7 hours"
-            ])
+            report_parts.extend(
+                [
+                    "- **Implementation**: 2-4 hours",
+                    "- **Validation**: 1-2 hours",
+                    "- **Deployment**: 30 minutes",
+                    "- **Total Duration**: 4-7 hours",
+                ]
+            )
         elif evolution_type == "research_update":
-            report_parts.extend([
-                "- **Implementation**: 1-2 hours",
-                "- **Validation**: 2-3 hours",
-                "- **Deployment**: 30 minutes",
-                "- **Total Duration**: 4-6 hours"
-            ])
+            report_parts.extend(
+                [
+                    "- **Implementation**: 1-2 hours",
+                    "- **Validation**: 2-3 hours",
+                    "- **Deployment**: 30 minutes",
+                    "- **Total Duration**: 4-6 hours",
+                ]
+            )
         else:
-            report_parts.extend([
-                "- **Implementation**: 1-2 hours",
-                "- **Validation**: 1 hour",
-                "- **Deployment**: 30 minutes",
-                "- **Total Duration**: 3-4 hours"
-            ])
+            report_parts.extend(
+                [
+                    "- **Implementation**: 1-2 hours",
+                    "- **Validation**: 1 hour",
+                    "- **Deployment**: 30 minutes",
+                    "- **Total Duration**: 3-4 hours",
+                ]
+            )
 
-        report_parts.extend([
-            "",
-            "## 🔔 Next Steps",
-            "1. **Monitor Progress**: Check evolution tracking URL for real-time status",
-            "2. **Validation**: Review implementation when Source Manager completes",
-            "3. **Deployment**: Approve deployment after successful validation",
-            "4. **Audit**: Complete audit trail will be maintained automatically",
-            "",
-            f"✅ **Evolution implementation coordination completed: {coordination_id}**"
-        ])
+        report_parts.extend(
+            [
+                "",
+                "## 🔔 Next Steps",
+                "1. **Monitor Progress**: Check evolution tracking URL for real-time status",
+                "2. **Validation**: Review implementation when Source Manager completes",
+                "3. **Deployment**: Approve deployment after successful validation",
+                "4. **Audit**: Complete audit trail will be maintained automatically",
+                "",
+                f"✅ **Evolution implementation coordination completed: {coordination_id}**",
+            ]
+        )
 
         # Create audit record for coordination
         audit_result = audit_decision_tool(
@@ -1002,24 +1123,25 @@ def coordinate_evolution_implementation_tool(
             "coordinated",
             "human_oversight_coordinator",
             f"Evolution implementation coordinated with Source Manager Agent",
-            f"Coordination ID: {coordination_id}, Evolution ID: {evolution_id}"
+            f"Coordination ID: {coordination_id}, Evolution ID: {evolution_id}",
         )
 
         # Log the coordination
-        logger.info(f"Evolution implementation coordinated: approval={approval_id}, evolution={evolution_id}, coordination={coordination_id}")
+        logger.info(
+            f"Evolution implementation coordinated: approval={approval_id}, evolution={evolution_id}, coordination={coordination_id}"
+        )
 
         return "\n".join(report_parts)
 
     except Exception as e:
         logger.error(f"Error in coordinate_evolution_implementation_tool: {e}")
-        return f"Error coordinating evolution implementation: {str(e)}. Please check the approval status and try again."
+        return f"Error coordinating evolution implementation: {
+            str(e)}. Please check the approval status and try again."
 
 
 @client_tool
 def monitor_evolution_progress_tool(
-    evolution_id: str,
-    check_interval: str = "detailed",
-    include_metrics: bool = True
+    evolution_id: str, check_interval: str = "detailed", include_metrics: bool = True
 ) -> str:
     """
     :description: Monitor the progress of workshop evolution implementation and provide detailed status updates.
@@ -1047,238 +1169,294 @@ def monitor_evolution_progress_tool(
         # Get evolution status from monitoring service
         evolution_status = get_evolution_status(evolution_id, monitoring_url)
 
-        if evolution_status['success']:
-            status_data = evolution_status['data']
-            current_phase = status_data.get('status', 'unknown')
-            workshop_name = status_data.get('workshop_name', 'Unknown')
-            evolution_type = status_data.get('evolution_type', 'unknown')
+        if evolution_status["success"]:
+            status_data = evolution_status["data"]
+            current_phase = status_data.get("status", "unknown")
+            workshop_name = status_data.get("workshop_name", "Unknown")
+            evolution_type = status_data.get("evolution_type", "unknown")
 
-            report_parts.extend([
-                f"**Workshop**: {workshop_name}",
-                f"**Evolution Type**: {evolution_type.replace('_', ' ').title()}",
-                f"**Current Phase**: {current_phase.replace('_', ' ').title()}",
-                f"**Started**: {status_data.get('created_at', 'Unknown')}",
-                f"**Last Updated**: {status_data.get('last_updated', 'Unknown')}",
-                ""
-            ])
+            report_parts.extend(
+                [
+                    f"**Workshop**: {workshop_name}",
+                    f"**Evolution Type**: {evolution_type.replace('_', ' ').title()}",
+                    f"**Current Phase**: {current_phase.replace('_', ' ').title()}",
+                    f"**Started**: {status_data.get('created_at', 'Unknown')}",
+                    f"**Last Updated**: {status_data.get('last_updated', 'Unknown')}",
+                    "",
+                ]
+            )
 
             # Phase-specific status information
             if current_phase == "requested":
-                report_parts.extend([
-                    "## 📝 Phase: Requested",
-                    "- Evolution request has been submitted",
-                    "- Awaiting human review and approval",
-                    "- **Next Step**: Human reviewer will evaluate the request",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## 📝 Phase: Requested",
+                        "- Evolution request has been submitted",
+                        "- Awaiting human review and approval",
+                        "- **Next Step**: Human reviewer will evaluate the request",
+                        "",
+                    ]
+                )
             elif current_phase == "under_review":
-                report_parts.extend([
-                    "## 👀 Phase: Under Review",
-                    "- Human reviewer is evaluating the evolution request",
-                    "- Assessing impact, feasibility, and alignment with workshop goals",
-                    "- **Next Step**: Approval or rejection decision",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## 👀 Phase: Under Review",
+                        "- Human reviewer is evaluating the evolution request",
+                        "- Assessing impact, feasibility, and alignment with workshop goals",
+                        "- **Next Step**: Approval or rejection decision",
+                        "",
+                    ]
+                )
             elif current_phase == "approved":
-                report_parts.extend([
-                    "## ✅ Phase: Approved",
-                    "- Evolution request has been approved",
-                    "- Ready for implementation by Source Manager Agent",
-                    "- **Next Step**: Implementation coordination and execution",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## ✅ Phase: Approved",
+                        "- Evolution request has been approved",
+                        "- Ready for implementation by Source Manager Agent",
+                        "- **Next Step**: Implementation coordination and execution",
+                        "",
+                    ]
+                )
             elif current_phase == "implementing":
-                report_parts.extend([
-                    "## 🔧 Phase: Implementing",
-                    "- Source Manager Agent is applying evolution changes",
-                    f"- Files Modified: {status_data.get('files_modified', 'Unknown')}",
-                    f"- Backup Available: {'Yes' if status_data.get('rollback_available') else 'No'}",
-                    "- **Next Step**: Implementation completion and validation",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## 🔧 Phase: Implementing",
+                        "- Source Manager Agent is applying evolution changes",
+                        f"- Files Modified: {status_data.get('files_modified', 'Unknown')}",
+                        f"- Backup Available: {'Yes' if status_data.get('rollback_available') else 'No'}",
+                        "- **Next Step**: Implementation completion and validation",
+                        "",
+                    ]
+                )
             elif current_phase == "validating":
-                report_parts.extend([
-                    "## 🧪 Phase: Validating",
-                    "- Evolution changes are being validated and tested",
-                    "- Checking content integrity and functionality",
-                    "- **Next Step**: Validation completion or issue resolution",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## 🧪 Phase: Validating",
+                        "- Evolution changes are being validated and tested",
+                        "- Checking content integrity and functionality",
+                        "- **Next Step**: Validation completion or issue resolution",
+                        "",
+                    ]
+                )
             elif current_phase == "completed":
-                report_parts.extend([
-                    "## 🎉 Phase: Completed",
-                    "- Evolution implementation has been completed successfully",
-                    f"- Target Version: {status_data.get('target_version', 'Unknown')}",
-                    "- **Next Step**: Deployment to production environment",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## 🎉 Phase: Completed",
+                        "- Evolution implementation has been completed successfully",
+                        f"- Target Version: {status_data.get('target_version', 'Unknown')}",
+                        "- **Next Step**: Deployment to production environment",
+                        "",
+                    ]
+                )
             elif current_phase == "deployed":
-                report_parts.extend([
-                    "## 🚀 Phase: Deployed",
-                    "- Evolution has been deployed to production",
-                    "- Workshop participants can access updated content",
-                    "- **Status**: Evolution lifecycle complete",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## 🚀 Phase: Deployed",
+                        "- Evolution has been deployed to production",
+                        "- Workshop participants can access updated content",
+                        "- **Status**: Evolution lifecycle complete",
+                        "",
+                    ]
+                )
             elif current_phase == "failed":
-                error_message = status_data.get('error_message', 'Unknown error')
-                report_parts.extend([
-                    "## ❌ Phase: Failed",
-                    f"- Evolution implementation encountered an error",
-                    f"- Error: {error_message}",
-                    "- **Next Step**: Review error and determine recovery action",
-                    ""
-                ])
+                error_message = status_data.get("error_message", "Unknown error")
+                report_parts.extend(
+                    [
+                        "## ❌ Phase: Failed",
+                        f"- Evolution implementation encountered an error",
+                        f"- Error: {error_message}",
+                        "- **Next Step**: Review error and determine recovery action",
+                        "",
+                    ]
+                )
             elif current_phase == "rolled_back":
-                rollback_reason = status_data.get('rollback_reason', 'Unknown reason')
-                report_parts.extend([
-                    "## 🔄 Phase: Rolled Back",
-                    f"- Evolution was rolled back due to issues",
-                    f"- Reason: {rollback_reason}",
-                    f"- Backup Version: {status_data.get('backup_version', 'Unknown')}",
-                    "- **Status**: Workshop restored to previous state",
-                    ""
-                ])
+                rollback_reason = status_data.get("rollback_reason", "Unknown reason")
+                report_parts.extend(
+                    [
+                        "## 🔄 Phase: Rolled Back",
+                        f"- Evolution was rolled back due to issues",
+                        f"- Reason: {rollback_reason}",
+                        f"- Backup Version: {status_data.get('backup_version', 'Unknown')}",
+                        "- **Status**: Workshop restored to previous state",
+                        "",
+                    ]
+                )
 
             # Implementation details if available
             if check_interval in ["detailed", "comprehensive"]:
-                report_parts.extend([
-                    "## 🔍 Implementation Details",
-                    f"**Approval ID**: {status_data.get('approval_id', 'Not linked')}",
-                    f"**Requested By**: {status_data.get('requested_by', 'Unknown')}",
-                    f"**Approved By**: {status_data.get('approved_by', 'Not yet approved')}",
-                    f"**Implemented By**: {status_data.get('implemented_by', 'Not yet implemented')}",
-                    "",
-                    "### Version Information",
-                    f"- **Current Version**: {status_data.get('current_version', 'Unknown')}",
-                    f"- **Target Version**: {status_data.get('target_version', 'Unknown')}",
-                    f"- **Backup Version**: {status_data.get('backup_version', 'None')}",
-                    "",
-                    "### Evolution Content",
-                    f"**Description**: {status_data.get('evolution_description', 'No description available')}",
-                    f"**Approved Changes**: {status_data.get('approved_changes', 'No changes specified')}",
-                    ""
-                ])
+                report_parts.extend(
+                    [
+                        "## 🔍 Implementation Details",
+                        f"**Approval ID**: {status_data.get('approval_id', 'Not linked')}",
+                        f"**Requested By**: {status_data.get('requested_by', 'Unknown')}",
+                        f"**Approved By**: {status_data.get('approved_by', 'Not yet approved')}",
+                        f"**Implemented By**: {status_data.get('implemented_by', 'Not yet implemented')}",
+                        "",
+                        "### Version Information",
+                        f"- **Current Version**: {status_data.get('current_version', 'Unknown')}",
+                        f"- **Target Version**: {status_data.get('target_version', 'Unknown')}",
+                        f"- **Backup Version**: {status_data.get('backup_version', 'None')}",
+                        "",
+                        "### Evolution Content",
+                        f"**Description**: {status_data.get('evolution_description', 'No description available')}",
+                        f"**Approved Changes**: {status_data.get('approved_changes', 'No changes specified')}",
+                        "",
+                    ]
+                )
 
             # Validation results if available
-            validation_results = status_data.get('validation_results', [])
+            validation_results = status_data.get("validation_results", [])
             if validation_results and check_interval == "comprehensive":
-                report_parts.extend([
-                    "## ✅ Validation Results",
-                ])
+                report_parts.extend(
+                    [
+                        "## ✅ Validation Results",
+                    ]
+                )
                 for i, result in enumerate(validation_results, 1):
                     report_parts.append(f"{i}. {result}")
                 report_parts.append("")
 
         else:
-            report_parts.extend([
-                f"❌ **Status Check Failed**",
-                f"**Error**: {evolution_status['error']}",
-                f"**Evolution ID**: {evolution_id}",
-                "",
-                "## 🔧 Troubleshooting",
-                "- Verify evolution ID is correct",
-                "- Check monitoring service availability",
-                "- Ensure evolution was properly created",
-                ""
-            ])
+            report_parts.extend(
+                [
+                    f"❌ **Status Check Failed**",
+                    f"**Error**: {evolution_status['error']}",
+                    f"**Evolution ID**: {evolution_id}",
+                    "",
+                    "## 🔧 Troubleshooting",
+                    "- Verify evolution ID is correct",
+                    "- Check monitoring service availability",
+                    "- Ensure evolution was properly created",
+                    "",
+                ]
+            )
 
         # Include metrics if requested
-        if include_metrics and evolution_status['success']:
+        if include_metrics and evolution_status["success"]:
             metrics_data = get_evolution_metrics(evolution_id, monitoring_url)
-            if metrics_data['success']:
-                report_parts.extend([
-                    "## 📈 Performance Metrics",
-                    f"**Duration So Far**: {metrics_data.get('duration_minutes', 0)} minutes",
-                    f"**Expected Completion**: {metrics_data.get('estimated_completion', 'Unknown')}",
-                    f"**Progress Percentage**: {metrics_data.get('progress_percentage', 0)}%",
-                    ""
-                ])
+            if metrics_data["success"]:
+                report_parts.extend(
+                    [
+                        "## 📈 Performance Metrics",
+                        f"**Duration So Far**: {metrics_data.get('duration_minutes', 0)} minutes",
+                        f"**Expected Completion**: {metrics_data.get('estimated_completion', 'Unknown')}",
+                        f"**Progress Percentage**: {metrics_data.get('progress_percentage', 0)}%",
+                        "",
+                    ]
+                )
 
         # Recommendations based on status
-        if evolution_status['success']:
-            status_data = evolution_status['data']
-            current_phase = status_data.get('status', 'unknown')
+        if evolution_status["success"]:
+            status_data = evolution_status["data"]
+            current_phase = status_data.get("status", "unknown")
 
-            report_parts.extend([
-                "## 💡 Recommendations",
-            ])
+            report_parts.extend(
+                [
+                    "## 💡 Recommendations",
+                ]
+            )
 
             if current_phase in ["implementing", "validating"]:
-                report_parts.extend([
-                    "- Continue monitoring progress regularly",
-                    "- Be prepared to intervene if issues arise",
-                    "- Review validation results when available",
-                ])
+                report_parts.extend(
+                    [
+                        "- Continue monitoring progress regularly",
+                        "- Be prepared to intervene if issues arise",
+                        "- Review validation results when available",
+                    ]
+                )
             elif current_phase == "completed":
-                report_parts.extend([
-                    "- Review implementation results",
-                    "- Approve deployment if satisfied with changes",
-                    "- Notify workshop participants of upcoming updates",
-                ])
+                report_parts.extend(
+                    [
+                        "- Review implementation results",
+                        "- Approve deployment if satisfied with changes",
+                        "- Notify workshop participants of upcoming updates",
+                    ]
+                )
             elif current_phase == "failed":
-                report_parts.extend([
-                    "- Review error details and logs",
-                    "- Determine if retry or rollback is appropriate",
-                    "- Coordinate with Source Manager Agent for resolution",
-                ])
+                report_parts.extend(
+                    [
+                        "- Review error details and logs",
+                        "- Determine if retry or rollback is appropriate",
+                        "- Coordinate with Source Manager Agent for resolution",
+                    ]
+                )
             elif current_phase == "deployed":
-                report_parts.extend([
-                    "- Monitor workshop participant feedback",
-                    "- Verify all functionality is working correctly",
-                    "- Document lessons learned for future evolutions",
-                ])
+                report_parts.extend(
+                    [
+                        "- Monitor workshop participant feedback",
+                        "- Verify all functionality is working correctly",
+                        "- Document lessons learned for future evolutions",
+                    ]
+                )
 
-        report_parts.extend([
-            "",
-            "## 🔗 Quick Actions",
-            f"**View Full Details**: {monitoring_url}/api/evolution/{evolution_id}",
-            f"**Workshop History**: {monitoring_url}/api/evolution/workshops/{status_data.get('workshop_name', 'unknown')}/history" if evolution_status['success'] else "",
-            f"**System Statistics**: {monitoring_url}/api/evolution/statistics",
-            "",
-            f"✅ **Evolution monitoring completed for: {evolution_id}**"
-        ])
+        report_parts.extend(
+            [
+                "",
+                "## 🔗 Quick Actions",
+                f"**View Full Details**: {monitoring_url}/api/evolution/{evolution_id}",
+                (
+                    f"**Workshop History**: {monitoring_url}/api/evolution/workshops/{
+                    status_data.get(
+                        'workshop_name',
+                        'unknown')}/history"
+                    if evolution_status["success"]
+                    else ""
+                ),
+                f"**System Statistics**: {monitoring_url}/api/evolution/statistics",
+                "",
+                f"✅ **Evolution monitoring completed for: {evolution_id}**",
+            ]
+        )
 
         # Log the monitoring check
-        logger.info(f"Evolution progress monitored: {evolution_id} - Status: {current_phase if evolution_status['success'] else 'unknown'}")
+        logger.info(
+            f"Evolution progress monitored: {evolution_id} - Status: {
+                current_phase if evolution_status['success'] else 'unknown'}"
+        )
 
         return "\n".join(report_parts)
 
     except Exception as e:
         logger.error(f"Error in monitor_evolution_progress_tool: {e}")
-        return f"Error monitoring evolution progress: {str(e)}. Please check the evolution ID and try again."
+        return f"Error monitoring evolution progress: {
+            str(e)}. Please check the evolution ID and try again."
 
 
 # Helper Functions for Evolution Coordination
+
 
 def get_monitoring_service_url() -> str:
     """Get the monitoring service URL for API calls"""
     # In production, this would be configured via environment variables
     return "http://workshop-monitoring-service:8080"
 
-def create_evolution_tracking_record(evolution_data: dict, approval_id: str, coordination_id: str, monitoring_url: str) -> dict:
+
+def create_evolution_tracking_record(
+    evolution_data: dict, approval_id: str, coordination_id: str, monitoring_url: str
+) -> dict:
     """Create evolution tracking record in monitoring service"""
     try:
         # Simulate API call to monitoring service
-        # In real implementation, this would make HTTP POST to /api/evolution/create
+        # In real implementation, this would make HTTP POST to
+        # /api/evolution/create
 
         evolution_id = str(uuid.uuid4())
 
         logger.info(f"Creating evolution tracking record: {evolution_id}")
 
         return {
-            'success': True,
-            'evolution_id': evolution_id,
-            'tracking_url': f"{monitoring_url}/api/evolution/{evolution_id}"
+            "success": True,
+            "evolution_id": evolution_id,
+            "tracking_url": f"{monitoring_url}/api/evolution/{evolution_id}",
         }
     except Exception as e:
         logger.error(f"Error creating evolution tracking record: {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}
 
-def coordinate_with_source_manager(evolution_data: dict, approval_id: str, evolution_id: str, safety_checks: bool) -> dict:
+
+def coordinate_with_source_manager(
+    evolution_data: dict, approval_id: str, evolution_id: str, safety_checks: bool
+) -> dict:
     """Coordinate evolution implementation with Source Manager Agent"""
     try:
         # Simulate coordination with Source Manager Agent
@@ -1288,26 +1466,28 @@ def coordinate_with_source_manager(evolution_data: dict, approval_id: str, evolu
         # 3. Specify safety_checks requirements
         # 4. Monitor initial response
 
-        workshop_name = evolution_data.get('workshop_name', 'unknown')
-        evolution_type = evolution_data.get('evolution_type', 'content_update')
+        workshop_name = evolution_data.get("workshop_name", "unknown")
+        evolution_type = evolution_data.get("evolution_type", "content_update")
 
-        logger.info(f"Coordinating with Source Manager Agent: workshop={workshop_name}, type={evolution_type}")
+        logger.info(
+            f"Coordinating with Source Manager Agent: workshop={workshop_name}, type={evolution_type}"
+        )
 
         # Simulate successful coordination
         return {
-            'success': True,
-            'started': True,
-            'duration': get_expected_duration(evolution_type),
-            'source_manager_response': 'Evolution implementation initiated'
+            "success": True,
+            "started": True,
+            "duration": get_expected_duration(evolution_type),
+            "source_manager_response": "Evolution implementation initiated",
         }
     except Exception as e:
         logger.error(f"Error coordinating with Source Manager Agent: {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}
 
-def setup_evolution_monitoring(evolution_id: str, evolution_data: dict, coordination_id: str) -> dict:
+
+def setup_evolution_monitoring(
+    evolution_id: str, evolution_data: dict, coordination_id: str
+) -> dict:
     """Set up monitoring and notifications for evolution progress"""
     try:
         # Simulate monitoring setup
@@ -1319,57 +1499,51 @@ def setup_evolution_monitoring(evolution_id: str, evolution_data: dict, coordina
         logger.info(f"Setting up evolution monitoring: {evolution_id}")
 
         return {
-            'success': True,
-            'monitoring_active': True,
-            'notifications_enabled': True
+            "success": True,
+            "monitoring_active": True,
+            "notifications_enabled": True,
         }
     except Exception as e:
         logger.error(f"Error setting up evolution monitoring: {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}
+
 
 def get_evolution_status(evolution_id: str, monitoring_url: str) -> dict:
     """Get current evolution status from monitoring service"""
     try:
         # Simulate API call to monitoring service
-        # In real implementation, this would make HTTP GET to /api/evolution/{evolution_id}
+        # In real implementation, this would make HTTP GET to
+        # /api/evolution/{evolution_id}
 
         logger.debug(f"Getting evolution status: {evolution_id}")
 
         # Simulate evolution status data
         status_data = {
-            'evolution_id': evolution_id,
-            'workshop_name': 'kubernetes-fundamentals',
-            'evolution_type': 'technology_refresh',
-            'status': 'implementing',
-            'current_version': 'v2025.01.15',
-            'target_version': 'v2025.01.16-tech-refresh',
-            'backup_version': 'backup-v2025.01.16-tech-refresh',
-            'approval_id': 'approval-123',
-            'requested_by': 'workshop_system',
-            'approved_by': 'technical_lead',
-            'implemented_by': 'source-manager-agent',
-            'files_modified': 8,
-            'rollback_available': True,
-            'created_at': '2025-01-16T10:00:00Z',
-            'approved_at': '2025-01-16T10:30:00Z',
-            'last_updated': '2025-01-16T11:15:00Z',
-            'evolution_description': 'Update Kubernetes version and refresh API examples',
-            'approved_changes': 'Update to Kubernetes 1.29, refresh all API examples, update troubleshooting guide'
+            "evolution_id": evolution_id,
+            "workshop_name": "kubernetes-fundamentals",
+            "evolution_type": "technology_refresh",
+            "status": "implementing",
+            "current_version": "v2025.01.15",
+            "target_version": "v2025.01.16-tech-refresh",
+            "backup_version": "backup-v2025.01.16-tech-refresh",
+            "approval_id": "approval-123",
+            "requested_by": "workshop_system",
+            "approved_by": "technical_lead",
+            "implemented_by": "source-manager-agent",
+            "files_modified": 8,
+            "rollback_available": True,
+            "created_at": "2025-01-16T10:00:00Z",
+            "approved_at": "2025-01-16T10:30:00Z",
+            "last_updated": "2025-01-16T11:15:00Z",
+            "evolution_description": "Update Kubernetes version and refresh API examples",
+            "approved_changes": "Update to Kubernetes 1.29, refresh all API examples, update troubleshooting guide",
         }
 
-        return {
-            'success': True,
-            'data': status_data
-        }
+        return {"success": True, "data": status_data}
     except Exception as e:
         logger.error(f"Error getting evolution status: {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}
+
 
 def get_evolution_metrics(evolution_id: str, monitoring_url: str) -> dict:
     """Get evolution performance metrics"""
@@ -1380,50 +1554,49 @@ def get_evolution_metrics(evolution_id: str, monitoring_url: str) -> dict:
         logger.debug(f"Getting evolution metrics: {evolution_id}")
 
         return {
-            'success': True,
-            'duration_minutes': 75,
-            'estimated_completion': '2025-01-16T13:00:00Z',
-            'progress_percentage': 65
+            "success": True,
+            "duration_minutes": 75,
+            "estimated_completion": "2025-01-16T13:00:00Z",
+            "progress_percentage": 65,
         }
     except Exception as e:
         logger.error(f"Error getting evolution metrics: {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}
 
-def update_evolution_status(evolution_id: str, new_status: str, updated_by: str, message: str) -> dict:
+
+def update_evolution_status(
+    evolution_id: str, new_status: str, updated_by: str, message: str
+) -> dict:
     """Update evolution status in monitoring service"""
     try:
         # Simulate API call to monitoring service
-        # In real implementation, this would make HTTP PUT to /api/evolution/{evolution_id}/status
+        # In real implementation, this would make HTTP PUT to
+        # /api/evolution/{evolution_id}/status
 
         logger.info(f"Updating evolution status: {evolution_id} -> {new_status}")
 
         return {
-            'success': True,
-            'evolution_id': evolution_id,
-            'new_status': new_status,
-            'updated_by': updated_by,
-            'updated_at': datetime.now().isoformat()
+            "success": True,
+            "evolution_id": evolution_id,
+            "new_status": new_status,
+            "updated_by": updated_by,
+            "updated_at": datetime.now().isoformat(),
         }
     except Exception as e:
         logger.error(f"Error updating evolution status: {e}")
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {"success": False, "error": str(e)}
+
 
 def get_expected_duration(evolution_type: str) -> str:
     """Get expected duration for evolution type"""
     durations = {
-        'research_update': '4-6 hours',
-        'technology_refresh': '4-7 hours',
-        'feedback_integration': '2-4 hours',
-        'content_expansion': '6-12 hours',
-        'content_update': '2-4 hours',
-        'bug_fix': '1-2 hours',
-        'security_update': '2-4 hours',
-        'performance_optimization': '3-6 hours'
+        "research_update": "4-6 hours",
+        "technology_refresh": "4-7 hours",
+        "feedback_integration": "2-4 hours",
+        "content_expansion": "6-12 hours",
+        "content_update": "2-4 hours",
+        "bug_fix": "1-2 hours",
+        "security_update": "2-4 hours",
+        "performance_optimization": "3-6 hours",
     }
-    return durations.get(evolution_type, '3-5 hours')
+    return durations.get(evolution_type, "3-5 hours")

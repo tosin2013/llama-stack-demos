@@ -1,4 +1,4 @@
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -10,9 +10,8 @@ AGENT_CONFIG = {
             "strategy": {"type": "greedy"},
             "max_tokens": 4096,
         },
-        "tools": []
+        "tools": [],
     },
-
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Orchestration Agent",
@@ -35,7 +34,7 @@ AGENT_CONFIG = {
                 "inputModes": ["text/plain"],
                 "outputModes": ["application/json"],
             }
-        ]
+        ],
     },
     "default_port": 10010,
 }

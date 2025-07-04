@@ -3,25 +3,28 @@ import asyncio
 import json
 import logging
 import urllib.parse
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
-from typing import Tuple, Dict, Any, Optional, List
 
 import asyncclick as click
-
-from common.client import A2AClient, A2ACardResolver
 from hosts.cli.push_notification_listener import PushNotificationListener
+
+from common.client import A2ACardResolver, A2AClient
 from common.utils.push_notification_auth import PushNotificationReceiverAuth
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 AgentInfo = Tuple[str, Any, A2AClient, str]
 
-def _build_skill_meta(agent_manager: 'AgentManager') -> List[Dict[str, Any]]:
+
+def _build_skill_meta(agent_manager: "AgentManager") -> List[Dict[str, Any]]:
     unique_skills: Dict[str, Dict[str, Any]] = {}
     if agent_manager.skills:
         for _, card_obj, _, _ in agent_manager.skills.values():
-            if hasattr(card_obj, 'skills') and isinstance(card_obj.skills, list):
+            if hasattr(card_obj, "skills") and isinstance(card_obj.skills, list):
                 for s in card_obj.skills:
                     if s.id not in unique_skills:
                         unique_skills[s.id] = {
@@ -32,6 +35,7 @@ def _build_skill_meta(agent_manager: 'AgentManager') -> List[Dict[str, Any]]:
                             "examples": getattr(s, "examples", None),
                         }
     return list(unique_skills.values())
+
 
 class AgentManager:
     def __init__(self, urls: List[str]):
@@ -45,7 +49,9 @@ class AgentManager:
             for skill_agent_url in urls[1:]:
                 agent_info_tuple = self._make_agent_info(skill_agent_url)
                 agent_card = agent_info_tuple[1]
-                if hasattr(agent_card, 'skills') and isinstance(agent_card.skills, list):
+                if hasattr(agent_card, "skills") and isinstance(
+                    agent_card.skills, list
+                ):
                     for skill_item in agent_card.skills:
                         self.skills[skill_item.id] = agent_info_tuple
 
@@ -56,7 +62,14 @@ class AgentManager:
         session_id = uuid4().hex
         return url, card, client, session_id
 
-async def _send_payload(client: A2AClient, card: Any, session_id: str, payload: Dict[str, Any], streaming: bool) -> str:
+
+async def _send_payload(
+    client: A2AClient,
+    card: Any,
+    session_id: str,
+    payload: Dict[str, Any],
+    streaming: bool,
+) -> str:
     response_text = ""
     if streaming:
         async for ev in client.send_task_streaming(payload):
@@ -69,6 +82,7 @@ async def _send_payload(client: A2AClient, card: Any, session_id: str, payload: 
         response_text = res.result.status.message.parts[0].text.strip()
     return response_text
 
+
 async def _send_task_to_agent(
     client: A2AClient,
     card: Any,
@@ -76,7 +90,7 @@ async def _send_task_to_agent(
     input_text: str,
     push_enabled: bool,
     push_host: Optional[str],
-    push_port: Optional[int]
+    push_port: Optional[int],
 ) -> str:
     payload: Dict[str, Any] = {
         "id": uuid4().hex,
@@ -93,18 +107,48 @@ async def _send_task_to_agent(
             "authentication": {"schemes": schemes},
         }
 
-    streaming_capability = getattr(getattr(card, "capabilities", object()), "streaming", False)
+    streaming_capability = getattr(
+        getattr(card, "capabilities", object()), "streaming", False
+    )
     return await _send_payload(client, card, session_id, payload, streaming_capability)
+
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(version="1.0.0")
-@click.option("--agent", "cli_urls", multiple=True, required=True, help="Orchestrator + executor URLs.")
-@click.option("--history/--no-history", "cli_history", default=False, help="Show history after each step.")
-@click.option("--use-push-notifications/--no-push-notifications", "cli_use_push_notifications", default=False)
-@click.option("--push-notification-receiver", "cli_push_notification_receiver", default="http://localhost:5000", show_default=True)
-async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications: bool, cli_push_notification_receiver: str):
+@click.option(
+    "--agent",
+    "cli_urls",
+    multiple=True,
+    required=True,
+    help="Orchestrator + executor URLs.",
+)
+@click.option(
+    "--history/--no-history",
+    "cli_history",
+    default=False,
+    help="Show history after each step.",
+)
+@click.option(
+    "--use-push-notifications/--no-push-notifications",
+    "cli_use_push_notifications",
+    default=False,
+)
+@click.option(
+    "--push-notification-receiver",
+    "cli_push_notification_receiver",
+    default="http://localhost:5000",
+    show_default=True,
+)
+async def cli(
+    cli_urls: List[str],
+    cli_history: bool,
+    cli_use_push_notifications: bool,
+    cli_push_notification_receiver: str,
+):
     if len(cli_urls) < 2:
-        click.secho("Error: Provide at least orchestrator + executor URLs.", fg="red", err=True)
+        click.secho(
+            "Error: Provide at least orchestrator + executor URLs.", fg="red", err=True
+        )
         raise click.Abort()
 
     push_host_val: Optional[str] = None
@@ -113,18 +157,33 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
         parsed_url = urllib.parse.urlparse(cli_push_notification_receiver)
         push_host_val, push_port_val = parsed_url.hostname, parsed_url.port
         if not push_host_val or not push_port_val:
-            click.secho(f"Error: Invalid push notification receiver URL: {cli_push_notification_receiver}", fg="red", err=True)
+            click.secho(
+                f"Error: Invalid push notification receiver URL: {cli_push_notification_receiver}",
+                fg="red",
+                err=True,
+            )
             raise click.Abort()
         auth_handler = PushNotificationReceiverAuth()
         orchestrator_jwks_url = f"{cli_urls[0]}/.well-known/jwks.json"
         try:
             await auth_handler.load_jwks(orchestrator_jwks_url)
         except Exception as e:
-            click.secho(f"Error loading JWKS for push notifications from {orchestrator_jwks_url}: {e}", fg="red", err=True)
+            click.secho(
+                f"Error loading JWKS for push notifications from {orchestrator_jwks_url}: {e}",
+                fg="red",
+                err=True,
+            )
             raise click.Abort()
 
-        PushNotificationListener(host=push_host_val, port=push_port_val, notification_receiver_auth=auth_handler).start()
-        click.secho(f"Push notification listener started at http://{push_host_val}:{push_port_val}/notify", fg="blue")
+        PushNotificationListener(
+            host=push_host_val,
+            port=push_port_val,
+            notification_receiver_auth=auth_handler,
+        ).start()
+        click.secho(
+            f"Push notification listener started at http://{push_host_val}:{push_port_val}/notify",
+            fg="blue",
+        )
 
     agent_manager = AgentManager(cli_urls)
 
@@ -134,7 +193,12 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
     click.echo(f"Orchestrator: {orch_url} ({orch_card.name})")
     if agent_manager.skills:
         click.echo("Executors:")
-        for skill_id, (skill_agent_url, skill_agent_card, _, _) in agent_manager.skills.items():
+        for skill_id, (
+            skill_agent_url,
+            skill_agent_card,
+            _,
+            _,
+        ) in agent_manager.skills.items():
             click.echo(f"  • {skill_id} -> {skill_agent_url} ({skill_agent_card.name})")
     else:
         click.echo("No skill executors configured.")
@@ -144,9 +208,13 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
 
     while True:
         try:
-            question = await asyncio.to_thread(click.prompt, "💬 Your question (:q to quit)", default="", type=str)
+            question = await asyncio.to_thread(
+                click.prompt, "💬 Your question (:q to quit)", default="", type=str
+            )
         except RuntimeError:
-            question = click.prompt("💬 Your question (:q to quit)", default="", type=str)
+            question = click.prompt(
+                "💬 Your question (:q to quit)", default="", type=str
+            )
 
         if question.strip().lower() in {":q", "quit"}:
             click.secho("Goodbye! 👋", fg="green")
@@ -154,9 +222,18 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
         if not question.strip():
             continue
 
-        _call_agent_lambda = lambda current_client, current_card, current_session_id, text_input: _send_task_to_agent(
-            current_client, current_card, current_session_id, text_input, cli_use_push_notifications, push_host_val, push_port_val
-        )
+        def _call_agent_lambda(
+            current_client, current_card, current_session_id, text_input
+        ):
+            return _send_task_to_agent(
+                current_client,
+                current_card,
+                current_session_id,
+                text_input,
+                cli_use_push_notifications,
+                push_host_val,
+                push_port_val,
+            )
 
         click.secho("\n=========== 🧠 Planning Phase ===========", fg="yellow")
 
@@ -168,13 +245,15 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
             "each with key `skill_id`, without any surrounding object. You may be asked to write single or multiple skills.\n"
             "For example for multiple tools:\n"
             "[\n"
-            "  {\"skill_id\": \"tool_1\"},\n"
-            "  {\"skill_id\": \"tool_2\"}\n"
+            '  {"skill_id": "tool_1"},\n'
+            '  {"skill_id": "tool_2"}\n'
             "]"
         )
         combined_planner_input = plan_instructions + "\n\nUser question: " + question
 
-        raw_plan = await _call_agent_lambda(orch_client, orch_card, orch_session_id, combined_planner_input)
+        raw_plan = await _call_agent_lambda(
+            orch_client, orch_card, orch_session_id, combined_planner_input
+        )
         click.echo(f"Raw plan ➡️ {raw_plan}")
 
         plan = []
@@ -183,19 +262,43 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
         except Exception as e:
             click.secho(f"Plan parse failed: {e}. Attempting to fix...", fg="red")
             fix_json_input = "fix this json to be valid: " + raw_plan
-            fixed_plan_json = await _call_agent_lambda(orch_client, orch_card, orch_session_id, fix_json_input)
+            fixed_plan_json = await _call_agent_lambda(
+                orch_client, orch_card, orch_session_id, fix_json_input
+            )
             try:
                 plan = json.loads(fixed_plan_json)
-                click.secho(f"\nFixed Raw plan ➡️ {json.dumps(plan, indent=2)}\n", fg="green")
+                click.secho(
+                    f"\nFixed Raw plan ➡️ {
+                        json.dumps(
+                            plan,
+                            indent=2)}\n",
+                    fg="green",
+                )
             except Exception as fix_e:
-                click.secho(f"Failed to fix and parse plan: {fix_e}. Skipping execution.", fg="red", err=True)
+                click.secho(
+                    f"Failed to fix and parse plan: {fix_e}. Skipping execution.",
+                    fg="red",
+                    err=True,
+                )
                 continue
 
-        if not isinstance(plan, list) or not all(isinstance(item, dict) and 'skill_id' in item for item in plan):
-            click.secho(f"Parsed plan is not a valid list of skill tasks: {plan}. Skipping execution.", fg="red", err=True)
+        if not isinstance(plan, list) or not all(
+            isinstance(item, dict) and "skill_id" in item for item in plan
+        ):
+            click.secho(
+                f"Parsed plan is not a valid list of skill tasks: {plan}. Skipping execution.",
+                fg="red",
+                err=True,
+            )
             continue
 
-        click.secho(f"\nFinal plan ➡️ {json.dumps(plan, indent=2)}", fg="green")
+        click.secho(
+            f"\nFinal plan ➡️ {
+                json.dumps(
+                    plan,
+                    indent=2)}",
+            fg="green",
+        )
 
         click.secho("\n=========== ⚡️ Execution Phase ===========", fg="yellow")
         execution_results = []
@@ -209,15 +312,27 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
             skill_agent_info_tuple = agent_manager.skills.get(skill_id_to_execute)
 
             if not skill_agent_info_tuple:
-                click.secho(f"No executor for '{skill_id_to_execute}', skipping.", fg="red")
-                execution_results.append({"skill_id": skill_id_to_execute, "output": None, "error": "Skill agent not found"})
+                click.secho(
+                    f"No executor for '{skill_id_to_execute}', skipping.", fg="red"
+                )
+                execution_results.append(
+                    {
+                        "skill_id": skill_id_to_execute,
+                        "output": None,
+                        "error": "Skill agent not found",
+                    }
+                )
                 continue
 
             _, skill_card, skill_client, skill_session_id = skill_agent_info_tuple
 
-            skill_output = await _call_agent_lambda(skill_client, skill_card, skill_session_id, skill_invocation_text)
+            skill_output = await _call_agent_lambda(
+                skill_client, skill_card, skill_session_id, skill_invocation_text
+            )
             click.secho(f"   ✅ → {skill_output}", fg="green")
-            execution_results.append({"skill_id": skill_id_to_execute, "output": skill_output})
+            execution_results.append(
+                {"skill_id": skill_id_to_execute, "output": skill_output}
+            )
 
         click.secho("\n=========== 🛠️ Composing Answer ===========", fg="yellow")
 
@@ -228,10 +343,13 @@ async def cli(cli_urls: List[str], cli_history: bool, cli_use_push_notifications
             "Never show any code or JSON, just the answer.\n\n"
         )
 
-        final_answer = await _call_agent_lambda(orch_client, orch_card, orch_session_id, composition_prompt)
+        final_answer = await _call_agent_lambda(
+            orch_client, orch_card, orch_session_id, composition_prompt
+        )
         click.secho("\n🎉 FINAL ANSWER", fg="cyan")
         click.echo(final_answer)
         click.secho("====================================", fg="cyan")
+
 
 if __name__ == "__main__":
     asyncio.run(cli())

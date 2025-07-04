@@ -1,5 +1,5 @@
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
-from .tools import random_number_tool, date_tool # Import tools
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
+from .tools import date_tool, random_number_tool  # Import tools
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -18,7 +18,6 @@ AGENT_CONFIG = {
             "max_tokens": 4096,
         },
     },
-
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Custom Agent",
@@ -49,8 +48,8 @@ AGENT_CONFIG = {
                 "examples": ["What's the date today?"],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10011,
 }

@@ -4,7 +4,7 @@ ADR-0001 Compliance Testing Script
 
 This script demonstrates the complete testing cycle for ADR-0001 dual-template strategy:
 1. Create workshop repositories using both workflows
-2. Validate compliance against ADR-0001 specifications  
+2. Validate compliance against ADR-0001 specifications
 3. Clean up test repositories
 
 Usage:
@@ -14,39 +14,40 @@ Usage:
 import os
 import sys
 import time
+
 import requests
-import json
 
 # Add the project root to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'demos', 'workshop_template_system'))
+sys.path.append(
+    os.path.join(os.path.dirname(__file__), "..", "demos", "workshop_template_system")
+)
+
 
 def setup_environment():
     """Set up Gitea environment variables and OpenShift agent URLs"""
-    os.environ['GITEA_URL'] = 'https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com'
-    os.environ['GITEA_ADMIN_TOKEN'] = '5064d47a5fdb598395a4eb57d3253c394467ca6c'
-    os.environ['GITEA_USER'] = 'opentlc-mgr'
+    os.environ["GITEA_URL"] = (
+        "https://gitea-with-admin-gitea.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com"
+    )
+    os.environ["GITEA_ADMIN_TOKEN"] = "5064d47a5fdb598395a4eb57d3253c394467ca6c"
+    os.environ["GITEA_USER"] = "opentlc-mgr"
 
     # OpenShift agent API endpoints
     global AGENT_URLS
     AGENT_URLS = {
-        'template_converter': 'https://template-converter-agent-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com',
-        'content_creator': 'https://content-creator-agent-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com',
-        'source_manager': 'https://source-manager-agent-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com'
+        "template_converter": "https://template-converter-agent-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com",
+        "content_creator": "https://content-creator-agent-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com",
+        "source_manager": "https://source-manager-agent-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com",
     }
+
 
 def call_agent_api(agent_name: str, tool_name: str, parameters: dict) -> dict:
     """Call OpenShift agent API endpoint"""
     try:
         url = f"{AGENT_URLS[agent_name]}/invoke"
 
-        payload = {
-            "tool_name": tool_name,
-            "parameters": parameters
-        }
+        payload = {"tool_name": tool_name, "parameters": parameters}
 
-        headers = {
-            'Content-Type': 'application/json'
-        }
+        headers = {"Content-Type": "application/json"}
 
         print(f"  🌐 Calling {agent_name} API: {tool_name}")
         response = requests.post(url, json=payload, headers=headers, timeout=60)
@@ -57,79 +58,100 @@ def call_agent_api(agent_name: str, tool_name: str, parameters: dict) -> dict:
             return {"success": True, "result": result.get("result", "")}
         else:
             print(f"  ❌ API call failed: {response.status_code}")
-            return {"success": False, "error": f"HTTP {response.status_code}: {response.text[:200]}"}
+            return {
+                "success": False,
+                "error": f"HTTP {response.status_code}: {response.text[:200]}",
+            }
 
     except Exception as e:
         print(f"  ❌ API call error: {str(e)}")
         return {"success": False, "error": str(e)}
+
 
 def validate_deployed_content(repo_name, workflow_type, source_repo_url):
     """Validate the content of deployed workshop repository"""
     print(f"  Validating deployed content for {repo_name}...")
 
     try:
-        from agents.source_manager.tools import fetch_gitea_repository_tree, get_gitea_config
+        from agents.source_manager.tools import (
+            fetch_gitea_repository_tree,
+            get_gitea_config,
+        )
 
         # Get repository structure
         gitea_config = get_gitea_config()
-        if not gitea_config['success']:
+        if not gitea_config["success"]:
             print(f"  ❌ Cannot validate: {gitea_config['error']}")
             return
 
         repo_structure = fetch_gitea_repository_tree(repo_name, gitea_config)
-        if not repo_structure['success']:
+        if not repo_structure["success"]:
             print(f"  ❌ Cannot fetch repository: {repo_structure['error']}")
             return
 
-        files = repo_structure['content']['files']
-        directories = repo_structure['content']['directories']
+        files = repo_structure["content"]["files"]
+        directories = repo_structure["content"]["directories"]
 
-        print(f"  📁 Repository contains {len(files)} files and {len(directories)} directories")
+        print(
+            f"  📁 Repository contains {
+                len(files)} files and {
+                len(directories)} directories"
+        )
 
         # Validate based on workflow type
-        if workflow_type == 'workflow1':
+        if workflow_type == "workflow1":
             # Should have showroom template structure
-            expected_files = ['README.md', 'showroom.yml']
+            expected_files = ["README.md", "showroom.yml"]
             missing_files = [f for f in expected_files if f not in files]
 
             if missing_files:
-                print(f"  ⚠️ Missing expected files: {', '.join(missing_files)}")
+                print(
+                    f"  ⚠️ Missing expected files: {
+                        ', '.join(missing_files)}"
+                )
             else:
                 print("  ✅ Basic file structure present")
 
             # Check for content format
-            workshop_files = [f for f in files if 'workshop' in f.lower()]
+            workshop_files = [f for f in files if "workshop" in f.lower()]
             if workshop_files:
-                print(f"  ✅ Workshop content files found: {', '.join(workshop_files)}")
+                print(
+                    f"  ✅ Workshop content files found: {
+                        ', '.join(workshop_files)}"
+                )
 
             # Validate against source repository characteristics
             print(f"  🔍 Source repository: {source_repo_url}")
-            if 'dddhexagonal' in source_repo_url:
+            if "dddhexagonal" in source_repo_url:
                 print("  ✅ Expected DDD and Hexagonal Architecture content")
                 print("  ✅ Should include Quarkus framework examples")
                 print("  ✅ Should have hands-on coding exercises")
 
-        elif workflow_type == 'workflow3':
+        elif workflow_type == "workflow3":
             # Should preserve original structure while enhancing
             print(f"  🔍 Source repository: {source_repo_url}")
-            if 'todo-demo-app-helmrepo' in source_repo_url:
+            if "todo-demo-app-helmrepo" in source_repo_url:
                 print("  ✅ Expected Helm and OpenShift content")
                 print("  ✅ Should include containerization concepts")
                 print("  ✅ Should have deployment examples")
 
             # Check for enhancement indicators
-            enhanced_files = [f for f in files if 'workshop' in f.lower()]
+            enhanced_files = [f for f in files if "workshop" in f.lower()]
             if enhanced_files:
-                print(f"  ✅ Enhanced content files: {', '.join(enhanced_files)}")
+                print(
+                    f"  ✅ Enhanced content files: {
+                        ', '.join(enhanced_files)}"
+                )
 
         # Check repository accessibility
-        gitea_url = gitea_config['url']
+        gitea_url = gitea_config["url"]
         repo_url = f"{gitea_url}/{gitea_config['user']}/{repo_name}"
         print(f"  🔗 Repository accessible at: {repo_url}")
         print("  ✅ Post-deployment validation complete")
 
     except Exception as e:
         print(f"  ❌ Validation error: {str(e)}")
+
 
 def compare_generated_repositories(workflow1_repo: str, workflow3_repo: str):
     """Compare the differences between Workflow 1 and Workflow 3 generated repositories"""
@@ -139,48 +161,79 @@ def compare_generated_repositories(workflow1_repo: str, workflow3_repo: str):
     print()
 
     try:
-        from agents.source_manager.tools import fetch_gitea_repository_tree, get_gitea_config
+        from agents.source_manager.tools import (
+            fetch_gitea_repository_tree,
+            get_gitea_config,
+        )
 
         # Get Gitea configuration
         gitea_config = get_gitea_config()
-        if not gitea_config['success']:
+        if not gitea_config["success"]:
             print(f"❌ Cannot perform comparison: {gitea_config['error']}")
             return
 
         # Fetch both repository structures
         print("📊 Fetching repository structures...")
 
-        workflow1_structure = fetch_gitea_repository_tree(workflow1_repo, gitea_config) if workflow1_repo else None
-        workflow3_structure = fetch_gitea_repository_tree(workflow3_repo, gitea_config) if workflow3_repo else None
+        workflow1_structure = (
+            fetch_gitea_repository_tree(workflow1_repo, gitea_config)
+            if workflow1_repo
+            else None
+        )
+        workflow3_structure = (
+            fetch_gitea_repository_tree(workflow3_repo, gitea_config)
+            if workflow3_repo
+            else None
+        )
 
-        if not workflow1_structure or not workflow1_structure.get('success'):
+        if not workflow1_structure or not workflow1_structure.get("success"):
             print("❌ Cannot fetch Workflow 1 repository structure")
             workflow1_files, workflow1_dirs = [], []
         else:
-            workflow1_files = workflow1_structure['content']['files']
-            workflow1_dirs = workflow1_structure['content']['directories']
+            workflow1_files = workflow1_structure["content"]["files"]
+            workflow1_dirs = workflow1_structure["content"]["directories"]
 
-        if not workflow3_structure or not workflow3_structure.get('success'):
+        if not workflow3_structure or not workflow3_structure.get("success"):
             print("❌ Cannot fetch Workflow 3 repository structure")
             workflow3_files, workflow3_dirs = [], []
         else:
-            workflow3_files = workflow3_structure['content']['files']
-            workflow3_dirs = workflow3_structure['content']['directories']
+            workflow3_files = workflow3_structure["content"]["files"]
+            workflow3_dirs = workflow3_structure["content"]["directories"]
 
         # Compare structures
         print("\n📋 STRUCTURAL COMPARISON")
         print("-" * 50)
 
-        print(f"{'Metric':<30} {'Workflow 1':<15} {'Workflow 3':<15} {'Difference':<15}")
+        print(
+            f"{
+                'Metric':<30} {
+                'Workflow 1':<15} {
+                'Workflow 3':<15} {
+                    'Difference':<15}"
+        )
         print("-" * 75)
-        print(f"{'Total Files':<30} {len(workflow1_files):<15} {len(workflow3_files):<15} {len(workflow1_files) - len(workflow3_files):+<15}")
-        print(f"{'Total Directories':<30} {len(workflow1_dirs):<15} {len(workflow3_dirs):<15} {len(workflow1_dirs) - len(workflow3_dirs):+<15}")
+        print(
+            f"{
+                'Total Files':<30} {
+                len(workflow1_files):<15} {
+                len(workflow3_files):<15} {
+                    len(workflow1_files) -
+                len(workflow3_files):+<15}"
+        )
+        print(
+            f"{
+                'Total Directories':<30} {
+                len(workflow1_dirs):<15} {
+                len(workflow3_dirs):<15} {
+                    len(workflow1_dirs) -
+                len(workflow3_dirs):+<15}"
+        )
 
         # Analyze file types
         def analyze_file_types(files):
             types = {}
             for file in files:
-                ext = file.split('.')[-1] if '.' in file else 'no_extension'
+                ext = file.split(".")[-1] if "." in file else "no_extension"
                 types[ext] = types.get(ext, 0) + 1
             return types
 
@@ -194,7 +247,10 @@ def compare_generated_repositories(workflow1_repo: str, workflow3_repo: str):
         for file_type in sorted(all_types):
             w1_count = workflow1_types.get(file_type, 0)
             w3_count = workflow3_types.get(file_type, 0)
-            print(f"{f'.{file_type} files':<30} {w1_count:<15} {w3_count:<15} {w1_count - w3_count:+<15}")
+            print(
+                f"{f'.{file_type} files':<30} {w1_count:<15} {
+                  w3_count:<15} {w1_count - w3_count:+<15}"
+            )
 
         # Analyze unique files
         workflow1_only = set(workflow1_files) - set(workflow3_files)
@@ -242,11 +298,11 @@ def compare_generated_repositories(workflow1_repo: str, workflow3_repo: str):
 
         # Check for ADR-0001 required files
         adr_required_files = [
-            'content/modules/ROOT/nav.adoc',
-            'content/modules/ROOT/pages/index.adoc',
-            'default-site.yml',
-            'ui-config.yml',
-            'utilities/build.sh'
+            "content/modules/ROOT/nav.adoc",
+            "content/modules/ROOT/pages/index.adoc",
+            "default-site.yml",
+            "ui-config.yml",
+            "utilities/build.sh",
         ]
 
         print("ADR-0001 Required Files:")
@@ -261,43 +317,56 @@ def compare_generated_repositories(workflow1_repo: str, workflow3_repo: str):
         print(f"Workflow 1 (DDD Hexagonal - Tutorial Content):")
         print(f"  - Uses showroom_template_default.git structure")
         print(f"  - Creates complete Antora framework")
-        print(f"  - Generates {len(workflow1_files)} files in {len(workflow1_dirs)} directories")
+        print(
+            f"  - Generates {len(workflow1_files)} files in {len(workflow1_dirs)} directories"
+        )
         print(f"  - Includes ADR-0001 compliant structure")
 
         print(f"\nWorkflow 3 (Todo Demo - Legacy Workshop):")
         print(f"  - Preserves original repository structure")
         print(f"  - Enhances existing workshop content")
-        print(f"  - Generates {len(workflow3_files)} files in {len(workflow3_dirs)} directories")
+        print(
+            f"  - Generates {len(workflow3_files)} files in {len(workflow3_dirs)} directories"
+        )
         print(f"  - Maintains legacy workshop compatibility")
 
         print(f"\n🎯 Key Differences:")
-        print(f"  - File count difference: {len(workflow1_files) - len(workflow3_files):+} files")
-        print(f"  - Directory difference: {len(workflow1_dirs) - len(workflow3_dirs):+} directories")
+        print(
+            f"  - File count difference: {len(workflow1_files) - len(workflow3_files):+} files"
+        )
+        print(
+            f"  - Directory difference: {
+                len(workflow1_dirs) -
+                len(workflow3_dirs):+
+            } directories"
+        )
         print(f"  - Workflow 1 creates modern Antora structure")
         print(f"  - Workflow 3 preserves original workshop format")
 
     except Exception as e:
         print(f"❌ Comparison error: {str(e)}")
 
+
 # Test case definitions
 TEST_CASES = {
-    'workflow1': {
-        'name': 'DDD Hexagonal Workshop',
-        'url': 'https://github.com/jeremyrdavis/dddhexagonalworkshop.git',
-        'expected_classification': 'Tutorial Content',
-        'expected_workflow': 'Workflow 1: Repository-Based Workshop Creation',
-        'expected_template': 'showroom_template_default.git',
-        'technologies': ['Java', 'Quarkus', 'DDD', 'Hexagonal Architecture']
+    "workflow1": {
+        "name": "DDD Hexagonal Workshop",
+        "url": "https://github.com/jeremyrdavis/dddhexagonalworkshop.git",
+        "expected_classification": "Tutorial Content",
+        "expected_workflow": "Workflow 1: Repository-Based Workshop Creation",
+        "expected_template": "showroom_template_default.git",
+        "technologies": ["Java", "Quarkus", "DDD", "Hexagonal Architecture"],
     },
-    'workflow3': {
-        'name': 'Todo Demo Helm Workshop',
-        'url': 'https://github.com/Red-Hat-SE-RTO/todo-demo-app-helmrepo-workshop.git',
-        'expected_classification': 'Legacy Workshop',
-        'expected_workflow': 'Workflow 3: Enhancement and Modernization',
-        'expected_template': 'Original Repository',
-        'technologies': ['Helm', 'OpenShift', 'Kubernetes', 'Containerization']
-    }
+    "workflow3": {
+        "name": "Todo Demo Helm Workshop",
+        "url": "https://github.com/Red-Hat-SE-RTO/todo-demo-app-helmrepo-workshop.git",
+        "expected_classification": "Legacy Workshop",
+        "expected_workflow": "Workflow 3: Enhancement and Modernization",
+        "expected_template": "Original Repository",
+        "technologies": ["Helm", "OpenShift", "Kubernetes", "Containerization"],
+    },
 }
+
 
 def test_workflow_1_compliance():
     """Test Workflow 1: Repository-Based Workshop Creation with DDD Hexagonal Workshop via OpenShift APIs"""
@@ -308,16 +377,18 @@ def test_workflow_1_compliance():
     print("=" * 70)
 
     # Hardcoded test case: DDD Hexagonal Workshop
-    test_repo_url = 'https://github.com/jeremyrdavis/dddhexagonalworkshop.git'
+    test_repo_url = "https://github.com/jeremyrdavis/dddhexagonalworkshop.git"
 
-    # Step 1: Analyze DDD Hexagonal Workshop (fallback to direct import for demo)
+    # Step 1: Analyze DDD Hexagonal Workshop (fallback to direct import for
+    # demo)
     print("Step 1: Repository Analysis...")
     print(f"  Analyzing: {test_repo_url}")
     print("  ⚠️ Using direct import (OpenShift API not available)")
 
     try:
         from agents.template_converter.tools import analyze_repository_tool
-        analysis = analyze_repository_tool(test_repo_url, 'standard')
+
+        analysis = analyze_repository_tool(test_repo_url, "standard")
     except Exception as e:
         print(f"❌ Analysis failed: {str(e)}")
         return False
@@ -329,12 +400,12 @@ def test_workflow_1_compliance():
     else:
         print("❌ Incorrect classification - Expected Workflow 1")
         print("🔍 Classification details:")
-        lines = analysis.split('\n')
+        lines = analysis.split("\n")
         for line in lines:
-            if 'Recommended Workflow' in line or 'Template Strategy' in line:
+            if "Recommended Workflow" in line or "Template Strategy" in line:
                 print(f"  {line}")
         return False
-    
+
     # Step 2: Transform content (fallback to direct import for demo)
     print("Step 2: Content Transformation...")
     print("  Transforming DDD Hexagonal Workshop content...")
@@ -342,11 +413,17 @@ def test_workflow_1_compliance():
 
     try:
         from agents.content_creator.tools import transform_repository_to_workshop_tool
-        workshop_content = transform_repository_to_workshop_tool(analysis, 'comprehensive', 'intermediate')
+
+        workshop_content = transform_repository_to_workshop_tool(
+            analysis, "comprehensive", "intermediate"
+        )
     except Exception as e:
         print(f"❌ Content transformation failed: {str(e)}")
         return False
-    print(f"✅ Generated {len(workshop_content)} characters of workshop content")
+    print(
+        f"✅ Generated {
+            len(workshop_content)} characters of workshop content"
+    )
     print("✅ Content includes DDD concepts, Quarkus framework, and hands-on exercises")
 
     # Step 3: Create repository (fallback to direct import for demo)
@@ -357,17 +434,23 @@ def test_workflow_1_compliance():
 
     try:
         from agents.source_manager.tools import create_workshop_repository_tool
-        creation_result = create_workshop_repository_tool(analysis, workshop_content, repo_name)
+
+        creation_result = create_workshop_repository_tool(
+            analysis, workshop_content, repo_name
+        )
     except Exception as e:
         print(f"❌ Repository creation failed: {str(e)}")
         return False
 
-    if "Repository created successfully" in creation_result or "Strategy Used" in creation_result:
+    if (
+        "Repository created successfully" in creation_result
+        or "Strategy Used" in creation_result
+    ):
         print(f"✅ Repository {repo_name} created successfully")
         # Extract strategy information
-        lines = creation_result.split('\n')
+        lines = creation_result.split("\n")
         for line in lines:
-            if 'Strategy Used' in line or 'Template Strategy' in line:
+            if "Strategy Used" in line or "Template Strategy" in line:
                 print(f"✅ {line}")
     else:
         print(f"❌ Repository creation failed: {creation_result[:100]}...")
@@ -377,31 +460,39 @@ def test_workflow_1_compliance():
     print("Step 4: ADR-0001 Compliance Validation via Source Manager Agent...")
     print("  Checking against Workflow 1 requirements...")
 
-    validation_response = call_agent_api('source_manager', 'validate_adr_compliance_tool', {
-        'repository_name': repo_name,
-        'expected_workflow': 'workflow1'
-    })
+    validation_response = call_agent_api(
+        "source_manager",
+        "validate_adr_compliance_tool",
+        {"repository_name": repo_name, "expected_workflow": "workflow1"},
+    )
 
-    if not validation_response['success']:
-        print(f"❌ Source Manager Agent validation API failed: {validation_response['error']}")
+    if not validation_response["success"]:
+        print(
+            f"❌ Source Manager Agent validation API failed: {
+                validation_response['error']}"
+        )
         return False
 
-    compliance_result = validation_response['result']
+    compliance_result = validation_response["result"]
 
     # Extract compliance score
     compliance_score = "Unknown"
-    lines = compliance_result.split('\n')
+    lines = compliance_result.split("\n")
     for line in lines:
-        if 'Compliance Score' in line:
-            compliance_score = line.split(':')[1].strip()
+        if "Compliance Score" in line:
+            compliance_score = line.split(":")[1].strip()
             break
 
     if "NON-COMPLIANT" in compliance_result:
-        print(f"❌ Repository is NON-COMPLIANT with ADR-0001 (Score: {compliance_score})")
+        print(
+            f"❌ Repository is NON-COMPLIANT with ADR-0001 (Score: {compliance_score})"
+        )
         print("🔍 Critical compliance gaps identified:")
         gap_count = 0
         for line in lines:
-            if line.startswith('- **Missing Required') and gap_count < 5:  # Show first 5 gaps
+            if (
+                line.startswith("- **Missing Required") and gap_count < 5
+            ):  # Show first 5 gaps
                 print(f"  {line}")
                 gap_count += 1
         if gap_count >= 5:
@@ -411,35 +502,44 @@ def test_workflow_1_compliance():
 
     # Step 5: Post-deployment validation
     print("Step 5: Post-Deployment Content Validation...")
-    validate_deployed_content(repo_name, 'workflow1', test_repo_url)
+    validate_deployed_content(repo_name, "workflow1", test_repo_url)
 
     return repo_name
+
 
 def test_workflow_3_compliance():
     """Test Workflow 3: Enhancement and Modernization with Todo Demo Workshop via OpenShift APIs"""
     print("\n🎯 TESTING WORKFLOW 3: Enhancement and Modernization")
-    print("Repository: https://github.com/Red-Hat-SE-RTO/todo-demo-app-helmrepo-workshop.git")
+    print(
+        "Repository: https://github.com/Red-Hat-SE-RTO/todo-demo-app-helmrepo-workshop.git"
+    )
     print("Expected: Legacy Workshop → Workflow 3 → Original Repository Enhancement")
     print("🌐 Testing via OpenShift Agent APIs")
     print("=" * 70)
 
     # Hardcoded test case: Todo Demo Workshop
-    test_repo_url = 'https://github.com/Red-Hat-SE-RTO/todo-demo-app-helmrepo-workshop.git'
+    test_repo_url = (
+        "https://github.com/Red-Hat-SE-RTO/todo-demo-app-helmrepo-workshop.git"
+    )
 
     # Step 1: Analyze Todo Demo Workshop via Template Converter Agent API
     print("Step 1: Repository Analysis via Template Converter Agent...")
     print(f"  Analyzing: {test_repo_url}")
 
-    analysis_response = call_agent_api('template_converter', 'analyze_repository_tool', {
-        'repository_url': test_repo_url,
-        'analysis_depth': 'standard'
-    })
+    analysis_response = call_agent_api(
+        "template_converter",
+        "analyze_repository_tool",
+        {"repository_url": test_repo_url, "analysis_depth": "standard"},
+    )
 
-    if not analysis_response['success']:
-        print(f"❌ Template Converter Agent API failed: {analysis_response['error']}")
+    if not analysis_response["success"]:
+        print(
+            f"❌ Template Converter Agent API failed: {
+                analysis_response['error']}"
+        )
         return False
 
-    analysis = analysis_response['result']
+    analysis = analysis_response["result"]
 
     # Verify classification
     if "Workflow 3: Enhancement and Modernization" in analysis:
@@ -448,31 +548,41 @@ def test_workflow_3_compliance():
     else:
         print("❌ Incorrect classification - Expected Workflow 3")
         print("🔍 Classification details:")
-        lines = analysis.split('\n')
+        lines = analysis.split("\n")
         for line in lines:
-            if 'Recommended Workflow' in line or 'Template Strategy' in line:
+            if "Recommended Workflow" in line or "Template Strategy" in line:
                 print(f"  {line}")
         return False
-    
+
     # Step 2: Transform content
     print("Step 2: Content Transformation...")
     print("  Transforming Todo Demo Workshop content...")
-    workshop_content = transform_repository_to_workshop_tool(analysis, 'hands-on', 'intermediate')
-    print(f"✅ Generated {len(workshop_content)} characters of workshop content")
+    workshop_content = transform_repository_to_workshop_tool(
+        analysis, "hands-on", "intermediate"
+    )
+    print(
+        f"✅ Generated {
+            len(workshop_content)} characters of workshop content"
+    )
     print("✅ Content includes Helm, OpenShift, and containerization concepts")
 
     # Step 3: Create repository
     print("Step 3: Repository Creation...")
     repo_name = f"todo-demo-workshop-test-{int(time.time())}"
     print(f"  Creating repository: {repo_name}")
-    creation_result = create_workshop_repository_tool(analysis, workshop_content, repo_name)
+    creation_result = create_workshop_repository_tool(
+        analysis, workshop_content, repo_name
+    )
 
-    if "Repository created successfully" in creation_result or "Strategy Used" in creation_result:
+    if (
+        "Repository created successfully" in creation_result
+        or "Strategy Used" in creation_result
+    ):
         print(f"✅ Repository {repo_name} created successfully")
         # Extract strategy information
-        lines = creation_result.split('\n')
+        lines = creation_result.split("\n")
         for line in lines:
-            if 'Strategy Used' in line or 'Template Strategy' in line:
+            if "Strategy Used" in line or "Template Strategy" in line:
                 print(f"✅ {line}")
     else:
         print(f"❌ Repository creation failed: {creation_result[:100]}...")
@@ -481,14 +591,14 @@ def test_workflow_3_compliance():
     # Step 4: Validate ADR-0001 compliance
     print("Step 4: ADR-0001 Compliance Validation...")
     print("  Checking against Workflow 3 requirements...")
-    compliance_result = validate_adr_compliance_tool(repo_name, 'workflow3')
+    compliance_result = validate_adr_compliance_tool(repo_name, "workflow3")
 
     # Extract compliance score
     compliance_score = "Unknown"
-    lines = compliance_result.split('\n')
+    lines = compliance_result.split("\n")
     for line in lines:
-        if 'Compliance Score' in line:
-            compliance_score = line.split(':')[1].strip()
+        if "Compliance Score" in line:
+            compliance_score = line.split(":")[1].strip()
             break
 
     if "COMPLIANT" in compliance_result and "NON-COMPLIANT" not in compliance_result:
@@ -497,14 +607,15 @@ def test_workflow_3_compliance():
         print(f"❌ Repository has compliance issues (Score: {compliance_score})")
         # Show any gaps found
         for line in lines:
-            if line.startswith('- **Missing Required'):
+            if line.startswith("- **Missing Required"):
                 print(f"  {line}")
 
     # Step 5: Post-deployment validation
     print("Step 5: Post-Deployment Content Validation...")
-    validate_deployed_content(repo_name, 'workflow3', test_repo_url)
+    validate_deployed_content(repo_name, "workflow3", test_repo_url)
 
     return repo_name
+
 
 def cleanup_test_repositories(repo_names):
     """Clean up test repositories via Source Manager Agent API"""
@@ -516,17 +627,30 @@ def cleanup_test_repositories(repo_names):
         if repo_name:
             print(f"Deleting {repo_name}...")
 
-            delete_response = call_agent_api('source_manager', 'manage_workshop_repository_tool', {
-                'operation': 'delete',
-                'repository_name': repo_name,
-                'source_url': '',
-                'options': ''
-            })
+            delete_response = call_agent_api(
+                "source_manager",
+                "manage_workshop_repository_tool",
+                {
+                    "operation": "delete",
+                    "repository_name": repo_name,
+                    "source_url": "",
+                    "options": "",
+                },
+            )
 
-            if delete_response['success'] and "successfully deleted" in delete_response['result']:
+            if (
+                delete_response["success"]
+                and "successfully deleted" in delete_response["result"]
+            ):
                 print(f"✅ {repo_name} deleted successfully")
             else:
-                print(f"❌ Failed to delete {repo_name}: {delete_response.get('error', 'Unknown error')}")
+                print(
+                    f"❌ Failed to delete {repo_name}: {
+                        delete_response.get(
+                            'error',
+                            'Unknown error')}"
+                )
+
 
 def main():
     """Main test execution via OpenShift Agent APIs"""
@@ -543,7 +667,11 @@ def main():
     for workflow, test_case in TEST_CASES.items():
         print(f"  {workflow.upper()}: {test_case['name']}")
         print(f"    URL: {test_case['url']}")
-        print(f"    Expected: {test_case['expected_classification']} → {test_case['expected_workflow']}")
+        print(
+            f"    Expected: {
+                test_case['expected_classification']} → {
+                test_case['expected_workflow']}"
+        )
         print(f"    Technologies: {', '.join(test_case['technologies'])}")
         print()
 
@@ -560,18 +688,18 @@ def main():
         workflow1_repo = test_workflow_1_compliance()
         if workflow1_repo:
             created_repos.append(workflow1_repo)
-            test_results['workflow1'] = 'PASSED'
+            test_results["workflow1"] = "PASSED"
         else:
-            test_results['workflow1'] = 'FAILED'
+            test_results["workflow1"] = "FAILED"
 
         # Test Workflow 3 with Todo Demo Workshop
         print("\n🎯 EXECUTING WORKFLOW 3 TEST CASE")
         workflow3_repo = test_workflow_3_compliance()
         if workflow3_repo:
             created_repos.append(workflow3_repo)
-            test_results['workflow3'] = 'PASSED'
+            test_results["workflow3"] = "PASSED"
         else:
-            test_results['workflow3'] = 'FAILED'
+            test_results["workflow3"] = "FAILED"
 
         # Comprehensive Summary
         print("\n📊 COMPREHENSIVE TEST SUMMARY")
@@ -579,10 +707,13 @@ def main():
         print("Test Case Results:")
         for workflow, result in test_results.items():
             test_case = TEST_CASES[workflow]
-            status_icon = "✅" if result == 'PASSED' else "❌"
+            status_icon = "✅" if result == "PASSED" else "❌"
             print(f"  {status_icon} {test_case['name']}: {result}")
             print(f"    Repository: {test_case['url']}")
-            print(f"    Classification: {test_case['expected_classification']}")
+            print(
+                f"    Classification: {
+                    test_case['expected_classification']}"
+            )
             print(f"    Workflow: {test_case['expected_workflow']}")
 
         print(f"\nOverall Results:")
@@ -602,8 +733,12 @@ def main():
 
         # Repository Comparison Analysis
         if len(created_repos) >= 2:
-            workflow1_repo = created_repos[0] if test_results.get('workflow1') == 'PASSED' else None
-            workflow3_repo = created_repos[1] if test_results.get('workflow3') == 'PASSED' else None
+            workflow1_repo = (
+                created_repos[0] if test_results.get("workflow1") == "PASSED" else None
+            )
+            workflow3_repo = (
+                created_repos[1] if test_results.get("workflow3") == "PASSED" else None
+            )
             compare_generated_repositories(workflow1_repo, workflow3_repo)
         elif len(created_repos) == 1:
             print(f"\n⚠️ Only one repository created - cannot perform comparison")
@@ -619,6 +754,7 @@ def main():
     print("\n🎉 ADR-0001 COMPLIANCE TESTING COMPLETE")
     print("Repository comparison analysis provides insights into workflow differences!")
     print("Ready for template implementation fixes!")
+
 
 if __name__ == "__main__":
     main()

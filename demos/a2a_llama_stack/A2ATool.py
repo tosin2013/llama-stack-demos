@@ -43,7 +43,7 @@ class A2ATool(ClientTool):
         # we should cover both the case where the method is called from non-async code, and when
         # there is an active event loop (i.e., async code)
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             # run_impl is called from non-async code
             return asyncio.run(self.async_run_impl(query=query))
@@ -59,7 +59,7 @@ class A2ATool(ClientTool):
                     "type": "text",
                     "text": kwargs["query"],
                 }
-            ]
+            ],
         }
 
         task_id = uuid4().hex
@@ -71,7 +71,9 @@ class A2ATool(ClientTool):
 
         response = await self.client.send_task(payload)
         # TODO: add support for FilePart and DataPart
-        text_response_parts = [p for p in response.result.status.message.parts if isinstance(p, TextPart)]
+        text_response_parts = [
+            p for p in response.result.status.message.parts if isinstance(p, TextPart)
+        ]
         return "\n".join([t.text for t in text_response_parts])
 
     def _execute_async_run_in_new_loop(self, **kwargs):
@@ -80,14 +82,14 @@ class A2ATool(ClientTool):
 
         def thread_target():
             try:
-                result_container['result'] = asyncio.run(self.async_run_impl(**kwargs))
+                result_container["result"] = asyncio.run(self.async_run_impl(**kwargs))
             except Exception as e:
-                exception_container['error'] = e
+                exception_container["error"] = e
 
         thread = threading.Thread(target=thread_target)
         thread.start()
         thread.join()
 
-        if 'error' in exception_container:
-            raise exception_container['error']
-        return result_container['result']
+        if "error" in exception_container:
+            raise exception_container["error"]
+        return result_container["result"]

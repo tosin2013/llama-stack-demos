@@ -1,4 +1,4 @@
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -10,9 +10,8 @@ AGENT_CONFIG = {
             "strategy": {"type": "greedy"},
             "max_tokens": 4096,
         },
-        "tools": []
+        "tools": [],
     },
-
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Writing Agent",
@@ -31,11 +30,13 @@ AGENT_CONFIG = {
                 "name": "Writing Agent",
                 "description": "Write human-friendly text based on the query and associated skills",
                 "tags": ["writing"],
-                "examples": ["Write human-friendly text based on the query and associated skills"],
+                "examples": [
+                    "Write human-friendly text based on the query and associated skills"
+                ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["application/json"],
             }
-        ]
+        ],
     },
     "default_port": 10012,
 }

@@ -3,17 +3,17 @@ Human Oversight Coordinator Agent Configuration
 Orchestrates human approval workflows and maintains oversight of the 6-agent system
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
 from .tools import (
-    submit_for_approval_tool,
-    check_approval_status_tool,
-    wait_for_approval_tool,
-    escalate_approval_tool,
     audit_decision_tool,
+    check_approval_status_tool,
+    coordinate_evolution_implementation_tool,
+    escalate_approval_tool,
+    monitor_evolution_progress_tool,
+    submit_for_approval_tool,
     submit_rag_update_for_approval_tool,
     submit_workshop_evolution_request_tool,
-    coordinate_evolution_implementation_tool,
-    monitor_evolution_progress_tool
+    wait_for_approval_tool,
 )
 
 AGENT_CONFIG = {
@@ -46,7 +46,7 @@ AGENT_CONFIG = {
             submit_rag_update_for_approval_tool,
             submit_workshop_evolution_request_tool,
             coordinate_evolution_implementation_tool,
-            monitor_evolution_progress_tool
+            monitor_evolution_progress_tool,
         ],
         "max_infer_iters": 5,
         "sampling_params": {
@@ -54,7 +54,6 @@ AGENT_CONFIG = {
             "max_tokens": 2048,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Human Oversight Coordinator Agent",
@@ -77,7 +76,7 @@ AGENT_CONFIG = {
                     "Submit repository classification for human validation",
                     "Request approval for generated workshop content",
                     "Submit deployment authorization request",
-                    "Request human intervention for agent conflicts"
+                    "Request human intervention for agent conflicts",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -91,7 +90,7 @@ AGENT_CONFIG = {
                     "Check if content approval is complete",
                     "Monitor classification validation status",
                     "Verify deployment authorization progress",
-                    "Track approval queue position"
+                    "Track approval queue position",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -105,7 +104,7 @@ AGENT_CONFIG = {
                     "Wait for content review completion",
                     "Pause until classification is validated",
                     "Hold deployment until authorization",
-                    "Wait with escalation on timeout"
+                    "Wait with escalation on timeout",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -119,7 +118,7 @@ AGENT_CONFIG = {
                     "Escalate overdue content approval",
                     "Request urgent deployment authorization",
                     "Escalate to technical lead for complex decisions",
-                    "Alert management for compliance issues"
+                    "Alert management for compliance issues",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -133,12 +132,12 @@ AGENT_CONFIG = {
                     "Log approval decision with rationale",
                     "Record rejection reasons for improvement",
                     "Audit workflow completion status",
-                    "Track decision patterns for optimization"
+                    "Track decision patterns for optimization",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10070,
 }

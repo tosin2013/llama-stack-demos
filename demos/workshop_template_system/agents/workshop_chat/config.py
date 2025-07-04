@@ -3,12 +3,12 @@ Workshop Chat Agent Configuration
 RAG-based participant assistance for workshop content
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
 from .tools import (
-    workshop_query_tool,
-    workshop_navigation_tool,
+    manage_rag_content_versions_tool,
     update_workshop_rag_content_tool,
-    manage_rag_content_versions_tool
+    workshop_navigation_tool,
+    workshop_query_tool,
 )
 
 AGENT_CONFIG = {
@@ -30,7 +30,7 @@ AGENT_CONFIG = {
             workshop_query_tool,
             workshop_navigation_tool,
             update_workshop_rag_content_tool,
-            manage_rag_content_versions_tool
+            manage_rag_content_versions_tool,
         ],
         "max_infer_iters": 5,
         "sampling_params": {
@@ -38,7 +38,6 @@ AGENT_CONFIG = {
             "max_tokens": 2048,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Workshop Chat Assistant",
@@ -61,7 +60,7 @@ AGENT_CONFIG = {
                     "How do I set up the development environment?",
                     "What are the prerequisites for this workshop?",
                     "Explain the concept covered in section 3",
-                    "I'm stuck on the Docker installation step"
+                    "I'm stuck on the Docker installation step",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -75,12 +74,12 @@ AGENT_CONFIG = {
                     "Where should I start?",
                     "Show me the troubleshooting section",
                     "What's in the exercises section?",
-                    "Take me to the next step"
+                    "Take me to the next step",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10040,
 }

@@ -3,8 +3,13 @@ Research & Validation Agent Configuration
 Internet-grounded fact-checking and content validation
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
-from .tools import research_technology_tool, validate_content_accuracy_tool, find_learning_resources_tool, web_search_validation_tool
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
+from .tools import (
+    find_learning_resources_tool,
+    research_technology_tool,
+    validate_content_accuracy_tool,
+    web_search_validation_tool,
+)
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -19,14 +24,18 @@ AGENT_CONFIG = {
             "Provide clear citations and confidence levels for your research findings.\n"
             "Flag potentially outdated or inaccurate information with specific recommendations for updates."
         ),
-        "tools": [research_technology_tool, validate_content_accuracy_tool, find_learning_resources_tool, web_search_validation_tool],
+        "tools": [
+            research_technology_tool,
+            validate_content_accuracy_tool,
+            find_learning_resources_tool,
+            web_search_validation_tool,
+        ],
         "max_infer_iters": 5,
         "sampling_params": {
             "strategy": {"type": "greedy"},
             "max_tokens": 3072,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Research & Validation Agent",
@@ -49,7 +58,7 @@ AGENT_CONFIG = {
                     "Research current React version and new features",
                     "Find latest Docker installation procedures",
                     "Check current Kubernetes API versions",
-                    "Validate Python package dependencies"
+                    "Validate Python package dependencies",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -63,7 +72,7 @@ AGENT_CONFIG = {
                     "Validate installation instructions against official docs",
                     "Check API endpoint examples for accuracy",
                     "Verify code examples work with current versions",
-                    "Confirm troubleshooting steps are current"
+                    "Confirm troubleshooting steps are current",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -77,7 +86,7 @@ AGENT_CONFIG = {
                     "Find beginner-friendly tutorials for React",
                     "Discover advanced Docker learning resources",
                     "Locate official documentation and guides",
-                    "Find community resources and examples"
+                    "Find community resources and examples",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -91,12 +100,12 @@ AGENT_CONFIG = {
                     "Validate OpenShift 4.16 installation procedures",
                     "Check current Quarkus WebSocket best practices",
                     "Verify latest Kubernetes security recommendations",
-                    "Fact-check machine learning deployment patterns"
+                    "Fact-check machine learning deployment patterns",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10070,
 }

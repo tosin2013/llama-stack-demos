@@ -3,10 +3,9 @@ A2A Protocol Types
 Simplified implementation based on Google A2A specification
 """
 
-from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass
 from enum import Enum
-import uuid
+from typing import Any, Dict, List, Optional, Union
 
 
 class TaskState(Enum):
@@ -122,7 +121,7 @@ class AgentSkill:
     outputModes: List[str]
 
 
-@dataclass 
+@dataclass
 class AgentCapabilities:
     streaming: bool = False
     pushNotifications: bool = False

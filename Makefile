@@ -113,6 +113,31 @@ format: ## Format code with black and isort
 	$(VENV_PYTHON) -m isort $(PYTHON_DIRS)
 	@echo "$(GREEN)✅ Code formatting complete$(NC)"
 
+auto-fix: ## Auto-fix common code issues (format + basic syntax fixes)
+	@echo "$(YELLOW)🔧 Auto-fixing code issues...$(NC)"
+	@echo "$(BLUE)Step 1: Removing unused imports...$(NC)"
+	$(VENV_PYTHON) -m autoflake --in-place --remove-all-unused-imports --remove-unused-variables --recursive $(PYTHON_DIRS) 2>/dev/null || echo "$(BLUE)autoflake not available, skipping$(NC)"
+	@echo "$(BLUE)Step 2: Auto-fixing PEP8 issues...$(NC)"
+	$(VENV_PYTHON) -m autopep8 --in-place --aggressive --aggressive --recursive $(PYTHON_DIRS) 2>/dev/null || echo "$(BLUE)autopep8 not available, skipping$(NC)"
+	@echo "$(BLUE)Step 3: Formatting code...$(NC)"
+	$(VENV_PYTHON) -m black $(PYTHON_DIRS) || echo "$(RED)⚠️ Black formatting had issues$(NC)"
+	$(VENV_PYTHON) -m isort $(PYTHON_DIRS) || echo "$(RED)⚠️ Import sorting had issues$(NC)"
+	@echo "$(BLUE)Step 4: Checking for remaining syntax issues...$(NC)"
+	@for file in $$(find $(PYTHON_DIRS) -name "*.py" -type f); do \
+		echo "$(BLUE)Checking: $$file$(NC)"; \
+		python -m py_compile "$$file" 2>&1 | grep -E "(SyntaxError|IndentationError)" || true; \
+	done
+	@echo "$(GREEN)✅ Auto-fix complete - review changes and run 'make lint' to verify$(NC)"
+
+fix-syntax: ## Quick syntax-only fixes for critical errors
+	@echo "$(YELLOW)🚨 Quick syntax fixes...$(NC)"
+	@for file in $$(find $(PYTHON_DIRS) -name "*.py" -type f); do \
+		echo "$(BLUE)Syntax check: $$file$(NC)"; \
+		python -m py_compile "$$file" 2>&1 || echo "$(RED)❌ Syntax error in $$file$(NC)"; \
+	done
+	@echo "$(BLUE)Running autopep8 for syntax fixes...$(NC)"
+	$(VENV_PYTHON) -m autopep8 --in-place --select=E9,W6 --recursive $(PYTHON_DIRS) 2>/dev/null || echo "$(BLUE)autopep8 not available$(NC)"
+
 format-check: ## Check if code formatting is correct
 	@echo "$(BLUE)Checking code formatting...$(NC)"
 	$(VENV_PYTHON) -m black --check $(PYTHON_DIRS) || (echo "$(RED)❌ Code formatting check failed$(NC)" && exit 1)

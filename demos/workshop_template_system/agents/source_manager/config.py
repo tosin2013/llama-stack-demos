@@ -3,18 +3,18 @@ Source Manager Agent Configuration
 Repository management and workshop deployment coordination
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
 from .tools import (
-    create_workshop_repository_tool,
-    manage_workshop_repository_tool,
-    coordinate_deployment_tool,
-    sync_content_tool,
-    export_github_pages_tool,
     commit_to_gitea_tool,
-    trigger_buildconfig_tool,
+    coordinate_deployment_tool,
+    create_workshop_repository_tool,
     evolve_workshop_content_tool,
+    export_github_pages_tool,
+    manage_workshop_repository_tool,
+    rollback_workshop_version_tool,
+    sync_content_tool,
+    trigger_buildconfig_tool,
     workshop_version_control_tool,
-    rollback_workshop_version_tool
 )
 
 AGENT_CONFIG = {
@@ -44,7 +44,7 @@ AGENT_CONFIG = {
             trigger_buildconfig_tool,
             evolve_workshop_content_tool,
             workshop_version_control_tool,
-            rollback_workshop_version_tool
+            rollback_workshop_version_tool,
         ],
         "max_infer_iters": 5,
         "sampling_params": {
@@ -52,7 +52,6 @@ AGENT_CONFIG = {
             "max_tokens": 2048,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Source Manager Agent",
@@ -70,12 +69,18 @@ AGENT_CONFIG = {
                 "id": "create_workshop_repository_tool",
                 "name": "ADR-0001 Workshop Repository Creation",
                 "description": "Create workshop repositories using ADR-0001 dual-template strategy with proper template cloning",
-                "tags": ["adr-0001", "template-cloning", "showroom", "workflow", "repository"],
+                "tags": [
+                    "adr-0001",
+                    "template-cloning",
+                    "showroom",
+                    "workflow",
+                    "repository",
+                ],
                 "examples": [
                     "Clone showroom_template_default for Workflow 1 (application → workshop)",
                     "Clone existing workshop repository for Workflow 3 (enhancement)",
                     "Populate template with generated workshop content",
-                    "Create complete Antora/AsciiDoc workshop structure"
+                    "Create complete Antora/AsciiDoc workshop structure",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -89,7 +94,7 @@ AGENT_CONFIG = {
                     "Create a new workshop repository from template",
                     "Update workshop content from source repository",
                     "Manage workshop repository branches and releases",
-                    "Backup and restore workshop repositories"
+                    "Backup and restore workshop repositories",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -103,7 +108,7 @@ AGENT_CONFIG = {
                     "Deploy workshop to RHPDS environment",
                     "Coordinate Showroom workshop publication",
                     "Validate deployment prerequisites",
-                    "Monitor deployment status and health"
+                    "Monitor deployment status and health",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -117,7 +122,7 @@ AGENT_CONFIG = {
                     "Sync latest changes from source repository",
                     "Update workshop content with new features",
                     "Resolve content conflicts and merges",
-                    "Validate content synchronization"
+                    "Validate content synchronization",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -131,7 +136,7 @@ AGENT_CONFIG = {
                     "Export workshop for GitHub Pages hosting",
                     "Create static version with upgrade information",
                     "Generate deployment instructions for GitHub Pages",
-                    "Prepare workshop for free static hosting"
+                    "Prepare workshop for free static hosting",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -145,7 +150,7 @@ AGENT_CONFIG = {
                     "Commit updated workshop content to Gitea",
                     "Trigger automatic OpenShift builds via Git push",
                     "Deploy workshop updates through GitOps workflow",
-                    "Integrate with CI/CD pipeline for live updates"
+                    "Integrate with CI/CD pipeline for live updates",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -159,12 +164,12 @@ AGENT_CONFIG = {
                     "Manually trigger workshop build in OpenShift",
                     "Force rebuild after content updates",
                     "Restart deployment pipeline for bug fixes",
-                    "Trigger build for workshop enhancements"
+                    "Trigger build for workshop enhancements",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10060,
 }

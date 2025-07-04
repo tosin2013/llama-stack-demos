@@ -1,17 +1,22 @@
 import logging
-from typing import AsyncIterable, Union, AsyncIterator
+from typing import AsyncIterable, AsyncIterator, Union
 
 from llama_stack_client import Agent, AgentEventLogger
 
 import common.server.utils as utils
 from common.server.task_manager import InMemoryTaskManager
 from common.types import (
-    SendTaskRequest, SendTaskResponse,
-    SendTaskStreamingRequest, SendTaskStreamingResponse,
-    TaskStatus, Artifact,
-    Message, TaskState,
-    TaskStatusUpdateEvent, TaskArtifactUpdateEvent,
+    Artifact,
     JSONRPCResponse,
+    Message,
+    SendTaskRequest,
+    SendTaskResponse,
+    SendTaskStreamingRequest,
+    SendTaskStreamingResponse,
+    TaskArtifactUpdateEvent,
+    TaskState,
+    TaskStatus,
+    TaskStatusUpdateEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,8 +38,7 @@ class AgentTaskManager(InMemoryTaskManager):
     ) -> JSONRPCResponse | None:
         params = request.params
         if not utils.are_modalities_compatible(
-            params.acceptedOutputModes,
-            SUPPORTED_CONTENT_TYPES
+            params.acceptedOutputModes, SUPPORTED_CONTENT_TYPES
         ):
             logger.warning("Unsupported output modes: %s", params.acceptedOutputModes)
             return utils.new_incompatible_types_error(request.id)
@@ -47,12 +51,15 @@ class AgentTaskManager(InMemoryTaskManager):
 
         await self.upsert_task(request.params)
         result = self._invoke(
-            request.params.message.parts[0].text,
-            request.params.sessionId
+            request.params.message.parts[0].text, request.params.sessionId
         )
         parts = [{"type": "text", "text": result}]
-        status = TaskStatus(state=TaskState.COMPLETED, message=Message(role="agent", parts=parts))
-        task = await self._update_store(request.params.id, status, [Artifact(parts=parts)])
+        status = TaskStatus(
+            state=TaskState.COMPLETED, message=Message(role="agent", parts=parts)
+        )
+        task = await self._update_store(
+            request.params.id, status, [Artifact(parts=parts)]
+        )
         return SendTaskResponse(id=request.id, result=task)
 
     async def on_send_task_subscribe(
@@ -86,12 +93,12 @@ class AgentTaskManager(InMemoryTaskManager):
 
             yield SendTaskStreamingResponse(
                 id=request.id,
-                result=TaskStatusUpdateEvent(id=params.id, status=status, final=done)
+                result=TaskStatusUpdateEvent(id=params.id, status=status, final=done),
             )
             if artifacts:
                 yield SendTaskStreamingResponse(
                     id=request.id,
-                    result=TaskArtifactUpdateEvent(id=params.id, artifact=artifacts[0])
+                    result=TaskArtifactUpdateEvent(id=params.id, artifact=artifacts[0]),
                 )
 
     async def _update_store(self, task_id: str, status: TaskStatus, artifacts):

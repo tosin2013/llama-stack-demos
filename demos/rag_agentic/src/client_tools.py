@@ -1,5 +1,6 @@
-from llama_stack_client.lib.agents.client_tool import client_tool
 import geocoder
+from llama_stack_client.lib.agents.client_tool import client_tool
+
 
 @client_tool
 def torchtune(query: str = "torchtune"):
@@ -22,6 +23,7 @@ def torchtune(query: str = "torchtune"):
     """
     return dummy_response
 
+
 @client_tool
 def get_location(query: str = "location"):
     """
@@ -31,9 +33,13 @@ def get_location(query: str = "location"):
     :returns: Information about user location
     """
     try:
-        g = geocoder.ip('me')
+        g = geocoder.ip("me")
         if g.ok:
-            return f"Your current location is: {g.city}, {g.state}, {g.country}" # can be modified to return latitude and longitude if needed
+            # can be modified to return latitude and longitude if needed
+            return f"Your current location is: {
+                g.city}, {
+                g.state}, {
+                g.country}"
         else:
             return "Unable to determine your location"
     except Exception as e:

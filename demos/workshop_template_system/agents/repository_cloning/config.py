@@ -3,10 +3,10 @@ Repository Cloning Agent Configuration
 ADR-0001 compliant repository and template cloning into shared workspace
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
 from .tools import (
     clone_repositories_for_workflow_tool,
-    validate_cloned_repositories_tool
+    validate_cloned_repositories_tool,
 )
 
 AGENT_CONFIG = {
@@ -26,7 +26,7 @@ AGENT_CONFIG = {
         ),
         "tools": [
             clone_repositories_for_workflow_tool,
-            validate_cloned_repositories_tool
+            validate_cloned_repositories_tool,
         ],
         "max_infer_iters": 5,
         "sampling_params": {
@@ -34,7 +34,6 @@ AGENT_CONFIG = {
             "max_tokens": 2048,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Repository Cloning Agent",
@@ -52,12 +51,18 @@ AGENT_CONFIG = {
                 "id": "clone_repositories_for_workflow_tool",
                 "name": "ADR-0001 Repository Cloning",
                 "description": "Clone repositories into shared workspace based on ADR-0001 workflow strategy",
-                "tags": ["adr-0001", "repository-cloning", "shared-workspace", "workflow", "template"],
+                "tags": [
+                    "adr-0001",
+                    "repository-cloning",
+                    "shared-workspace",
+                    "workflow",
+                    "template",
+                ],
                 "examples": [
                     "Clone showroom_template_default for Workflow 1 (application → workshop)",
                     "Clone existing workshop repository for Workflow 3 (enhancement)",
                     "Organize repositories in shared workspace for agent coordination",
-                    "Create working copies for workshop customization"
+                    "Create working copies for workshop customization",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -71,12 +76,12 @@ AGENT_CONFIG = {
                     "Verify showroom template structure is complete",
                     "Validate source repository cloning success",
                     "Check workshop working copy creation",
-                    "Confirm ADR-0001 compliance in cloned repositories"
+                    "Confirm ADR-0001 compliance in cloned repositories",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10070,
 }

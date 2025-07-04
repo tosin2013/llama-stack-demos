@@ -3,8 +3,12 @@ Template Converter Agent Configuration
 GitHub repository to workshop conversion with MCP integration
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
-from .tools import analyze_repository_tool, generate_workshop_structure_tool, validate_workshop_requirements_tool
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
+from .tools import (
+    analyze_repository_tool,
+    generate_workshop_structure_tool,
+    validate_workshop_requirements_tool,
+)
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -19,14 +23,17 @@ AGENT_CONFIG = {
             "Focus on creating engaging, hands-on learning experiences that follow established workshop patterns.\n"
             "Consider learning objectives, prerequisites, and progressive skill building in your recommendations."
         ),
-        "tools": [analyze_repository_tool, generate_workshop_structure_tool, validate_workshop_requirements_tool],
+        "tools": [
+            analyze_repository_tool,
+            generate_workshop_structure_tool,
+            validate_workshop_requirements_tool,
+        ],
         "max_infer_iters": 5,
         "sampling_params": {
             "strategy": {"type": "greedy"},
             "max_tokens": 3072,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Template Converter Agent",
@@ -49,7 +56,7 @@ AGENT_CONFIG = {
                     "Analyze https://github.com/user/project for workshop potential",
                     "What technologies are used in this repository?",
                     "Assess the learning complexity of this codebase",
-                    "Identify the main concepts that could be taught"
+                    "Identify the main concepts that could be taught",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -63,7 +70,7 @@ AGENT_CONFIG = {
                     "Create a workshop structure for a React application",
                     "Generate learning modules for a microservices project",
                     "Design hands-on exercises for a data science repository",
-                    "Structure a workshop for container deployment"
+                    "Structure a workshop for container deployment",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -77,12 +84,12 @@ AGENT_CONFIG = {
                     "Check if repository has sufficient documentation",
                     "Validate code quality and structure for teaching",
                     "Assess if project complexity is appropriate for workshops",
-                    "Verify repository has clear setup instructions"
+                    "Verify repository has clear setup instructions",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10041,
 }

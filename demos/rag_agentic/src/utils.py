@@ -4,6 +4,7 @@ from json import JSONDecodeError
 from rich.pretty import pprint
 from termcolor import cprint
 
+
 def step_printer(steps):
     """
     Print the steps of an agent's response in a formatted way.
@@ -13,7 +14,7 @@ def step_printer(steps):
     """
     for i, step in enumerate(steps):
         step_type = type(step).__name__
-        print("\n"+"-" * 10, f"📍 Step {i+1}: {step_type}","-" * 10)
+        print("\n" + "-" * 10, f"📍 Step {i + 1}: {step_type}", "-" * 10)
         if step_type == "ToolExecutionStep":
             print("🔧 Executing tool...")
             try:
@@ -28,5 +29,11 @@ def step_printer(steps):
             elif step.api_model_response.tool_calls:
                 tool_call = step.api_model_response.tool_calls[0]
                 print("🛠️ Tool call Generated:")
-                cprint(f"Tool call: {tool_call.tool_name}, Arguments: {json.loads(tool_call.arguments_json)}", "magenta")
-    print("="*10, "Query processing completed","="*10,"\n")
+                cprint(
+                    f"Tool call: {
+                        tool_call.tool_name}, Arguments: {
+                        json.loads(
+                            tool_call.arguments_json)}",
+                    "magenta",
+                )
+    print("=" * 10, "Query processing completed", "=" * 10, "\n")

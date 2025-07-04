@@ -3,8 +3,13 @@ Content Creator Agent Configuration
 Original workshop creation from learning objectives and concepts
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
-from .tools import design_workshop_from_objectives_tool, create_original_content_tool, generate_exercises_tool, clone_showroom_template_tool
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
+from .tools import (
+    clone_showroom_template_tool,
+    create_original_content_tool,
+    design_workshop_from_objectives_tool,
+    generate_exercises_tool,
+)
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -19,14 +24,18 @@ AGENT_CONFIG = {
             "Coordinate with research agents to ensure content accuracy and currency.\n"
             "Create workshops that work without requiring specific source repositories."
         ),
-        "tools": [design_workshop_from_objectives_tool, create_original_content_tool, generate_exercises_tool, clone_showroom_template_tool],
+        "tools": [
+            design_workshop_from_objectives_tool,
+            create_original_content_tool,
+            generate_exercises_tool,
+            clone_showroom_template_tool,
+        ],
         "max_infer_iters": 5,
         "sampling_params": {
             "strategy": {"type": "greedy"},
             "max_tokens": 3072,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Content Creator Agent",
@@ -49,7 +58,7 @@ AGENT_CONFIG = {
                     "Create a workshop to teach cloud security fundamentals",
                     "Design a workshop for API design best practices",
                     "Build a workshop on microservices architecture concepts",
-                    "Create a workshop for DevOps culture and practices"
+                    "Create a workshop for DevOps culture and practices",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -63,7 +72,7 @@ AGENT_CONFIG = {
                     "Create content for AWS services workshop",
                     "Generate content for design patterns workshop",
                     "Build content for agile methodology workshop",
-                    "Create content for data visualization concepts"
+                    "Create content for data visualization concepts",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -77,7 +86,7 @@ AGENT_CONFIG = {
                     "Create hands-on exercises for cloud deployment",
                     "Generate API testing activities",
                     "Design troubleshooting scenarios",
-                    "Create collaborative learning activities"
+                    "Create collaborative learning activities",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -91,12 +100,12 @@ AGENT_CONFIG = {
                     "Clone Showroom template for new workshop",
                     "Customize Showroom template for specific technology",
                     "Set up RHPDS-compatible workshop structure",
-                    "Initialize professional workshop layout"
+                    "Initialize professional workshop layout",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10080,
 }

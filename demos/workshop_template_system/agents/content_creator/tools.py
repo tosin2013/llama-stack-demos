@@ -3,21 +3,27 @@ Content Creator Agent Tools
 Original workshop creation from learning objectives and concepts
 """
 
-import os
-import logging
 import json
+import logging
+import os
 import re
-from typing import Dict, List, Any, Optional
 from datetime import datetime
-# from llama_stack_client.lib.agents.client_tool import client_tool  # TODO: Fix when API is stable
+from typing import Any, Dict, List, Optional
+
+# from llama_stack_client.lib.agents.client_tool import client_tool  #
+# TODO: Fix when API is stable
 
 # Simple tool decorator workaround
+
+
 def client_tool(func):
     """Simple tool decorator placeholder"""
     func.tool_name = func.__name__
     return func
 
+
 logger = logging.getLogger(__name__)
+
 
 @client_tool
 def create_workshop_content_from_workspace_tool(
@@ -56,12 +62,14 @@ def create_workshop_content_from_workspace_tool(
 
         else:
             # Fallback to API-based approach
-            logger.info("Workspace not available or hybrid mode, using API-based approach")
+            logger.info(
+                "Workspace not available or hybrid mode, using API-based approach")
             return "API-based content creation - workspace not available"
 
     except Exception as e:
         logger.error(f"Error in workspace-based content creation: {e}")
         return f"Error in file-based content creation: {e}"
+
 
 def read_workspace_files(content_dir: str) -> dict:
     """Read workshop files from workspace directory"""
@@ -87,6 +95,7 @@ def read_workspace_files(content_dir: str) -> dict:
         logger.error(f"Error reading workspace files: {e}")
         return {}
 
+
 def read_workflow_metadata(metadata_dir: str) -> dict:
     """Read workflow metadata from workspace"""
     try:
@@ -99,7 +108,11 @@ def read_workflow_metadata(metadata_dir: str) -> dict:
         logger.error(f"Error reading workflow metadata: {e}")
         return {}
 
-def generate_content_from_files(workspace_files: dict, metadata: dict, workshop_name: str) -> str:
+
+def generate_content_from_files(
+    workspace_files: dict,
+    metadata: dict,
+     workshop_name: str) -> str:
     """Generate workshop content based on workspace files"""
     try:
         workflow_type = metadata.get('workflow_type', '1')
@@ -118,7 +131,8 @@ def generate_content_from_files(workspace_files: dict, metadata: dict, workshop_
             "",
             "## 🎯 Workshop Overview",
             "",
-            f"This workshop is based on {len(workspace_files)} files from the workspace.",
+            f"This workshop is based on {
+    len(workspace_files)} files from the workspace.",
             "",
         ]
 
@@ -127,7 +141,9 @@ def generate_content_from_files(workspace_files: dict, metadata: dict, workshop_
             workshop_parts.extend([
                 "## 📖 Repository Overview",
                 "",
-                file_analysis.get('readme_content', 'README content not available'),
+                file_analysis.get(
+    'readme_content',
+     'README content not available'),
                 "",
             ])
 
@@ -146,11 +162,13 @@ def generate_content_from_files(workspace_files: dict, metadata: dict, workshop_
             "### Files in this workshop:",
         ])
 
-        for file_path in sorted(workspace_files.keys())[:10]:  # Limit to first 10 files
+        for file_path in sorted(
+            workspace_files.keys())[:10]:  # Limit to first 10 files
             workshop_parts.append(f"- `{file_path}`")
 
         if len(workspace_files) > 10:
-            workshop_parts.append(f"- ... and {len(workspace_files) - 10} more files")
+            workshop_parts.append(
+                f"- ... and {len(workspace_files) - 10} more files")
 
         workshop_parts.extend([
             "",
@@ -174,6 +192,7 @@ def generate_content_from_files(workspace_files: dict, metadata: dict, workshop_
         logger.error(f"Error generating content from files: {e}")
         return f"Error generating workshop content: {e}"
 
+
 def analyze_workspace_structure(workspace_files: dict) -> dict:
     """Analyze workspace file structure to extract information"""
     analysis = {
@@ -189,7 +208,8 @@ def analyze_workspace_structure(workspace_files: dict) -> dict:
             # Check for README
             if file_path.lower().startswith('readme'):
                 analysis['has_readme'] = True
-                analysis['readme_content'] = content[:500] + "..." if len(content) > 500 else content
+                analysis['readme_content'] = content[:500] + \
+                    "..." if len(content) > 500 else content
 
             # Extract file extensions
             if '.' in file_path:
@@ -225,6 +245,7 @@ def analyze_workspace_structure(workspace_files: dict) -> dict:
         logger.error(f"Error analyzing workspace structure: {e}")
         return analysis
 
+
 def write_enhanced_content_to_workspace(content: str, content_dir: str):
     """Write enhanced workshop content back to workspace"""
     try:
@@ -238,8 +259,12 @@ def write_enhanced_content_to_workspace(content: str, content_dir: str):
     except Exception as e:
         logger.error(f"Error writing enhanced content: {e}")
 
+
 @client_tool
-def transform_repository_to_workshop_tool(repository_analysis: str, workshop_focus: str = "comprehensive", target_audience: str = "intermediate") -> str:
+def transform_repository_to_workshop_tool(
+    repository_analysis: str,
+    workshop_focus: str = "comprehensive",
+     target_audience: str = "intermediate") -> str:
     """
     :description: Transform repository analysis into structured workshop content based on actual repository structure and content.
     :use_case: Use when you have repository analysis from Template Converter Agent and need to create workshop materials from real code/content.
@@ -269,7 +294,8 @@ def transform_repository_to_workshop_tool(repository_analysis: str, workshop_foc
             f"**Generated from Repository Analysis**",
             f"**Workshop Focus**: {workshop_focus.title()}",
             f"**Target Audience**: {target_audience.title()}",
-            f"**Technologies**: {', '.join(technologies) if technologies else 'General'}",
+            f"**Technologies**: {
+    ', '.join(technologies) if technologies else 'General'}",
             f"**Creation Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "",
             "## 🎯 Workshop Overview",
@@ -277,7 +303,8 @@ def transform_repository_to_workshop_tool(repository_analysis: str, workshop_foc
         ]
 
         # Extract learning objectives from README content
-        learning_objectives = extract_learning_objectives_from_readme(readme_content, technologies)
+        learning_objectives = extract_learning_objectives_from_readme(
+            readme_content, technologies)
         workshop_parts.extend([
             "### Learning Objectives",
             "By the end of this workshop, participants will be able to:",
@@ -288,7 +315,8 @@ def transform_repository_to_workshop_tool(repository_analysis: str, workshop_foc
         workshop_parts.extend([
             "",
             "### Prerequisites",
-            f"- Basic understanding of {technologies[0] if technologies else 'programming'}",
+            f"- Basic understanding of {
+    technologies[0] if technologies else 'programming'}",
             f"- Familiarity with command line tools",
             f"- Git and GitHub knowledge",
             "",
@@ -297,7 +325,8 @@ def transform_repository_to_workshop_tool(repository_analysis: str, workshop_foc
         ])
 
         # Generate modules based on repository structure
-        modules = generate_modules_from_structure(repo_structure, technologies, target_audience)
+        modules = generate_modules_from_structure(
+    repo_structure, technologies, target_audience)
         for i, module in enumerate(modules, 1):
             workshop_parts.extend([
                 f"### Module {i}: {module['title']}",
@@ -322,7 +351,8 @@ def transform_repository_to_workshop_tool(repository_analysis: str, workshop_foc
             workshop_parts.append("")
 
         # Add hands-on exercises based on repository content
-        exercises = generate_exercises_from_repository(repo_structure, technologies)
+        exercises = generate_exercises_from_repository(
+            repo_structure, technologies)
         workshop_parts.extend([
             "## 🔧 Hands-On Exercises",
             "",
@@ -366,14 +396,17 @@ def transform_repository_to_workshop_tool(repository_analysis: str, workshop_foc
             "- **Community Resources**: [Links to be added]",
             "",
             "---",
-            f"*Workshop content generated from repository analysis on {datetime.now().strftime('%Y-%m-%d')}*"
+            f"*Workshop content generated from repository analysis on {
+    datetime.now().strftime('%Y-%m-%d')}*"
         ])
 
         return "\n".join(workshop_parts)
 
     except Exception as e:
         logger.error(f"Error in transform_repository_to_workshop_tool: {e}")
-        return f"Error transforming repository to workshop: {str(e)}. Please check the repository analysis input."
+        return f"Error transforming repository to workshop: {
+    str(e)}. Please check the repository analysis input."
+
 
 def parse_repository_analysis(analysis_text: str) -> dict:
     """Parse repository analysis text to extract structured data"""
@@ -408,7 +441,8 @@ def parse_repository_analysis(analysis_text: str) -> dict:
                     break
 
             if tech_line and tech_line != "General programming project":
-                repo_data['detected_technologies'] = [tech.strip() for tech in tech_line.split(',')]
+                repo_data['detected_technologies'] = [tech.strip()
+                                                                 for tech in tech_line.split(',')]
 
         # Extract workflow recommendation
         if "Workflow 1" in analysis_text:
@@ -420,9 +454,16 @@ def parse_repository_analysis(analysis_text: str) -> dict:
 
     except Exception as e:
         logger.warning(f"Error parsing repository analysis: {e}")
-        return {'repository': 'Unknown', 'detected_technologies': [], 'workflow_recommendation': 'creation', 'structure': {}}
+        return {
+    'repository': 'Unknown',
+    'detected_technologies': [],
+    'workflow_recommendation': 'creation',
+     'structure': {}}
 
-def extract_learning_objectives_from_readme(readme_content: str, technologies: list) -> list:
+
+def extract_learning_objectives_from_readme(
+    readme_content: str,
+     technologies: list) -> list:
     """Extract or generate learning objectives based on README content and technologies"""
     objectives = []
 
@@ -472,7 +513,11 @@ def extract_learning_objectives_from_readme(readme_content: str, technologies: l
 
     return objectives[:6]  # Limit to 6 objectives
 
-def generate_modules_from_structure(repo_structure: dict, technologies: list, audience_level: str) -> list:
+
+def generate_modules_from_structure(
+    repo_structure: dict,
+    technologies: list,
+     audience_level: str) -> list:
     """Generate workshop modules based on repository structure and technologies"""
     modules = []
 
@@ -600,7 +645,10 @@ def generate_modules_from_structure(repo_structure: dict, technologies: list, au
 
     return modules
 
-def generate_exercises_from_repository(repo_structure: dict, technologies: list) -> list:
+
+def generate_exercises_from_repository(
+    repo_structure: dict,
+     technologies: list) -> list:
     """Generate hands-on exercises based on repository content and technologies"""
     exercises = []
 
@@ -687,6 +735,7 @@ def generate_exercises_from_repository(repo_structure: dict, technologies: list)
 
     return exercises
 
+
 # Workshop types and their characteristics
 WORKSHOP_TYPES = {
     "conceptual": {
@@ -698,7 +747,7 @@ WORKSHOP_TYPES = {
     "hands_on": {
         "focus": "Practical skills and implementation",
         "activities": ["coding", "configuration", "deployment", "troubleshooting"],
-        "duration": "3-6 hours", 
+        "duration": "3-6 hours",
         "materials": ["lab_environments", "code_templates", "step_by_step_guides"]
     },
     "hybrid": {
@@ -721,7 +770,10 @@ LEARNING_LEVELS = {
 
 
 @client_tool
-def design_workshop_from_objectives_tool(learning_objectives: str, target_audience: str = "intermediate", workshop_type: str = "hybrid") -> str:
+def design_workshop_from_objectives_tool(
+    learning_objectives: str,
+    target_audience: str = "intermediate",
+     workshop_type: str = "hybrid") -> str:
     """
     :description: Design complete workshop structures from learning objectives and educational goals.
     :use_case: Use to create workshop designs when you have clear learning objectives but no source repository.
@@ -732,11 +784,13 @@ def design_workshop_from_objectives_tool(learning_objectives: str, target_audien
     """
     try:
         # Parse learning objectives
-        objectives_list = [obj.strip() for obj in learning_objectives.split('\n') if obj.strip()]
-        
+        objectives_list = [
+    obj.strip() for obj in learning_objectives.split('\n') if obj.strip()]
+
         # Get workshop type configuration
-        workshop_config = WORKSHOP_TYPES.get(workshop_type, WORKSHOP_TYPES["hybrid"])
-        
+        workshop_config = WORKSHOP_TYPES.get(
+    workshop_type, WORKSHOP_TYPES["hybrid"])
+
         # Generate workshop design
         design_parts = [
             f"# Workshop Design: Learning Objectives-Based",
@@ -749,34 +803,36 @@ def design_workshop_from_objectives_tool(learning_objectives: str, target_audien
             "## 🎯 Learning Objectives Analysis",
             ""
         ]
-        
+
         # Analyze learning objectives using Bloom's taxonomy
         objective_analysis = []
         for i, objective in enumerate(objectives_list, 1):
             obj_lower = objective.lower()
-            
+
             # Determine learning level
             detected_level = "apply"  # default
             for level, config in LEARNING_LEVELS.items():
                 if any(verb in obj_lower for verb in config["verbs"]):
                     detected_level = level
                     break
-            
+
             objective_analysis.append({
                 "number": i,
                 "text": objective,
                 "level": detected_level,
                 "activities": LEARNING_LEVELS[detected_level]["activities"]
             })
-            
+
             design_parts.extend([
                 f"### Objective {i}: {detected_level.title()} Level",
                 f"**Statement**: {objective}",
                 f"**Bloom's Level**: {detected_level.title()}",
-                f"**Suggested Activities**: {', '.join(LEARNING_LEVELS[detected_level]['activities'])}",
+                f"**Suggested Activities**: {
+    ', '.join(
+        LEARNING_LEVELS[detected_level]['activities'])}",
                 ""
             ])
-        
+
         # Generate workshop structure with sections
         design_parts.extend([
             "## 🏗️ Workshop Structure Design",
@@ -791,11 +847,11 @@ def design_workshop_from_objectives_tool(learning_objectives: str, target_audien
             "",
             "### Materials Needed:",
         ])
-        
+
         for material in workshop_config['materials']:
             material_name = material.replace('_', ' ').title()
             design_parts.append(f"- {material_name}")
-        
+
         design_parts.extend([
             "",
             "### Next Steps:",
@@ -804,18 +860,23 @@ def design_workshop_from_objectives_tool(learning_objectives: str, target_audien
             "3. Coordinate with research_validation agent for accuracy",
             "",
             "---",
-            f"*Workshop design based on {len(objectives_list)} learning objectives*"
+            f"*Workshop design based on {
+    len(objectives_list)} learning objectives*"
         ])
-        
+
         return "\n".join(design_parts)
-        
+
     except Exception as e:
         logger.error(f"Error in design_workshop_from_objectives_tool: {e}")
-        return f"Error designing workshop: {str(e)}. Please check your inputs and try again."
+        return f"Error designing workshop: {
+    str(e)}. Please check your inputs and try again."
 
 
 @client_tool
-def create_original_content_tool(topic: str, content_type: str = "instructional", audience_level: str = "intermediate") -> str:
+def create_original_content_tool(
+    topic: str,
+    content_type: str = "instructional",
+     audience_level: str = "intermediate") -> str:
     """
     :description: Generate original workshop content for concepts, tools, cloud services, or theoretical topics.
     :use_case: Use to create workshop content when no source repository exists.
@@ -839,7 +900,7 @@ def create_original_content_tool(topic: str, content_type: str = "instructional"
             "",
             f"### Why Learn {topic}?",
             f"- [Key benefit 1]",
-            f"- [Key benefit 2]", 
+            f"- [Key benefit 2]",
             f"- [Key benefit 3]",
             "",
             f"### Prerequisites",
@@ -857,7 +918,7 @@ def create_original_content_tool(topic: str, content_type: str = "instructional"
             f"### Concept 1: [Key Concept]",
             f"[Detailed explanation with examples]",
             "",
-            f"### Concept 2: [Key Concept]", 
+            f"### Concept 2: [Key Concept]",
             f"[Detailed explanation with examples]",
             "",
             f"## 💡 Best Practices",
@@ -877,16 +938,20 @@ def create_original_content_tool(topic: str, content_type: str = "instructional"
             f"*Original content template for {topic}*",
             f"*Requires research and validation for completion*"
         ]
-        
+
         return "\n".join(content_parts)
-        
+
     except Exception as e:
         logger.error(f"Error in create_original_content_tool: {e}")
-        return f"Error creating content for '{topic}': {str(e)}. Please check your inputs and try again."
+        return f"Error creating content for '{topic}': {
+    str(e)}. Please check your inputs and try again."
 
 
 @client_tool
-def generate_exercises_tool(topic: str, exercise_type: str = "hands_on", difficulty: str = "intermediate") -> str:
+def generate_exercises_tool(
+    topic: str,
+    exercise_type: str = "hands_on",
+     difficulty: str = "intermediate") -> str:
     """
     :description: Create hands-on exercises, activities, and practical learning experiences.
     :use_case: Use to create practical exercises for workshop participants.
@@ -965,16 +1030,20 @@ def generate_exercises_tool(topic: str, exercise_type: str = "hands_on", difficu
             f"*Exercises for {topic} - {difficulty} level*",
             f"*Type: {exercise_type} | Duration: Variable*"
         ]
-        
+
         return "\n".join(exercise_parts)
 
     except Exception as e:
         logger.error(f"Error in generate_exercises_tool: {e}")
-        return f"Error generating exercises for '{topic}': {str(e)}. Please check your inputs and try again."
+        return f"Error generating exercises for '{topic}': {
+    str(e)}. Please check your inputs and try again."
 
 
 @client_tool
-def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", base_template: str = "showroom_template_default") -> str:
+def clone_showroom_template_tool(
+    workshop_name: str,
+    repository_url: str = "",
+     base_template: str = "showroom_template_default") -> str:
     """
     :description: Actually clone and customize the official RHPDS Showroom template for workshop creation.
     :use_case: Use to create real RHPDS/Showroom-compatible workshops with actual files and structure.
@@ -984,8 +1053,8 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
     :returns: Real workshop creation report with actual file paths and content
     """
     try:
-        import subprocess
         import shutil
+        import subprocess
 
         # Define workspace paths
         workspace_path = os.getenv('WORKSPACE_PATH', '/workspace/shared-data')
@@ -1009,7 +1078,11 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
                 f"https://github.com/rhpds/{base_template}.git",
                 template_cache_path
             ]
-            result = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(
+    clone_cmd,
+    capture_output=True,
+    text=True,
+     timeout=60)
             if result.returncode != 0:
                 raise Exception(f"Failed to clone template: {result.stderr}")
             logger.info("Template cloned successfully")
@@ -1020,11 +1093,19 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
         if os.path.exists(workshop_output_path):
             shutil.rmtree(workshop_output_path)
 
-        shutil.copytree(template_cache_path, workshop_output_path, dirs_exist_ok=True)
+        shutil.copytree(
+    template_cache_path,
+    workshop_output_path,
+     dirs_exist_ok=True)
         logger.info(f"Template copied to: {workshop_output_path}")
 
         # Step 3: Customize template
-        files_created = customize_workshop_template(workshop_output_path, workshop_name, repository_url)
+        files_created = customize_workshop_template(
+    workshop_output_path, workshop_name, repository_url)
+
+        # Define default values for missing variables
+        technology_focus = "general"  # Default technology focus
+        customization_level = "standard"  # Default customization level
 
         # Step 4: Generate summary
         summary_parts = [
@@ -1060,7 +1141,7 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
 
         # Add technology-specific customizations
         if technology_focus.lower() == "openshift":
-            setup_parts.extend([
+            summary_parts.extend([
                 "### OpenShift Workshop Customizations:",
                 "- **Lab Environment**: Configure OpenShift cluster access",
                 "- **Navigation**: Add OpenShift-specific modules",
@@ -1075,7 +1156,7 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
                 "5. Monitoring and Troubleshooting",
             ])
         elif technology_focus.lower() == "kubernetes":
-            setup_parts.extend([
+            summary_parts.extend([
                 "### Kubernetes Workshop Customizations:",
                 "- **Lab Environment**: Configure kubectl access",
                 "- **Navigation**: Add Kubernetes-specific modules",
@@ -1090,7 +1171,7 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
                 "5. Monitoring and Scaling",
             ])
         elif technology_focus.lower() == "ansible":
-            setup_parts.extend([
+            summary_parts.extend([
                 "### Ansible Workshop Customizations:",
                 "- **Lab Environment**: Configure Ansible control node",
                 "- **Navigation**: Add Ansible-specific modules",
@@ -1105,7 +1186,7 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
                 "5. Advanced Automation",
             ])
         else:
-            setup_parts.extend([
+            summary_parts.extend([
                 "### General Workshop Customizations:",
                 "- **Content**: Adapt modules for your technology",
                 "- **Navigation**: Update nav.adoc with relevant sections",
@@ -1114,14 +1195,14 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
             ])
 
         # Add customization level details
-        setup_parts.extend([
+        summary_parts.extend([
             "",
             f"## 📋 {customization_level.title()} Customization Plan",
             ""
         ])
 
         if customization_level == "minimal":
-            setup_parts.extend([
+            summary_parts.extend([
                 "### Minimal Customization Tasks:",
                 "- [ ] Update workshop title and description",
                 "- [ ] Replace placeholder content in index.adoc",
@@ -1131,7 +1212,7 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
                 "**Estimated Time**: 1-2 hours",
             ])
         elif customization_level == "standard":
-            setup_parts.extend([
+            summary_parts.extend([
                 "### Standard Customization Tasks:",
                 "- [ ] Complete minimal customization tasks",
                 "- [ ] Create detailed module content",
@@ -1143,7 +1224,7 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
                 "**Estimated Time**: 1-2 days",
             ])
         else:  # extensive
-            setup_parts.extend([
+            summary_parts.extend([
                 "### Extensive Customization Tasks:",
                 "- [ ] Complete standard customization tasks",
                 "- [ ] Add interactive elements and demos",
@@ -1157,7 +1238,7 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
             ])
 
         # Add deployment and next steps
-        setup_parts.extend([
+        summary_parts.extend([
             "",
             "## 🚀 Deployment and Testing",
             "",
@@ -1201,13 +1282,13 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
             "---",
             f"*Showroom template setup for {workshop_name}*",
             f"*Technology: {technology_focus} | Customization: {customization_level}*"
-        ]
+        ])
 
         # List actual files created
         if os.path.exists(workshop_output_path):
             for root, dirs, files in os.walk(workshop_output_path):
                 if len(files) > 0:
-                    rel_path = os.path.relpath(root, workshop_output_path)
+                    rel_path=os.path.relpath(root, workshop_output_path)
                     summary_parts.append(f"- {rel_path}/: {len(files)} files")
 
         summary_parts.extend([
@@ -1225,20 +1306,27 @@ def clone_showroom_template_tool(workshop_name: str, repository_url: str = "", b
         return f"Error creating workshop '{workshop_name}': {str(e)}"
 
 
-def customize_workshop_template(workshop_path: str, workshop_name: str, repository_url: str) -> int:
+def customize_workshop_template(
+    workshop_path: str,
+    workshop_name: str,
+     repository_url: str) -> int:
     """Customize the cloned template with workshop-specific content"""
     try:
-        files_modified = 0
+        files_modified=0
 
         # Update antora.yml
-        antora_path = os.path.join(workshop_path, "content", "antora.yml")
+        antora_path=os.path.join(workshop_path, "content", "antora.yml")
         if os.path.exists(antora_path):
             with open(antora_path, 'r') as f:
-                content = f.read()
+                content=f.read()
 
             # Replace template values
-            content = content.replace("showroom_template_default", workshop_name.lower().replace(' ', '-'))
-            content = content.replace("Showroom Template Default", workshop_name)
+            content=content.replace(
+    "showroom_template_default",
+    workshop_name.lower().replace(
+        ' ',
+         '-'))
+            content=content.replace("Showroom Template Default", workshop_name)
 
             with open(antora_path, 'w') as f:
                 f.write(content)
@@ -1246,9 +1334,15 @@ def customize_workshop_template(workshop_path: str, workshop_name: str, reposito
             logger.info("Updated antora.yml")
 
         # Update main index page
-        index_path = os.path.join(workshop_path, "content", "modules", "ROOT", "pages", "index.adoc")
+        index_path=os.path.join(
+    workshop_path,
+    "content",
+    "modules",
+    "ROOT",
+    "pages",
+     "index.adoc")
         if os.path.exists(index_path):
-            index_content = f"""= {workshop_name} Workshop
+            index_content=f"""= {workshop_name} Workshop
 :navtitle: Home
 
 Welcome to the {workshop_name} workshop!
@@ -1284,8 +1378,14 @@ xref:01-introduction.adoc[Start the Workshop →]
             logger.info("Updated index.adoc")
 
         # Create introduction module
-        intro_path = os.path.join(workshop_path, "content", "modules", "ROOT", "pages", "01-introduction.adoc")
-        intro_content = f"""= Introduction to {workshop_name}
+        intro_path=os.path.join(
+    workshop_path,
+    "content",
+    "modules",
+    "ROOT",
+    "pages",
+     "01-introduction.adoc")
+        intro_content=f"""= Introduction to {workshop_name}
 :navtitle: Introduction
 
 == Welcome

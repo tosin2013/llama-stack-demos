@@ -3,8 +3,13 @@ Documentation Pipeline Agent Configuration
 Automated content updates with human-in-the-loop validation
 """
 
-from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
-from .tools import monitor_repository_changes_tool, analyze_impact_tool, create_update_proposal_tool, monitor_external_sources_tool
+from ...task_manager import SUPPORTED_CONTENT_TYPES, AgentTaskManager
+from .tools import (
+    analyze_impact_tool,
+    create_update_proposal_tool,
+    monitor_external_sources_tool,
+    monitor_repository_changes_tool,
+)
 
 AGENT_CONFIG = {
     "agent_params": {
@@ -19,14 +24,18 @@ AGENT_CONFIG = {
             "Provide clear explanations of detected changes and their impact on workshop content.\n"
             "Focus on maintaining workshop quality and educational effectiveness through systematic updates."
         ),
-        "tools": [monitor_repository_changes_tool, analyze_impact_tool, create_update_proposal_tool, monitor_external_sources_tool],
+        "tools": [
+            monitor_repository_changes_tool,
+            analyze_impact_tool,
+            create_update_proposal_tool,
+            monitor_external_sources_tool,
+        ],
         "max_infer_iters": 5,
         "sampling_params": {
             "strategy": {"type": "greedy"},
             "max_tokens": 2048,
         },
     },
-    
     "task_manager_class": AgentTaskManager,
     "agent_card_params": {
         "name": "Documentation Pipeline Agent",
@@ -49,7 +58,7 @@ AGENT_CONFIG = {
                     "Monitor https://github.com/user/project for changes",
                     "Check for updates in the main branch",
                     "Detect new releases or version tags",
-                    "Track documentation changes"
+                    "Track documentation changes",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -63,7 +72,7 @@ AGENT_CONFIG = {
                     "Analyze impact of API changes on workshop exercises",
                     "Assess how dependency updates affect setup instructions",
                     "Evaluate new features for workshop inclusion",
-                    "Review breaking changes for content updates"
+                    "Review breaking changes for content updates",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -77,7 +86,7 @@ AGENT_CONFIG = {
                     "Create proposal for updating setup instructions",
                     "Generate update plan for new API endpoints",
                     "Propose exercise modifications for version changes",
-                    "Draft content updates for security patches"
+                    "Draft content updates for security patches",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
@@ -91,12 +100,12 @@ AGENT_CONFIG = {
                     "Monitor OpenShift documentation for API changes",
                     "Track updates to external PDF guides",
                     "Watch for changes in third-party documentation",
-                    "Monitor vendor documentation and release notes"
+                    "Monitor vendor documentation and release notes",
                 ],
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/plain"],
-            }
-        ]
+            },
+        ],
     },
     "default_port": 10050,
 }
