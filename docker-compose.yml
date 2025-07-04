@@ -64,11 +64,16 @@ services:
     image: workshop-agent-system:test-fix
     ports:
       - "8083:8080"
+    volumes:
+      - /tmp/workshop-shared-workspace:/workspace/shared-data:z
     environment:
       - AGENT_NAME=source_manager
       - AGENT_PORT=8080
       - PYTHONPATH=/opt/app-root/src
       - TEST_REPO_URL=https://github.com/tosin2013/llama-stack-demos.git
+      - WORKSPACE_PATH=/workspace/shared-data
+      - WORKSPACE_ENABLED=true
+      - TEMPLATE_CACHE_PATH=/workspace/shared-data/shared/templates
     command: ["python", "-m", "demos.workshop_template_system", "--agent-name", "source_manager", "--port", "8080"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/agent-card"]

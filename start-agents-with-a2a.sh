@@ -32,6 +32,7 @@ start_agent() {
         --name "$container_name" \
         --network "$NETWORK" \
         -p "${port}:80" \
+        -v /tmp/workshop-shared-workspace:/workspace/shared-data:z \
         -e MILVUS_ENDPOINT="$MILVUS_ENDPOINT" \
         -e RAG_ENABLED=true \
         -e VDB_PROVIDER=milvus \
@@ -39,6 +40,9 @@ start_agent() {
         -e AGENT_PORT=80 \
         -e A2A_PROTOCOL_ENABLED=true \
         -e MIDDLEWARE_ENDPOINT="http://host.containers.internal:8086" \
+        -e WORKSPACE_PATH="/workspace/shared-data" \
+        -e WORKSPACE_ENABLED=true \
+        -e TEMPLATE_CACHE_PATH="/workspace/shared-data/shared/templates" \
         "$AGENT_IMAGE"
     
     # Wait a moment for startup

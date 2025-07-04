@@ -23,6 +23,63 @@ def client_tool(func):
 
 logger = logging.getLogger(__name__)
 
+def validate_workshop_structure(template_path: str) -> dict:
+    """Validate showroom template structure for ADR-0001 compliance"""
+    try:
+        if not os.path.exists(template_path):
+            return {'valid': False, 'message': f'Template path does not exist: {template_path}'}
+
+        # Check for required showroom template files and directories
+        required_files = [
+            'README.adoc',
+            'default-site.yml',
+            'ui-config.yml',
+            'content/antora.yml',
+            'content/modules/ROOT/nav.adoc',
+            'content/modules/ROOT/pages/index.adoc'
+        ]
+
+        required_dirs = [
+            'content',
+            'content/modules',
+            'content/modules/ROOT',
+            'content/modules/ROOT/pages',
+            'utilities'
+        ]
+
+        missing_files = []
+        missing_dirs = []
+
+        # Check directories
+        for dir_path in required_dirs:
+            full_path = os.path.join(template_path, dir_path)
+            if not os.path.isdir(full_path):
+                missing_dirs.append(dir_path)
+
+        # Check files
+        for file_path in required_files:
+            full_path = os.path.join(template_path, file_path)
+            if not os.path.isfile(full_path):
+                missing_files.append(file_path)
+
+        if missing_files or missing_dirs:
+            return {
+                'valid': False,
+                'message': 'Missing required template components',
+                'missing_files': missing_files,
+                'missing_dirs': missing_dirs
+            }
+
+        return {
+            'valid': True,
+            'message': 'Template structure validation passed',
+            'template_path': template_path
+        }
+
+    except Exception as e:
+        logger.error(f"Error validating template structure: {e}")
+        return {'valid': False, 'message': f'Validation error: {str(e)}'}
+
 @client_tool
 def create_workshop_repository_tool(repository_analysis: str, workshop_content: str, workshop_name: str = "") -> str:
     """
@@ -193,6 +250,48 @@ def clone_existing_workshop_strategy(source_url: str, workshop_name: str, worksh
 def clone_template_strategy(workshop_name: str, workshop_content: str, gitea_config: dict) -> dict:
     """Implement Workflow 1: Clone showroom_template_default.git as base (ADR-0001 compliant)"""
     try:
+        # Check for shared workspace working copy first (created by Repository Cloning Agent)
+        shared_workspace = os.environ.get('WORKSPACE_PATH', '/workspace/shared-data')
+        if not os.path.exists(shared_workspace):
+            shared_workspace = '/tmp/workshop-shared-workspace'
+
+        working_copy_path = os.path.join(shared_workspace, 'agents', 'repository-cloning', 'working', workshop_name)
+        template_cache_path = os.path.join(shared_workspace, 'shared', 'templates', 'showroom_template_default')
+
+        # Use working copy if available (created by Repository Cloning Agent)
+        if os.path.exists(working_copy_path):
+            logger.info(f"🎯 Using Repository Cloning Agent working copy: {working_copy_path}")
+            validation_result = validate_workshop_structure(working_copy_path)
+            logger.info(f"📊 Working copy validation result: {validation_result}")
+
+            if validation_result['valid']:
+                # Use the pre-cloned and validated working copy
+                logger.info("✅ Using ADR-0001 compliant working copy from Repository Cloning Agent")
+                clone_result = clone_working_copy_to_gitea(working_copy_path, workshop_name, gitea_config)
+
+                if clone_result['success']:
+                    # Customize the cloned template with workshop content
+                    customization_result = customize_showroom_template(workshop_name, workshop_content, gitea_config)
+
+                    return {
+                        'success': True,
+                        'strategy': 'ADR-0001 Workflow 1 with Repository Cloning Agent',
+                        'template_source': 'showroom_template_default (shared workspace)',
+                        'gitea_url': clone_result['clone_url'],
+                        'files_created': customization_result,
+                        'validation_result': validation_result,
+                        'working_copy_used': True
+                    }
+
+        # Fallback to cached template validation
+        elif os.path.exists(template_cache_path):
+            logger.info(f"🎯 Using shared workspace template cache: {template_cache_path}")
+            validation_result = validate_workshop_structure(template_cache_path)
+            logger.info(f"📊 Template validation result: {validation_result}")
+        else:
+            logger.info("📦 No cached template found, proceeding with direct cloning")
+            validation_result = {'valid': True, 'message': 'No cache available'}
+
         # ADR-0001 Workflow 1: Clone showroom_template_default.git repository
         template_repo_url = 'https://github.com/rhpds/showroom_template_default.git'
 
@@ -214,7 +313,8 @@ def clone_template_strategy(workshop_name: str, workshop_content: str, gitea_con
             'strategy': 'Clone Showroom Template (ADR-0001 Workflow 1)',
             'template_source': template_repo_url,
             'gitea_url': clone_result['clone_url'],
-            'files_created': customization_result  # Keep consistent naming
+            'files_created': customization_result,
+            'validation_result': validation_result
         }
 
     except Exception as e:
@@ -443,6 +543,39 @@ def create_complete_showroom_structure(repo_name: str, workshop_content: str, gi
     except Exception as e:
         logger.error(f"Error creating complete showroom structure: {e}")
         return 0
+
+def clone_working_copy_to_gitea(working_copy_path: str, target_name: str, gitea_config: dict) -> dict:
+    """Clone a local working copy to Gitea by creating repository and pushing content"""
+    try:
+        # First create empty repository in Gitea
+        create_result = create_gitea_repository(target_name, gitea_config)
+        if not create_result['success']:
+            return create_result
+
+        # Initialize git repo in working copy and push to Gitea
+        import subprocess
+
+        # Initialize git repository
+        subprocess.run(['git', 'init'], cwd=working_copy_path, check=True)
+        subprocess.run(['git', 'add', '.'], cwd=working_copy_path, check=True)
+        subprocess.run(['git', 'commit', '-m', 'Initial commit from ADR-0001 template'], cwd=working_copy_path, check=True)
+
+        # Add Gitea remote and push
+        gitea_url = create_result['clone_url']
+        subprocess.run(['git', 'remote', 'add', 'origin', gitea_url], cwd=working_copy_path, check=True)
+        subprocess.run(['git', 'push', '-u', 'origin', 'main'], cwd=working_copy_path, check=True)
+
+        logger.info(f"✅ Successfully pushed working copy to Gitea: {gitea_url}")
+        return {
+            'success': True,
+            'clone_url': gitea_url,
+            'html_url': create_result['html_url'],
+            'method': 'working_copy_push'
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error pushing working copy to Gitea: {e}")
+        return {'success': False, 'error': str(e)}
 
 def clone_repository_to_gitea(source_url: str, target_name: str, gitea_config: dict) -> dict:
     """Clone a repository from GitHub to Gitea using Gitea's migration API"""

@@ -30,6 +30,9 @@ import com.redhat.workshop.monitoring.model.RepositoryClassification;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Date;
 
 /**
  * Pipeline Integration Resource
@@ -57,6 +60,318 @@ public class PipelineIntegrationResource {
 
     // HTTP client for direct Gitea API calls
     private final Client httpClient = ClientBuilder.newClient();
+
+    /**
+     * Get pipeline configuration including valid parameters and validation types
+     * ADR-0036: Pipeline Parameter and Validation Type Standards
+     */
+    @GET
+    @Path("/config")
+    public Response getPipelineConfiguration() {
+        try {
+            LOG.info("Fetching pipeline configuration and validation types");
+
+            Map<String, Object> config = new HashMap<>();
+
+            // Validation types by agent
+            Map<String, Object> validationTypes = new HashMap<>();
+
+            // Research Validation Agent validation types
+            Map<String, Object> researchValidation = new HashMap<>();
+            researchValidation.put("agent", "research-validation-agent");
+            researchValidation.put("endpoint", "http://research-validation-agent:80");
+            researchValidation.put("supported_types", List.of(
+                "new-workshop-validation",
+                "enhancement-analysis",
+                "enhancement-validation"
+            ));
+            researchValidation.put("default_type", "new-workshop-validation");
+            validationTypes.put("research-validation", researchValidation);
+
+            // Template Converter Agent analysis types
+            Map<String, Object> templateConverter = new HashMap<>();
+            templateConverter.put("agent", "template-converter-agent");
+            templateConverter.put("endpoint", "http://template-converter-agent:80");
+            templateConverter.put("supported_types", List.of(
+                "repository-analysis",
+                "workshop-detection",
+                "template-classification"
+            ));
+            templateConverter.put("default_type", "repository-analysis");
+            validationTypes.put("template-converter", templateConverter);
+
+            // Content Creator Agent content types
+            Map<String, Object> contentCreator = new HashMap<>();
+            contentCreator.put("agent", "content-creator-agent");
+            contentCreator.put("endpoint", "http://content-creator-agent:80");
+            contentCreator.put("supported_types", List.of(
+                "content-generation",
+                "content-enhancement",
+                "content-validation"
+            ));
+            contentCreator.put("default_type", "content-generation");
+            validationTypes.put("content-creator", contentCreator);
+
+            config.put("validation_types", validationTypes);
+
+            // Standard pipeline parameters
+            Map<String, Object> parameters = new HashMap<>();
+
+            // Required parameters for all pipelines
+            Map<String, Object> requiredParams = new HashMap<>();
+
+            Map<String, Object> repositoryUrl = new HashMap<>();
+            repositoryUrl.put("type", "string");
+            repositoryUrl.put("description", "Source repository URL for workshop creation");
+            repositoryUrl.put("required", true);
+            repositoryUrl.put("format", "https://github.com/owner/repo.git");
+            repositoryUrl.put("validation", "^https://github\\.com/[\\w-]+/[\\w-]+(\\.git)?$");
+            repositoryUrl.put("examples", List.of(
+                "https://github.com/jeremyrdavis/dddhexagonalworkshop.git",
+                "https://github.com/tosin2013/ansible-controller-cac.git"
+            ));
+            requiredParams.put("repository-url", repositoryUrl);
+
+            Map<String, Object> workshopName = new HashMap<>();
+            workshopName.put("type", "string");
+            workshopName.put("description", "Name for the new workshop (used for file naming and identification)");
+            workshopName.put("required", true);
+            workshopName.put("format", "lowercase-with-hyphens");
+            workshopName.put("validation", "^[a-z0-9-]+$");
+            workshopName.put("max_length", 50);
+            workshopName.put("examples", List.of(
+                "ddd-hexagonal-workshop",
+                "ansible-automation-basics",
+                "openshift-deployment-guide"
+            ));
+            requiredParams.put("workshop-name", workshopName);
+
+            parameters.put("required", requiredParams);
+
+            // Optional parameters
+            Map<String, Object> optionalParams = new HashMap<>();
+
+            Map<String, Object> baseTemplate = new HashMap<>();
+            baseTemplate.put("type", "string");
+            baseTemplate.put("description", "Base template to use for workshop creation");
+            baseTemplate.put("required", false);
+            baseTemplate.put("default", "showroom_template_default");
+            baseTemplate.put("valid_values", List.of(
+                "showroom_template_default",
+                "antora_template",
+                "custom_template"
+            ));
+            optionalParams.put("base-template", baseTemplate);
+
+            Map<String, Object> autoApprove = new HashMap<>();
+            autoApprove.put("type", "string");
+            autoApprove.put("description", "Auto-approve human-in-the-loop steps (for testing)");
+            autoApprove.put("required", false);
+            autoApprove.put("default", "false");
+            autoApprove.put("valid_values", List.of("true", "false"));
+            optionalParams.put("auto-approve", autoApprove);
+
+            Map<String, Object> humanApprover = new HashMap<>();
+            humanApprover.put("type", "string");
+            humanApprover.put("description", "Human approver for manual approval steps");
+            humanApprover.put("required", false);
+            humanApprover.put("default", "system-operator");
+            humanApprover.put("validation", "^[a-z0-9-]+$");
+            humanApprover.put("examples", List.of("system-operator", "workshop-admin", "content-reviewer"));
+            optionalParams.put("human-approver", humanApprover);
+
+            parameters.put("optional", optionalParams);
+            config.put("parameters", parameters);
+
+            // Workspace configuration
+            Map<String, Object> workspaces = new HashMap<>();
+
+            Map<String, Object> sharedData = new HashMap<>();
+            sharedData.put("name", "shared-data");
+            sharedData.put("description", "Shared workspace for workshop content");
+            sharedData.put("required", true);
+            sharedData.put("pvc_name", "workshop-shared-pvc");
+            sharedData.put("access_mode", "ReadWriteMany");
+            sharedData.put("storage_class", "ocs-storagecluster-cephfs");
+            workspaces.put("shared-data", sharedData);
+
+            Map<String, Object> giteaAuth = new HashMap<>();
+            giteaAuth.put("name", "gitea-auth");
+            giteaAuth.put("description", "Gitea authentication credentials");
+            giteaAuth.put("required", false);
+            giteaAuth.put("secret_name", "gitea-auth-secret");
+            workspaces.put("gitea-auth", giteaAuth);
+
+            config.put("workspaces", workspaces);
+
+            // Pipeline-specific configurations
+            Map<String, Object> pipelines = new HashMap<>();
+
+            // workflow-1-intelligent-workshop
+            Map<String, Object> intelligentWorkflow = new HashMap<>();
+            intelligentWorkflow.put("name", "workflow-1-intelligent-workshop");
+            intelligentWorkflow.put("description", "ADR-0001 Intelligent Workshop Creation Pipeline");
+            intelligentWorkflow.put("required_parameters", List.of(
+                "repository-url", "workshop-name", "auto-detect-workflow", "human-approver", "auto-approve"
+            ));
+            intelligentWorkflow.put("required_workspaces", List.of("shared-data", "gitea-auth"));
+            intelligentWorkflow.put("validation_types_used", List.of("new-workshop-validation"));
+            intelligentWorkflow.put("parameter_defaults", Map.of(
+                "auto-detect-workflow", "true",
+                "human-approver", "system-operator",
+                "auto-approve", "false"
+            ));
+            pipelines.put("workflow-1-intelligent-workshop", intelligentWorkflow);
+
+            // workflow-1-simple-corrected
+            Map<String, Object> simpleWorkflow = new HashMap<>();
+            simpleWorkflow.put("name", "workflow-1-simple-corrected");
+            simpleWorkflow.put("description", "Workflow 1: Simple Corrected Test");
+            simpleWorkflow.put("required_parameters", List.of("repository-url", "workshop-name", "base-template"));
+            simpleWorkflow.put("required_workspaces", List.of("shared-data"));
+            simpleWorkflow.put("validation_types_used", List.of()); // No validation step
+            simpleWorkflow.put("parameter_defaults", Map.of("base-template", "showroom_template_default"));
+            pipelines.put("workflow-1-simple-corrected", simpleWorkflow);
+
+            // workflow-3-enhance-workshop
+            Map<String, Object> enhanceWorkflow = new HashMap<>();
+            enhanceWorkflow.put("name", "workflow-3-enhance-workshop");
+            enhanceWorkflow.put("description", "Workflow 3: Enhance Existing Workshop");
+            enhanceWorkflow.put("required_parameters", List.of("repository-url", "workshop-name", "original-workshop-url"));
+            enhanceWorkflow.put("required_workspaces", List.of("shared-data", "gitea-auth"));
+            enhanceWorkflow.put("validation_types_used", List.of("enhancement-analysis", "enhancement-validation"));
+            enhanceWorkflow.put("parameter_defaults", Map.of());
+            pipelines.put("workflow-3-enhance-workshop", enhanceWorkflow);
+
+            config.put("pipelines", pipelines);
+
+            // Add metadata
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("version", "1.0.0");
+            metadata.put("last_updated", new Date().toInstant().toString());
+            metadata.put("documentation", "docs/reference/pipeline-parameters.md");
+            metadata.put("adr_reference", "ADR-0036: Pipeline Parameter and Validation Type Standards");
+            config.put("metadata", metadata);
+
+            return Response.ok(Map.of(
+                "success", true,
+                "data", config,
+                "message", "Pipeline configuration retrieved successfully"
+            )).build();
+
+        } catch (Exception e) {
+            LOG.error("Error fetching pipeline configuration", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(Map.of(
+                    "success", false,
+                    "error", Map.of(
+                        "code", "CONFIG_FETCH_ERROR",
+                        "message", "Failed to fetch pipeline configuration",
+                        "details", e.getMessage()
+                    )
+                )).build();
+        }
+    }
+
+    /**
+     * Validate pipeline parameters before execution
+     * ADR-0036: Pipeline Parameter and Validation Type Standards
+     */
+    @POST
+    @Path("/validate-parameters")
+    public Response validatePipelineParameters(Map<String, Object> parameters) {
+        try {
+            LOG.infof("Validating pipeline parameters: %s", parameters.keySet());
+
+            Map<String, Object> validationResult = new HashMap<>();
+            List<String> errors = new ArrayList<>();
+            List<String> warnings = new ArrayList<>();
+
+            // Validate repository-url
+            String repositoryUrl = (String) parameters.get("repository-url");
+            if (repositoryUrl == null || repositoryUrl.trim().isEmpty()) {
+                errors.add("repository-url is required");
+            } else if (!repositoryUrl.matches("^https://github\\.com/[\\w-]+/[\\w-]+(\\.git)?$")) {
+                errors.add("repository-url must be a valid GitHub URL (https://github.com/owner/repo.git)");
+            }
+
+            // Validate workshop-name
+            String workshopName = (String) parameters.get("workshop-name");
+            if (workshopName == null || workshopName.trim().isEmpty()) {
+                errors.add("workshop-name is required");
+            } else if (!workshopName.matches("^[a-z0-9-]+$")) {
+                errors.add("workshop-name must contain only lowercase letters, numbers, and hyphens");
+            } else if (workshopName.length() > 50) {
+                errors.add("workshop-name must be 50 characters or less");
+            }
+
+            // Validate validation-type if present
+            String validationType = (String) parameters.get("validation-type");
+            if (validationType != null) {
+                List<String> validTypes = List.of(
+                    "new-workshop-validation",
+                    "enhancement-analysis",
+                    "enhancement-validation"
+                );
+                if (!validTypes.contains(validationType)) {
+                    errors.add("validation-type must be one of: " + String.join(", ", validTypes));
+                }
+            }
+
+            // Validate base-template if present
+            String baseTemplate = (String) parameters.get("base-template");
+            if (baseTemplate != null) {
+                List<String> validTemplates = List.of(
+                    "showroom_template_default",
+                    "antora_template",
+                    "custom_template"
+                );
+                if (!validTemplates.contains(baseTemplate)) {
+                    warnings.add("base-template should be one of: " + String.join(", ", validTemplates));
+                }
+            }
+
+            // Validate auto-approve if present
+            String autoApprove = (String) parameters.get("auto-approve");
+            if (autoApprove != null && !List.of("true", "false").contains(autoApprove)) {
+                errors.add("auto-approve must be 'true' or 'false'");
+            }
+
+            boolean isValid = errors.isEmpty();
+
+            validationResult.put("valid", isValid);
+            validationResult.put("errors", errors);
+            validationResult.put("warnings", warnings);
+            validationResult.put("validated_parameters", parameters.keySet());
+
+            if (isValid) {
+                validationResult.put("message", "All parameters are valid");
+                return Response.ok(Map.of(
+                    "success", true,
+                    "data", validationResult
+                )).build();
+            } else {
+                validationResult.put("message", "Parameter validation failed");
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of(
+                        "success", false,
+                        "data", validationResult
+                    )).build();
+            }
+
+        } catch (Exception e) {
+            LOG.error("Error validating pipeline parameters", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(Map.of(
+                    "success", false,
+                    "error", Map.of(
+                        "code", "VALIDATION_ERROR",
+                        "message", "Failed to validate pipeline parameters",
+                        "details", e.getMessage()
+                    )
+                )).build();
+        }
+    }
 
     /**
      * Content Creator Agent - Create Workshop Content
@@ -1098,7 +1413,7 @@ public class PipelineIntegrationResource {
     }
 
     /**
-     * Create Gitea repository for workshop content
+     * Create Gitea repository for workshop content using ADR-0001 compliant template strategy
      */
     private String createGiteaRepository(String workshopName, Response workflowResponse, RepositoryClassification classification) {
         try {
@@ -1109,38 +1424,45 @@ public class PipelineIntegrationResource {
             Map<String, Object> responseData = (Map<String, Object>) responseEntity;
             String workshopContent = (String) responseData.getOrDefault("workshop_content", "Generated workshop content");
 
-            // Call Source Manager Agent directly to create repository
+            // Prepare repository classification data for ADR-0001 workflow routing
+            String classificationJson = String.format(
+                "{\"workflow_recommendation\":\"%s\",\"detected_framework\":\"%s\",\"confidence\":%.2f,\"classification_type\":\"%s\"}",
+                classification.getRecommendedWorkflow(),
+                classification.getDetectedFramework(),
+                classification.getConfidence(),
+                classification.getClassificationType()
+            );
+
+            // Call Source Manager Agent with ADR-0001 compliant function
             Map<String, Object> parameters = new HashMap<>();
-            parameters.put("operation", "create");
-            parameters.put("repository_name", workshopName);
-            parameters.put("source_url", "https://github.com/rhpds/showroom_template_default.git");
-            parameters.put("options", "auto_init,workshop_content");
+            parameters.put("repository_analysis", classificationJson);
+            parameters.put("workshop_content", workshopContent);
+            parameters.put("workshop_name", workshopName);
+
+            LOG.infof("🔧 Calling ADR-0001 compliant Source Manager Agent: create_workshop_repository_tool");
+            LOG.debugf("📊 Classification data: %s", classificationJson);
 
             // Call Source Manager Agent via orchestration service
             Map<String, Object> agentResult = agentOrchestrationService.invokeAgent(
                 "source-manager",
-                "manage_workshop_repository_tool",
+                "create_workshop_repository_tool",
                 parameters
             );
 
             if (agentResult != null && "success".equals(agentResult.get("status"))) {
-                // Extract repository URL from agent response
+                // Parse ADR-0001 compliant response from create_workshop_repository_tool
                 String agentResponse = (String) agentResult.get("response");
-                String repositoryUrl = extractRepositoryUrlFromResponse(agentResponse);
+                return parseADR0001Response(agentResponse, workshopName);
 
-                LOG.infof("✅ Gitea repository created successfully: %s", repositoryUrl);
-                return repositoryUrl != null ? repositoryUrl : "";
             } else if (agentResult != null && "completed".equals(agentResult.get("status"))) {
-                // Check if agent returned simplified implementation
+                // Handle completed status from create_workshop_repository_tool
                 String result = (String) agentResult.get("result");
                 if (result != null && result.contains("simplified implementation")) {
                     LOG.warnf("⚠️ Agent returned simplified implementation, attempting direct Gitea API call");
                     return createGiteaRepositoryDirect(workshopName, workshopContent);
                 } else {
-                    // Extract repository URL from completed response
-                    String repositoryUrl = extractRepositoryUrlFromResponse(result);
-                    LOG.infof("✅ Gitea repository created successfully: %s", repositoryUrl);
-                    return repositoryUrl != null ? repositoryUrl : "";
+                    // Parse ADR-0001 compliant response
+                    return parseADR0001Response(result, workshopName);
                 }
             } else {
                 LOG.warnf("⚠️ Failed to create Gitea repository via Source Manager Agent, attempting direct API call");
@@ -1229,6 +1551,63 @@ public class PipelineIntegrationResource {
         } catch (Exception e) {
             LOG.warnf("Failed to extract repository URL from response: %s", e.getMessage());
             return "";
+        }
+    }
+
+    /**
+     * Parse ADR-0001 compliant response from Source Manager Agent
+     */
+    private String parseADR0001Response(String agentResponse, String workshopName) {
+        try {
+            if (agentResponse == null || agentResponse.trim().isEmpty()) {
+                LOG.warnf("Empty response from Source Manager Agent for workshop: %s", workshopName);
+                return "";
+            }
+
+            // Look for ADR-0001 specific response patterns
+            String repositoryUrl = "";
+            String templateStrategy = "";
+            String templateSource = "";
+
+            // Parse structured response for gitea_url
+            if (agentResponse.contains("gitea_url")) {
+                String[] lines = agentResponse.split("\n");
+                for (String line : lines) {
+                    if (line.contains("gitea_url") && line.contains("http")) {
+                        // Extract URL from gitea_url field
+                        String[] parts = line.split(":");
+                        if (parts.length >= 2) {
+                            repositoryUrl = parts[1].trim().replaceAll("[\"',]", "");
+                        }
+                    } else if (line.contains("strategy")) {
+                        templateStrategy = line.split(":")[1].trim().replaceAll("[\"',]", "");
+                    } else if (line.contains("template_source")) {
+                        templateSource = line.split(":")[1].trim().replaceAll("[\"',]", "");
+                    }
+                }
+            }
+
+            // Fallback to legacy URL extraction if structured parsing fails
+            if (repositoryUrl.isEmpty()) {
+                repositoryUrl = extractRepositoryUrlFromResponse(agentResponse);
+            }
+
+            // Log ADR-0001 compliance information
+            if (!templateStrategy.isEmpty()) {
+                LOG.infof("🎯 ADR-0001 Template Strategy: %s", templateStrategy);
+            }
+            if (!templateSource.isEmpty()) {
+                LOG.infof("📦 Template Source: %s", templateSource);
+            }
+            if (!repositoryUrl.isEmpty()) {
+                LOG.infof("✅ Gitea repository created successfully: %s", repositoryUrl);
+            }
+
+            return repositoryUrl;
+
+        } catch (Exception e) {
+            LOG.errorf("❌ Error parsing ADR-0001 response: %s", e.getMessage());
+            return extractRepositoryUrlFromResponse(agentResponse); // Fallback to legacy parsing
         }
     }
 

@@ -5,6 +5,7 @@ Repository management and workshop deployment coordination
 
 from ...task_manager import AgentTaskManager, SUPPORTED_CONTENT_TYPES
 from .tools import (
+    create_workshop_repository_tool,
     manage_workshop_repository_tool,
     coordinate_deployment_tool,
     sync_content_tool,
@@ -34,6 +35,7 @@ AGENT_CONFIG = {
             "Focus on maintaining workshop repository integrity, successful deployment coordination, and safe evolution processes."
         ),
         "tools": [
+            create_workshop_repository_tool,
             manage_workshop_repository_tool,
             coordinate_deployment_tool,
             sync_content_tool,
@@ -64,6 +66,20 @@ AGENT_CONFIG = {
             "stateTransitionHistory": True,
         },
         "skills_params": [
+            {
+                "id": "create_workshop_repository_tool",
+                "name": "ADR-0001 Workshop Repository Creation",
+                "description": "Create workshop repositories using ADR-0001 dual-template strategy with proper template cloning",
+                "tags": ["adr-0001", "template-cloning", "showroom", "workflow", "repository"],
+                "examples": [
+                    "Clone showroom_template_default for Workflow 1 (application → workshop)",
+                    "Clone existing workshop repository for Workflow 3 (enhancement)",
+                    "Populate template with generated workshop content",
+                    "Create complete Antora/AsciiDoc workshop structure"
+                ],
+                "inputModes": ["text/plain"],
+                "outputModes": ["text/plain"],
+            },
             {
                 "id": "manage_workshop_repository_tool",
                 "name": "Workshop Repository Management",

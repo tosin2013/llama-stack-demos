@@ -5,3 +5,6 @@ __pycache__
 # Prevent sensitive data from being committed
 **/*private-secret.yaml
 **/*private-secret.yml
+
+
+showroom_template_default

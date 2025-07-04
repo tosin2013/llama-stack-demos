@@ -102,7 +102,7 @@ spec:
     - name: workshop-content
       value: "Workshop created via intelligent routing: $(tasks.intelligent-workshop-creation.results.workflow-type)"
     - name: validation-type
-      value: "intelligent-workshop-validation"
+      value: "new-workshop-validation"
     - name: repository-url
       value: $(params.repository-url)
     - name: workshop-name
