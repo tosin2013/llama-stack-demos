@@ -1,9 +1,80 @@
+# Pre-commit configuration for Workshop Template System
 # See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
+
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-added-large-files
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+        exclude: '\.md$'
+      - id: check-yaml
+        exclude: '^kubernetes/.*\.yaml$'  # Skip k8s files that might have templates
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: ['--line-length=88']
+        files: '^(demos|common|tests|scripts)/.*\.py$'
+
+  # Python import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ['--profile=black', '--line-length=88']
+        files: '^(demos|common|tests|scripts)/.*\.py$'
+
+  # Python linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--config=.flake8']
+        files: '^(demos|common|tests|scripts)/.*\.py$'
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        files: '^scripts/.*\.sh$'
+
+# Configuration for specific hooks
+default_language_version:
+  python: python3.9
+
+# Global excludes
+exclude: |
+  (?x)^(
+    .*\.egg-info/.*|
+    .*/__pycache__/.*|
+    .*\.pyc$|
+    workshop-monitoring-service/src/main/webui/node_modules/.*|
+    workshop-monitoring-service/target/.*|
+    \.venv/.*|
+    venv/.*|
+    build/.*|
+    dist/.*
+  )$
+
+# Fail fast - stop on first failure
+fail_fast: false
+
+# Minimum pre-commit version
+minimum_pre_commit_version: '3.0.0'
