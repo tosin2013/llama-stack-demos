@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: workshop-monitoring-service
-        image: workshop-monitoring-service-image:latest
+        image: image-registry.openshift-image-registry.svc:5000/workshop-system/workshop-monitoring-service:latest
         ports:
         - containerPort: 8086
           name: http
@@ -29,17 +29,17 @@ spec:
         - name: QUARKUS_HTTP_PORT
           value: "8086"
         - name: WORKSHOP_AGENTS_ENDPOINTS_WORKSHOP_CHAT
-          value: "http://workshop-chat:8080"
+          value: "http://workshop-chat-agent:80"
         - name: WORKSHOP_AGENTS_ENDPOINTS_TEMPLATE_CONVERTER
-          value: "http://template-converter:8081"
+          value: "http://template-converter-agent:80"
         - name: WORKSHOP_AGENTS_ENDPOINTS_CONTENT_CREATOR
-          value: "http://content-creator:8082"
+          value: "http://content-creator-agent:80"
         - name: WORKSHOP_AGENTS_ENDPOINTS_SOURCE_MANAGER
-          value: "http://source-manager:8083"
+          value: "http://source-manager-agent:80"
         - name: WORKSHOP_AGENTS_ENDPOINTS_RESEARCH_VALIDATION
-          value: "http://research-validation:8084"
+          value: "http://research-validation-agent:80"
         - name: WORKSHOP_AGENTS_ENDPOINTS_DOCUMENTATION_PIPELINE
-          value: "http://documentation-pipeline:8085"
+          value: "http://documentation-pipeline-agent:80"
         - name: WORKSHOP_HEALTH_CHECK_INTERVAL
           value: "30s"
         - name: WORKSHOP_HEALTH_TIMEOUT

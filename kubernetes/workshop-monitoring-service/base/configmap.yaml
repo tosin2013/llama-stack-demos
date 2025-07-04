@@ -12,13 +12,13 @@ data:
     quarkus.http.port=8086
     quarkus.http.host=0.0.0.0
     
-    # Agent Endpoints (will be overridden by environment variables)
-    workshop.agents.endpoints.workshop-chat=http://workshop-chat:8080
-    workshop.agents.endpoints.template-converter=http://template-converter:8081
-    workshop.agents.endpoints.content-creator=http://content-creator:8082
-    workshop.agents.endpoints.source-manager=http://source-manager:8083
-    workshop.agents.endpoints.research-validation=http://research-validation:8084
-    workshop.agents.endpoints.documentation-pipeline=http://documentation-pipeline:8085
+    # Agent Endpoints (corrected to match actual service names and ports)
+    workshop.agents.endpoints.workshop-chat=http://workshop-chat-agent:80
+    workshop.agents.endpoints.template-converter=http://template-converter-agent:80
+    workshop.agents.endpoints.content-creator=http://content-creator-agent:80
+    workshop.agents.endpoints.source-manager=http://source-manager-agent:80
+    workshop.agents.endpoints.research-validation=http://research-validation-agent:80
+    workshop.agents.endpoints.documentation-pipeline=http://documentation-pipeline-agent:80
     
     # Health Check Configuration
     workshop.health.check-interval=30s
