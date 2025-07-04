@@ -1,0 +1,130 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Dynamic TKN Parameter Generation Rules",
+    "description": "Rules for using middleware endpoints to dynamically generate correct tkn pipeline parameters instead of hardcoding values",
+    "created": "2025-01-04T11:22:02.013Z",
+    "lastModified": "2025-01-04T11:22:02.013Z",
+    "author": "Workshop Template System Development Team",
+    "tags": ["tkn", "middleware", "dynamic-parameters", "pipeline-automation"]
+  },
+  "rules": [
+    {
+      "id": "TKN-001",
+      "name": "Use Middleware for TKN Parameters",
+      "pattern": "tkn pipeline start",
+      "severity": "error",
+      "message": "Always call middleware endpoint to get correct parameters before executing tkn commands",
+      "description": "Query /api/pipeline/config endpoint to get valid parameters, workspaces, and validation types",
+      "category": "dynamic_parameters",
+      "examples": {
+        "bad": [
+          "tkn pipeline start workflow-1-intelligent-workshop --param validation-type=intelligent-workshop-validation",
+          "tkn pipeline start workflow-1-simple-corrected --workspace name=shared-data,claimName=shared-workspace-pvc"
+        ],
+        "good": [
+          "# Step 1: Get configuration from middleware",
+          "CONFIG=$(curl -k https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/api/pipeline/config)",
+          "# Step 2: Extract correct values",
+          "PVC_NAME=$(echo $CONFIG | jq -r '.data.workspaces.\"shared-data\".pvc_name')",
+          "VALIDATION_TYPE=$(echo $CONFIG | jq -r '.data.validation_types.\"research-validation\".supported_types[0]')",
+          "# Step 3: Use extracted values in tkn command",
+          "tkn pipeline start workflow-1-simple-corrected --workspace name=shared-data,claimName=$PVC_NAME"
+        ]
+      },
+      "rationale": "Prevents hardcoded parameter errors and ensures consistency with middleware configuration"
+    },
+    {
+      "id": "TKN-002",
+      "name": "Validate Parameters Before TKN Execution",
+      "pattern": "tkn.*--param",
+      "severity": "error",
+      "message": "Validate parameters using middleware endpoint before executing tkn pipeline",
+      "description": "Call /api/pipeline/validate-parameters to verify parameter correctness",
+      "category": "parameter_validation",
+      "examples": {
+        "good": [
+          "# Validate parameters first",
+          "VALIDATION=$(curl -X POST -H 'Content-Type: application/json' -d '{\"repository-url\":\"$REPO_URL\",\"workshop-name\":\"$WORKSHOP_NAME\"}' https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/api/pipeline/validate-parameters)",
+          "IS_VALID=$(echo $VALIDATION | jq -r '.data.valid')",
+          "if [ \"$IS_VALID\" = \"true\" ]; then",
+          "  tkn pipeline start workflow-1-simple-corrected --param repository-url=$REPO_URL",
+          "else",
+          "  echo \"Parameter validation failed\"",
+          "  exit 1",
+          "fi"
+        ],
+        "bad": [
+          "# Skip validation",
+          "tkn pipeline start workflow-1-simple-corrected --param repository-url=$REPO_URL"
+        ]
+      },
+      "rationale": "Catches parameter errors before pipeline execution, preventing runtime failures"
+    },
+    {
+      "id": "TKN-003",
+      "name": "Generate TKN Command from Middleware",
+      "pattern": "tkn.*generate|build.*tkn",
+      "severity": "warning",
+      "message": "Use middleware to dynamically build complete tkn commands with correct parameters",
+      "description": "Create a function that queries middleware and generates the full tkn command",
+      "category": "command_generation",
+      "examples": {
+        "good": [
+          "# Use the provided script",
+          "./scripts/generate-tkn-from-middleware.sh workflow-1-simple-corrected https://github.com/user/repo.git workshop-name",
+          "# Or implement similar logic in your script"
+        ],
+        "bad": [
+          "# Hardcoded tkn command",
+          "tkn pipeline start workflow-1-simple-corrected --param repository-url=https://github.com/user/repo.git --workspace name=shared-data,claimName=shared-workspace-pvc"
+        ]
+      },
+      "rationale": "Ensures all tkn commands use current middleware configuration and prevents parameter drift"
+    },
+    {
+      "id": "TKN-004",
+      "name": "Extract Workspace PVC from Middleware",
+      "pattern": "claimName=",
+      "severity": "error",
+      "message": "Always get workspace PVC name from middleware instead of hardcoding",
+      "description": "Query middleware to get correct PVC name for workspace configuration",
+      "category": "workspace_configuration",
+      "examples": {
+        "bad": [
+          "--workspace name=shared-data,claimName=shared-workspace-pvc",
+          "--workspace name=shared-data,claimName=workshop-shared-pvc"
+        ],
+        "good": [
+          "# Get PVC name from middleware",
+          "PVC_NAME=$(curl -k $MIDDLEWARE_URL/api/pipeline/config | jq -r '.data.workspaces.\"shared-data\".pvc_name')",
+          "--workspace name=shared-data,claimName=$PVC_NAME"
+        ]
+      },
+      "rationale": "Prevents workspace PVC name mismatches that cause pipeline failures"
+    },
+    {
+      "id": "TKN-005",
+      "name": "Extract Validation Types from Middleware",
+      "pattern": "validation-type=",
+      "severity": "error",
+      "message": "Get validation types from middleware instead of guessing",
+      "description": "Query middleware to get supported validation types for each agent",
+      "category": "validation_types",
+      "examples": {
+        "bad": [
+          "--param validation-type=intelligent-workshop-validation",
+          "--param validation-type=smart-validation"
+        ],
+        "good": [
+          "# Get supported validation types",
+          "VALIDATION_TYPES=$(curl -k $MIDDLEWARE_URL/api/pipeline/config | jq -r '.data.validation_types.\"research-validation\".supported_types[]')",
+          "# Use first supported type or specific one",
+          "VALIDATION_TYPE=$(echo $VALIDATION_TYPES | head -1)",
+          "--param validation-type=$VALIDATION_TYPE"
+        ]
+      },
+      "rationale": "Ensures only valid validation types are used, preventing agent processing failures"
+    }
+  ]
+}
