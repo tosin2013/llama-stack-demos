@@ -1,0 +1,218 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Git and Build Workflow Safety Rules",
+    "description": "Critical rules to prevent git accidents, build failures, and content masking issues",
+    "created": "2025-01-04T10:45:25.833Z",
+    "lastModified": "2025-01-04T10:45:25.833Z",
+    "author": "Workshop Template System Development Team",
+    "tags": ["git", "build", "security", "workflow"]
+  },
+  "rules": [
+    {
+      "id": "GIT-001",
+      "name": "No Bulk Git Add",
+      "pattern": "git add \\.",
+      "severity": "error",
+      "message": "Never use 'git add .' - it can accidentally include node_modules, sensitive files, or break content masking",
+      "description": "Always add files explicitly to avoid accidentally committing unwanted files",
+      "category": "git_safety",
+      "examples": {
+        "bad": ["git add .", "git add *"],
+        "good": ["git add specific-file.js", "git add docs/", "git add src/main/java/"]
+      },
+      "rationale": "Prevents accidental inclusion of node_modules, .env files, generated content, and preserves content masking integrity"
+    },
+    {
+      "id": "GIT-002",
+      "name": "Verify Git Status Before Commit",
+      "pattern": "git commit",
+      "severity": "warning",
+      "message": "Always run 'git status' and review staged files before committing",
+      "description": "Check what files are staged to prevent accidental commits",
+      "category": "git_safety",
+      "examples": {
+        "good": ["git status", "git diff --cached", "git diff --name-only --cached"]
+      },
+      "rationale": "Prevents committing unintended files like node_modules or sensitive data"
+    },
+    {
+      "id": "GIT-003",
+      "name": "Push Before Build",
+      "pattern": "oc start-build",
+      "severity": "error",
+      "message": "Always push code changes to git before triggering OpenShift builds",
+      "description": "Ensure BuildConfig pulls latest code by pushing changes first",
+      "category": "build_workflow",
+      "examples": {
+        "good": ["git push origin main", "oc start-build workshop-monitoring-service-build"]
+      },
+      "rationale": "Prevents building outdated code when BuildConfig pulls from git repository"
+    },
+    {
+      "id": "GIT-004",
+      "name": "Check BuildConfig Source",
+      "pattern": "oc start-build",
+      "severity": "warning",
+      "message": "Verify BuildConfig git source matches your repository before building",
+      "description": "Ensure BuildConfig pulls from correct git repository",
+      "category": "build_workflow",
+      "examples": {
+        "good": ["oc describe bc workshop-monitoring-service-build", "oc get bc -o yaml"]
+      },
+      "rationale": "Prevents building from wrong repository (e.g., Gitea vs GitHub)"
+    },
+    {
+      "id": "MASK-001",
+      "name": "No Git Add After Content Masking",
+      "pattern": "git add.*after.*mask",
+      "severity": "critical",
+      "message": "Never use 'git add .' after content masking operations - it can expose sensitive data",
+      "description": "Content masking may create temporary files that should not be committed",
+      "category": "security",
+      "examples": {
+        "bad": ["# After masking", "git add ."],
+        "good": ["# After masking", "git add specific-safe-files.md"]
+      },
+      "rationale": "Content masking operations may leave sensitive data in temporary files"
+    },
+    {
+      "id": "NODE-001",
+      "name": "Exclude Node Modules",
+      "pattern": "node_modules",
+      "severity": "error",
+      "message": "Never commit node_modules directory - ensure it's in .gitignore",
+      "description": "Node modules should be installed via package managers, not committed",
+      "category": "dependency_management",
+      "examples": {
+        "gitignore": ["node_modules/", "npm-debug.log*", "package-lock.json"]
+      },
+      "rationale": "Node modules are large, platform-specific, and should be generated from package.json"
+    },
+    {
+      "id": "BUILD-001",
+      "name": "Validate Parameters Before Pipeline",
+      "pattern": "tkn pipeline start",
+      "severity": "warning",
+      "message": "Use middleware validation endpoint before starting pipelines",
+      "description": "Validate pipeline parameters to prevent runtime failures",
+      "category": "pipeline_safety",
+      "examples": {
+        "good": ["curl -X POST .../api/pipeline/validate-parameters", "tkn pipeline start workflow-1-simple-corrected"]
+      },
+      "rationale": "Prevents pipeline failures due to invalid parameters or validation types"
+    },
+    {
+      "id": "BUILD-002",
+      "name": "Use Correct Workspace PVC",
+      "pattern": "tkn.*workspace.*claimName",
+      "severity": "error",
+      "message": "Use correct PVC name for workspace (workshop-shared-pvc, not shared-workspace-pvc)",
+      "description": "Ensure pipeline workspace uses existing PVC",
+      "category": "pipeline_safety",
+      "examples": {
+        "bad": ["--workspace name=shared-data,claimName=shared-workspace-pvc"],
+        "good": ["--workspace name=shared-data,claimName=workshop-shared-pvc"]
+      },
+      "rationale": "Prevents pipeline failures due to missing PVC"
+    },
+    {
+      "id": "COMMIT-001",
+      "name": "Meaningful Commit Messages",
+      "pattern": "git commit -m",
+      "severity": "warning",
+      "message": "Use conventional commit format: type(scope): description",
+      "description": "Follow conventional commit standards for better tracking",
+      "category": "git_quality",
+      "examples": {
+        "good": ["feat: Add pipeline configuration endpoints", "fix: Correct validation type in workflow", "docs: Update ADR for parameter standards"]
+      },
+      "rationale": "Improves commit history readability and enables automated changelog generation"
+    },
+    {
+      "id": "ENV-001",
+      "name": "Never Commit Environment Files",
+      "pattern": "\\.env",
+      "severity": "critical",
+      "message": "Never commit .env files or other environment configuration",
+      "description": "Environment files contain sensitive configuration",
+      "category": "security",
+      "examples": {
+        "gitignore": [".env", ".env.local", ".env.*.local", "**/*private-secret.yaml"]
+      },
+      "rationale": "Environment files often contain API keys, passwords, and other secrets"
+    },
+    {
+      "id": "PIPELINE-001",
+      "name": "Use Middleware for Pipeline Configuration",
+      "pattern": "tkn pipeline start",
+      "severity": "error",
+      "message": "Always use middleware endpoints to get correct pipeline parameters and validation types",
+      "description": "Query middleware configuration API before executing Tekton pipelines to ensure correct parameters",
+      "category": "pipeline_testing",
+      "examples": {
+        "bad": [
+          "tkn pipeline start workflow-1-intelligent-workshop --param validation-type=intelligent-workshop-validation",
+          "tkn pipeline start workflow-1-simple-corrected --workspace name=shared-data,claimName=shared-workspace-pvc"
+        ],
+        "good": [
+          "# Step 1: Get configuration from middleware",
+          "curl -k https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/api/pipeline/config",
+          "# Step 2: Validate parameters",
+          "curl -X POST -H 'Content-Type: application/json' -d '{\"repository-url\":\"...\",\"validation-type\":\"new-workshop-validation\"}' .../api/pipeline/validate-parameters",
+          "# Step 3: Use correct values from middleware",
+          "tkn pipeline start workflow-1-intelligent-workshop --param validation-type=new-workshop-validation --workspace name=shared-data,claimName=workshop-shared-pvc"
+        ]
+      },
+      "rationale": "Prevents pipeline failures due to hardcoded incorrect parameters, ensures consistency with middleware configuration, and validates parameters before execution"
+    },
+    {
+      "id": "PIPELINE-002",
+      "name": "Test Pipeline Workflow Sequence",
+      "pattern": "pipeline.*test",
+      "severity": "warning",
+      "message": "Follow the complete pipeline testing workflow: middleware config → parameter validation → pipeline execution → result verification",
+      "description": "Use systematic approach for testing Tekton pipelines in OpenShift",
+      "category": "pipeline_testing",
+      "examples": {
+        "workflow": [
+          "# 1. Ensure middleware is deployed and accessible",
+          "curl -k https://workshop-monitoring-service-workshop-system.apps.cluster-9cfzr.9cfzr.sandbox180.opentlc.com/api/monitoring/health",
+          "# 2. Get pipeline configuration",
+          "curl -k .../api/pipeline/config | jq '.data.pipelines.\"workflow-1-simple-corrected\"'",
+          "# 3. Validate your parameters",
+          "curl -X POST -H 'Content-Type: application/json' -d '{\"repository-url\":\"https://github.com/user/repo.git\",\"workshop-name\":\"test-workshop\"}' .../api/pipeline/validate-parameters",
+          "# 4. Execute pipeline with validated parameters",
+          "tkn pipeline start workflow-1-simple-corrected -n workshop-system --param repository-url=https://github.com/user/repo.git --param workshop-name=test-workshop --workspace name=shared-data,claimName=workshop-shared-pvc",
+          "# 5. Monitor pipeline execution",
+          "tkn pipelinerun logs -f -n workshop-system",
+          "# 6. Verify results and check agent health",
+          "curl -k .../api/monitoring/agents"
+        ]
+      },
+      "rationale": "Ensures systematic testing approach, reduces pipeline failures, and provides consistent testing methodology across team members"
+    },
+    {
+      "id": "PIPELINE-003",
+      "name": "Use Dynamic Pipeline Script",
+      "pattern": "tkn.*multiple.*params",
+      "severity": "warning",
+      "message": "Use the dynamic pipeline execution script for complex pipeline runs",
+      "description": "Leverage scripts/run-pipeline-with-config.sh for automated parameter retrieval and validation",
+      "category": "pipeline_testing",
+      "examples": {
+        "good": [
+          "# Use the dynamic script instead of manual tkn commands",
+          "./scripts/run-pipeline-with-config.sh workflow-1-simple-corrected https://github.com/user/repo.git test-workshop",
+          "./scripts/run-pipeline-with-config.sh workflow-1-intelligent-workshop https://github.com/user/repo.git ansible-workshop",
+          "# Script automatically handles:",
+          "# - Middleware configuration retrieval",
+          "# - Parameter validation",
+          "# - Correct workspace PVC names",
+          "# - Pipeline-specific parameter defaults"
+        ]
+      },
+      "rationale": "Reduces manual errors, ensures consistent parameter usage, and automates the middleware integration workflow"
+    }
+  ]
+}
